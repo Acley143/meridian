@@ -18,12 +18,12 @@
             { "name": "instrument_id", "type": "string" },
             {
               "name": "quantity",
-              "type": { "type": "bytes", "logicalType": "decimal", "precision": 24, "scale": 8 },
+              "type": { "type": "bytes", "logicalType": "decimal", "precision": 38, "scale": 8 },
               "doc": "Signed quantity: positive is long, negative is short."
             },
             {
               "name": "average_cost",
-              "type": { "type": "bytes", "logicalType": "decimal", "precision": 24, "scale": 8 },
+              "type": { "type": "bytes", "logicalType": "decimal", "precision": 38, "scale": 8 },
               "doc": "Volume-weighted average price paid per unit of quantity."
             },
             {

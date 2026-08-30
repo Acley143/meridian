@@ -36,3 +36,5 @@ numerical routine.
 - **Decimal everywhere, including Greeks/vols.** Rejected: numerical routines
   (Monte Carlo, calibration) need float64 performance and the standard
   numerical libraries (NumPy, Apache Commons Math) assume it.
+
+Superseded by ADR-0013.

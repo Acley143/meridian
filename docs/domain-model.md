@@ -10,8 +10,9 @@ it after the fact.
 Field table columns: **name**, **type**, **unit**, **nullable**,
 **precision**, **meaning**. "Precision" is `—` for non-numeric fields.
 
-Per ADR-0004: decimal fields (money, notionals, quantities) are `decimal`
-(scale 8); everything continuous-but-not-cash (Greeks, vols, rates,
+Per ADR-0004 (numeric type policy) and ADR-0013 (decimal precision): decimal
+fields (money, notionals, quantities) are `decimal` (precision 38, scale 8);
+everything continuous-but-not-cash (Greeks, vols, rates,
 correlations) is `float64`. Per ADR-0005: every message-shaped type carries
 both `event_time` and `ingest_time`, both UTC, both microsecond precision.
 
@@ -30,10 +31,10 @@ update to an existing one.
 | underlying_id | string | — | no | — | `instrument_id` of the underlying instrument this derivative references. For a non-derivative (e.g. an equity), equal to `instrument_id` itself. |
 | instrument_type | enum {EQUITY, VANILLA_EUROPEAN_OPTION, VANILLA_AMERICAN_OPTION} | — | no | — | Discriminates which fields below are meaningful and which pricer applies. Not a free-text field — new types require a schema change. |
 | option_type | enum {CALL, PUT} | — | yes (null unless instrument_type is an option) | — | Right conveyed by the option. Not meaningful for EQUITY. |
-| strike | decimal | currency of `currency` field | yes (null unless an option) | scale 8 | Strike price in the instrument's quote currency. This is a price, not a percentage-of-spot moneyness. |
+| strike | decimal | currency of `currency` field | yes (null unless an option) | precision 38, scale 8 | Strike price in the instrument's quote currency. This is a price, not a percentage-of-spot moneyness. |
 | expiry | timestamp | — | yes (null unless an option) | microsecond | UTC instant the option expires. Not a date-only field — intraday expiry matters for the latency/accuracy budget. |
 | currency | string (ISO 4217) | — | no | — | Currency the instrument is quoted and settled in. Not necessarily the underlying's home currency. |
-| contract_size | decimal | units of underlying per contract | no | scale 8 | Multiplier converting one contract to underlying units (e.g. 100 shares/contract). This is not the notional — see `Position.notional`. |
+| contract_size | decimal | units of underlying per contract | no | precision 38, scale 8 | Multiplier converting one contract to underlying units (e.g. 100 shares/contract). This is not the notional — see `Position.notional`. |
 
 ---
 
@@ -47,8 +48,8 @@ happened — and is not itself independently mutated; see `PortfolioState`.
 |---|---|---|---|---|---|
 | portfolio_id | string | — | no | — | `Portfolio` this position belongs to. |
 | instrument_id | string | — | no | — | `Instrument` held. |
-| quantity | decimal | contracts (options) or shares (equity) | no | scale 8 | Signed quantity: positive is long, negative is short. Not the notional exposure — multiply by `contract_size` and price for that. |
-| average_cost | decimal | currency of the instrument | no | scale 8 | Volume-weighted average price paid per unit of `quantity`, in the instrument's quote currency. Not the current market price. |
+| quantity | decimal | contracts (options) or shares (equity) | no | precision 38, scale 8 | Signed quantity: positive is long, negative is short. Not the notional exposure — multiply by `contract_size` and price for that. |
+| average_cost | decimal | currency of the instrument | no | precision 38, scale 8 | Volume-weighted average price paid per unit of `quantity`, in the instrument's quote currency. Not the current market price. |
 | as_of_event_time | timestamp | — | no | microsecond | UTC instant this position reflects (the event time of the last trade applied to it). Not the time the position record was computed/materialized. |
 
 ---
@@ -77,8 +78,8 @@ are the append-only source of truth; positions are a fold over trades.
 | trade_id | string | — | no | — | Globally unique identifier for this execution. Not reused on amendment — a correction is a new trade with an offsetting entry, per standard trade-booking practice. |
 | portfolio_id | string | — | no | — | `Portfolio` the trade is booked into. |
 | instrument_id | string | — | no | — | `Instrument` traded. |
-| quantity | decimal | contracts (options) or shares (equity) | no | scale 8 | Signed quantity of this single execution: positive is a buy, negative is a sell. Not the resulting position quantity — that's a running total. |
-| price | decimal | currency of the instrument | no | scale 8 | Execution price per unit, in the instrument's quote currency. Not adjusted for fees. |
+| quantity | decimal | contracts (options) or shares (equity) | no | precision 38, scale 8 | Signed quantity of this single execution: positive is a buy, negative is a sell. Not the resulting position quantity — that's a running total. |
+| price | decimal | currency of the instrument | no | precision 38, scale 8 | Execution price per unit, in the instrument's quote currency. Not adjusted for fees. |
 | event_time | timestamp | — | no | microsecond | UTC instant the trade executed upstream (e.g. at the exchange/venue). |
 | ingest_time | timestamp | — | no | microsecond | UTC instant Meridian's ingest stage received this trade record. |
 
@@ -93,7 +94,7 @@ message type in the system; this is what the throughput budget in
 | name | type | unit | nullable | precision | meaning |
 |---|---|---|---|---|---|
 | instrument_id | string | — | no | — | `Instrument` this observation is for. |
-| price | decimal | currency of `currency` field | no | scale 8 | Last-traded or mid price, per the venue's convention — not a bid/ask spread (out of scope for Q1; see `contracts/avro/tick.avsc` for the exact field if extended later). |
+| price | decimal | currency of `currency` field | no | precision 38, scale 8 | Last-traded or mid price, per the venue's convention — not a bid/ask spread (out of scope for Q1; see `contracts/avro/tick.avsc` for the exact field if extended later). |
 | currency | string (ISO 4217) | — | no | — | Currency `price` is quoted in. |
 | event_time | timestamp | — | no | microsecond | UTC instant the tick was generated at the source (exchange/feed). This is the numerator's reference point for the latency budget. |
 | ingest_time | timestamp | — | no | microsecond | UTC instant Meridian's ingest stage received this tick. `ingest_time − event_time` is feed latency; `dashboard_render_time − event_time` is the end-to-end p99 budget. |
@@ -127,7 +128,7 @@ by ADR-0007.
 | portfolio_id | string | — | no | — | Part of the identity tuple (ADR-0007). |
 | as_of_event_time | timestamp | — | no | microsecond | Part of the identity tuple. The event time this snapshot values the portfolio as of — not the time the computation ran. |
 | pricer_version | string | — | no | — | Part of the identity tuple. Identifies the exact pricing model/code version used, enabling re-pricing history and diffing (ADR-0007). Not a build number of the whole service — scoped specifically to the pricing logic. |
-| portfolio_value | decimal | `Portfolio.base_currency` | no | scale 8 | Total mark-to-market value of the portfolio. A cash amount — decimal per ADR-0004. |
+| portfolio_value | decimal | `Portfolio.base_currency` | no | precision 38, scale 8 | Total mark-to-market value of the portfolio. A cash amount — decimal per ADR-0004/ADR-0013. |
 | var_95 | float64 | `Portfolio.base_currency`, expressed as a magnitude | no | — | 1-day 95% Value at Risk. A risk statistic, not a cash balance — float64 per ADR-0004, even though its unit is currency. |
 | greeks | map\<string, float64\> | per-instrument, keyed by Greek name (e.g. "delta", "gamma", "vega") | no (may be empty map) | — | Aggregated portfolio-level Greeks. Keys are not standardized further in Q1; see the relevant workstream `PLAN.md` before extending. |
 | ingest_time | timestamp | — | no | microsecond | UTC instant this snapshot was produced by the pricer. This, not `as_of_event_time`, is what `dashboard_render_time` is compared against downstream of the pricer for latency accounting at that stage. |

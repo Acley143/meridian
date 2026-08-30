@@ -31,3 +31,6 @@ streaming risk updates to the dashboard. No gRPC, no WebSockets.
 - **WebSockets.** Rejected: gives bidirectional messaging the dashboard
   doesn't need, at the cost of manual reconnect/backoff logic that SSE
   provides for free via `EventSource`.
+
+## Addendum
+See ADR-0012 for the SSE stream's resume/replay semantics on reconnect.

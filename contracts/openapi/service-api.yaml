@@ -74,6 +74,17 @@ paths:
   /portfolios/{portfolioId}/risk-stream:
     get:
       summary: Server-Sent Events stream of RiskSnapshot updates for a portfolio.
+      description: >
+        Resume semantics per ADR-0012. Each event's `id:` field is
+        `{portfolio_id}:{as_of_micros}:{pricer_version}` — the ADR-0007
+        identity tuple. On reconnect the browser's EventSource automatically
+        sends `Last-Event-ID` with the id of the last event it received; the
+        service parses it and replays persisted snapshots for this portfolio
+        with a later `as_of` than the one in the header. Replay is bounded at
+        500 snapshots or 15 minutes, whichever is smaller — beyond that bound
+        the service emits a `resync` event instead of replaying, and the
+        client must refetch full state via `GET /portfolios/{id}/positions`
+        and `GET /portfolios/{id}/risk-snapshots/latest`.
       operationId: streamRisk
       parameters:
         - name: portfolioId
@@ -81,12 +92,23 @@ paths:
           required: true
           schema:
             type: string
+        - name: Last-Event-ID
+          in: header
+          required: false
+          description: >
+            Sent automatically by EventSource on reconnect. Format
+            `{portfolio_id}:{as_of_micros}:{pricer_version}`, per ADR-0012.
+          schema:
+            type: string
       responses:
         "200":
           description: >
-            text/event-stream of RiskSnapshot JSON payloads, one per `data:` line,
-            emitted as new snapshots are produced. Reconnects are the client's
-            (EventSource's) responsibility, per ADR-0009.
+            text/event-stream of two event types. The default (unnamed)
+            event carries a RiskSnapshot JSON payload per `data:` line, with
+            an `id:` line per ADR-0012. An `event: resync` carries no
+            RiskSnapshot payload and signals the client to refetch full
+            state via REST because the requested replay exceeded the bound
+            in ADR-0012.
           content:
             text/event-stream:
               schema:
@@ -120,10 +142,10 @@ components:
           type: string
         quantity:
           type: string
-          description: Decimal (scale 8) encoded as a string, per ADR-0004. Signed — positive is long.
+          description: Decimal (precision 38, scale 8) encoded as a string, per ADR-0004/ADR-0013. Signed — positive is long.
         average_cost:
           type: string
-          description: Decimal (scale 8) encoded as a string, per ADR-0004.
+          description: Decimal (precision 38, scale 8) encoded as a string, per ADR-0004/ADR-0013.
         as_of_event_time:
           type: string
           format: date-time
@@ -143,7 +165,7 @@ components:
           type: string
         portfolio_value:
           type: string
-          description: Decimal (scale 8) encoded as a string, per ADR-0004.
+          description: Decimal (precision 38, scale 8) encoded as a string, per ADR-0004/ADR-0013.
         var_95:
           type: number
           format: double

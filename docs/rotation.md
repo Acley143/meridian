@@ -1,5 +1,12 @@
 # Rotation
 
+> **Placeholder names — not yet authoritative.** `Eng-A` through `Eng-E`
+> below are role placeholders, not real people. This table is **not**
+> authoritative for review routing until real GitHub handles are substituted
+> for every placeholder (here and in `.github/CODEOWNERS`). Doing that
+> substitution is a **blocking task before the first Q1 PR** — don't route
+> or wait on review by this table's names until then.
+
 Who owns which surface, per quarter. Five people, four quarters. Names below
 are role placeholders (`Eng-A`...`Eng-E`) — replace with actual team member
 names in the first PR against this file; the rotation structure itself is

@@ -7,8 +7,8 @@
     { "name": "instrument_id", "type": "string", "doc": "Instrument this observation is for." },
     {
       "name": "price",
-      "type": { "type": "bytes", "logicalType": "decimal", "precision": 24, "scale": 8 },
-      "doc": "Last-traded or mid price in `currency`. Decimal per ADR-0004."
+      "type": { "type": "bytes", "logicalType": "decimal", "precision": 38, "scale": 8 },
+      "doc": "Last-traded or mid price in `currency`. Decimal (precision 38, scale 8) per ADR-0004/ADR-0013."
     },
     { "name": "currency", "type": "string", "doc": "ISO 4217 currency price is quoted in." },
     {

@@ -18,6 +18,8 @@ independently verifiable against a closed-form reference.
       price monotonic in volatility.
 - [ ] Public function signatures take valuation time as an explicit
       argument (no internal clock access).
+- [ ] `simulate_path(seed, params, n)`: pure stochastic price-path generator
+      (ADR-0011), seeded per ADR-0006, consumed by `services/ingest`.
 
 ## Explicitly out of scope
 - American-style exercise (Q2).
@@ -33,13 +35,14 @@ independently verifiable against a closed-form reference.
   dependency on `libs/quant-io` or any `services/*` package.
 - **Depends on:** `docs/domain-model.md` for the `Instrument` type shape;
   ADR-0004 (numeric types), ADR-0006 (deterministic MC, forward-looking),
-  ADR-0010 (purity).
+  ADR-0010 (purity), ADR-0011 (ingest is Python; `simulate_path` lives here).
 
 ## Interfaces
 Exposes pure Python functions taking `Instrument`-shaped inputs (per
 `docs/domain-model.md#instrument`) and a valuation `datetime`, returning
-price and Greeks as `float64`. No network or file interface — consumed only
-by direct import from `services/pricer`. Not yet published to
+price and Greeks as `float64`. `simulate_path` similarly takes a seed and
+params and returns a price path. No network or file interface — consumed
+only by direct import from `services/pricer` and `services/ingest`. Not yet published to
 `contracts/` because it isn't a wire contract; if that changes, it becomes
 one.
 

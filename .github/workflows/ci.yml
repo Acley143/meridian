@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [master]
   pull_request:
 
 jobs:
@@ -13,17 +13,36 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Check commit trailers on this branch
-        run: |
-          set -euo pipefail
-          BASE="${{ github.event.pull_request.base.sha || 'HEAD~1' }}"
-          if ! git rev-parse "$BASE" >/dev/null 2>&1; then
-            BASE=$(git rev-list --max-parents=0 HEAD)
-          fi
-          if git log "$BASE..HEAD" --format=%B | grep -Eiq 'co-authored-by|generated with claude code'; then
-            echo "Found a Co-Authored-By trailer or 'Generated with Claude Code' line in commit history." >&2
-            exit 1
-          fi
+      - name: check_no_attribution.py
+        run: python3 tools/schema-lint/check_no_attribution.py
+
+  contracts:
+    name: Contracts (Avro + OpenAPI)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install validators
+        run: pip install openapi-spec-validator
+      - name: Avro schemas parse, decimal fields declare precision+scale (ADR-0013)
+        run: python3 tools/schema-lint/check_avro.py contracts/avro
+      - name: service-api.yaml validates against the OpenAPI 3 schema
+        run: python3 tools/schema-lint/check_openapi.py contracts/openapi/service-api.yaml
+
+  docs:
+    name: Docs (ADR numbering, markdown links)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: ADR filenames contiguously numbered, no gaps or duplicates
+        run: python3 tools/schema-lint/check_adr_numbering.py docs/adr
+      - name: Relative markdown links under docs/ resolve
+        run: python3 tools/schema-lint/check_markdown_links.py docs
 
   python:
     name: Python (ruff, mypy, pytest)
@@ -36,11 +55,26 @@ jobs:
       - name: Install dependencies
         run: pip install ruff mypy pytest import-linter
       - name: ruff
-        run: ruff check libs services apps --exclude apps/dashboard
+        run: |
+          if find libs services -name '*.py' ! -name '__init__.py' | grep -q .; then
+            ruff check libs services --exclude apps/dashboard
+          else
+            echo "SKIP: no non-trivial Python source yet (skeleton stage, see PLAN.md files)"
+          fi
       - name: mypy --strict (libs only)
-        run: mypy --strict libs
+        run: |
+          if find libs -name '*.py' ! -name '__init__.py' | grep -q .; then
+            mypy --strict libs
+          else
+            echo "SKIP: no non-trivial Python source under libs/ yet (skeleton stage, see PLAN.md files)"
+          fi
       - name: pytest
-        run: pytest libs services --ignore=services/core-service --ignore=apps -q
+        run: |
+          if find libs services -path '*/tests/*' -name 'test_*.py' | grep -q .; then
+            pytest libs services --ignore=services/core-service -q
+          else
+            echo "SKIP: no tests exist yet (skeleton stage, see docs/test-strategy.md and PLAN.md files)"
+          fi
 
   import-linter:
     name: quant-core purity (ADR-0010)
@@ -54,6 +88,8 @@ jobs:
         run: pip install import-linter
       - name: lint-imports
         run: lint-imports --config libs/quant-core/.importlinter
+        env:
+          PYTHONPATH: libs/quant-core
 
   java:
     name: Java (mvn verify, spotless)
@@ -64,10 +100,11 @@ jobs:
         with:
           distribution: temurin
           java-version: "21"
+          cache: maven
       - name: mvn verify
-        run: mvn -pl services/core-service -am verify
+        run: mvn -f services/core-service/pom.xml verify
       - name: spotless:check
-        run: mvn -pl services/core-service spotless:check
+        run: mvn -f services/core-service/pom.xml spotless:check
 
   typescript:
     name: TypeScript (tsc, eslint, vitest)
@@ -80,15 +117,40 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
-      - run: npm ci
-      - run: npx tsc --noEmit
-      - run: npx eslint .
-      - run: npx vitest run
+      - name: Check for lockfile / source
+        id: probe
+        run: |
+          if [ -f package-lock.json ] && [ -d src ] && find src -name '*.ts*' | grep -q .; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: npm ci / tsc / eslint / vitest
+        if: steps.probe.outputs.ready == 'true'
+        run: |
+          npm ci
+          npx tsc --noEmit
+          npx eslint .
+          npx vitest run
+      - name: skip
+        if: steps.probe.outputs.ready != 'true'
+        run: |
+          echo "SKIP: no dashboard source/lockfile yet (skeleton stage, see apps/dashboard/PLAN.md)"
 
-  schema-compatibility:
-    name: Schema compatibility check
+  gen-check:
+    name: Codegen (make gen)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Validate Avro schema files
-        run: python3 tools/schema-lint/check.py contracts/avro
+      - name: make gen
+        run: |
+          echo "SKIP: tools/codegen is not implemented yet - see tools/codegen/README.md and root CLAUDE.md (generated code is never hand-edited; nothing to regenerate/verify until this tool exists)"
+
+  schema-registry-compatibility:
+    name: Schema registry BACKWARD compatibility (ADR-0002)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compatibility check against registry
+        run: |
+          echo "SKIP: no schema registry deployed in CI yet and no prior registered schema version exists to check compatibility against - see tools/schema-lint/README.md. Local .avsc structural validation runs in the contracts job instead."

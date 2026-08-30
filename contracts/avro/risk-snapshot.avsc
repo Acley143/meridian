@@ -17,8 +17,8 @@
     },
     {
       "name": "portfolio_value",
-      "type": { "type": "bytes", "logicalType": "decimal", "precision": 24, "scale": 8 },
-      "doc": "Total mark-to-market value in the portfolio's base currency. Decimal per ADR-0004."
+      "type": { "type": "bytes", "logicalType": "decimal", "precision": 38, "scale": 8 },
+      "doc": "Total mark-to-market value in the portfolio's base currency. Decimal (precision 38, scale 8) per ADR-0004/ADR-0013."
     },
     {
       "name": "var_95",

@@ -35,3 +35,13 @@ new ADR that supersedes the old one; the old file gets a single
 
 Never hand-edit generated bindings under any language's build output for
 `contracts/`. Fix the source schema and run `make gen`.
+
+## CI is green from the first commit
+
+`.github/workflows/ci.yml` must pass on every commit, including the one that
+introduces a new job. A check that cannot pass yet — because the thing it
+verifies doesn't exist yet at this stage of the project — is **skipped, with
+a printed reason**, never left red and never deleted to hide the gap. When
+the underlying capability lands (e.g. `tools/codegen` gets implemented), the
+job's skip branch is replaced with the real check in the same PR, not left
+skipping indefinitely.

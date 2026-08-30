@@ -1,0 +1,44 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+dist/
+build/
+
+# Java
+target/
+*.class
+.mvn/
+!.mvn/wrapper/
+
+# Node
+node_modules/
+dist/
+.vite/
+coverage/
+*.tsbuildinfo
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+.terraform.lock.hcl
+
+# IDE
+.idea/
+.vscode/
+*.iml
+.DS_Store
+
+# Env / secrets
+.env
+.env.*
+secrets/
+
+# Generated code (regenerate via `make gen`, never hand-edit or commit stale output)
+**/generated/

@@ -1,0 +1,157 @@
+openapi: 3.0.3
+info:
+  title: Meridian Core Service API
+  version: "0.1.0"
+  description: >
+    REST + Server-Sent Events surface exposed by services/core-service
+    (ADR-0009). Request/response operations are plain REST; the live risk
+    stream is SSE. Types below are a mechanical translation of
+    docs/domain-model.md.
+servers:
+  - url: http://localhost:8080
+
+paths:
+  /portfolios/{portfolioId}:
+    get:
+      summary: Fetch a portfolio's metadata.
+      operationId: getPortfolio
+      parameters:
+        - name: portfolioId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Portfolio"
+        "404":
+          description: No portfolio with that id.
+
+  /portfolios/{portfolioId}/positions:
+    get:
+      summary: Fetch the current positions for a portfolio.
+      operationId: listPositions
+      parameters:
+        - name: portfolioId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Position"
+
+  /portfolios/{portfolioId}/risk-snapshots/latest:
+    get:
+      summary: Fetch the most recent risk snapshot for a portfolio, under the latest pricer_version.
+      operationId: getLatestRiskSnapshot
+      parameters:
+        - name: portfolioId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RiskSnapshot"
+        "404":
+          description: No snapshot exists yet for that portfolio.
+
+  /portfolios/{portfolioId}/risk-stream:
+    get:
+      summary: Server-Sent Events stream of RiskSnapshot updates for a portfolio.
+      operationId: streamRisk
+      parameters:
+        - name: portfolioId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: >
+            text/event-stream of RiskSnapshot JSON payloads, one per `data:` line,
+            emitted as new snapshots are produced. Reconnects are the client's
+            (EventSource's) responsibility, per ADR-0009.
+          content:
+            text/event-stream:
+              schema:
+                $ref: "#/components/schemas/RiskSnapshot"
+
+components:
+  schemas:
+    Portfolio:
+      type: object
+      description: See docs/domain-model.md#portfolio.
+      required: [portfolio_id, name, base_currency, owner]
+      properties:
+        portfolio_id:
+          type: string
+        name:
+          type: string
+        base_currency:
+          type: string
+          description: ISO 4217 currency code.
+        owner:
+          type: string
+
+    Position:
+      type: object
+      description: See docs/domain-model.md#position.
+      required: [portfolio_id, instrument_id, quantity, average_cost, as_of_event_time]
+      properties:
+        portfolio_id:
+          type: string
+        instrument_id:
+          type: string
+        quantity:
+          type: string
+          description: Decimal (scale 8) encoded as a string, per ADR-0004. Signed — positive is long.
+        average_cost:
+          type: string
+          description: Decimal (scale 8) encoded as a string, per ADR-0004.
+        as_of_event_time:
+          type: string
+          format: date-time
+          description: UTC, microsecond precision.
+
+    RiskSnapshot:
+      type: object
+      description: See docs/domain-model.md#risksnapshot and ADR-0007.
+      required: [portfolio_id, as_of_event_time, pricer_version, portfolio_value, var_95, greeks, ingest_time]
+      properties:
+        portfolio_id:
+          type: string
+        as_of_event_time:
+          type: string
+          format: date-time
+        pricer_version:
+          type: string
+        portfolio_value:
+          type: string
+          description: Decimal (scale 8) encoded as a string, per ADR-0004.
+        var_95:
+          type: number
+          format: double
+        greeks:
+          type: object
+          additionalProperties:
+            type: number
+            format: double
+        ingest_time:
+          type: string
+          format: date-time

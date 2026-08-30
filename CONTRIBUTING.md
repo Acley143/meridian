@@ -1,0 +1,37 @@
+# Contributing
+
+Meridian is a five-person team project. This file is the short version of
+`CLAUDE.md` and `docs/test-strategy.md`, for humans making the same PRs an
+agent would.
+
+## Before opening a PR
+
+1. Read the `PLAN.md` in the directory you're changing. It defines scope,
+   boundaries, and definition of done. No `PLAN.md` in scope means stop and
+   ask, not proceed.
+2. Check `docs/adr/` for a decision covering what you're about to do.
+3. If your change touches a type in `docs/domain-model.md`, update that
+   document first — schemas are derived from it, not the other way around.
+
+## PR requirements
+
+- Name the ADR your change follows, or state that none governs it (the PR
+  template asks this explicitly).
+- Tests in the same PR as the change, per `docs/test-strategy.md`. A PR with
+  no tests needs a one-sentence reason.
+- No `Co-Authored-By` trailer and no "Generated with Claude Code" line on any
+  commit, ever — see `.claude/settings.json` and `CLAUDE.md`.
+- Conventional Commits, scoped to your workstream:
+  `feat(pricer): add SABR volatility surface`.
+- Branch naming: `<workstream>/<short-slug>`.
+
+## ADRs
+
+ADRs (`docs/adr/`) are immutable once merged. A decision that changes gets a
+new ADR that supersedes the old one; the old file gets a single
+`Superseded by ADR-00NN` line appended and nothing else is edited.
+
+## Generated code
+
+Never hand-edit generated bindings under any language's build output for
+`contracts/`. Fix the source schema and run `make gen`.

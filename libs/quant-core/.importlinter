@@ -1,0 +1,23 @@
+[importlinter]
+root_package = quant_core
+
+[importlinter:contract:1]
+name = quant-core performs no I/O (ADR-0010)
+type = forbidden
+source_modules =
+    quant_core
+forbidden_modules =
+    socket
+    requests
+    httpx
+    urllib
+    urllib2
+    confluent_kafka
+    kafka
+    psycopg2
+    sqlalchemy
+    sqlite3
+    pathlib
+    os.path
+    open
+    quant_io

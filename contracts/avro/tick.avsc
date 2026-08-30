@@ -1,0 +1,25 @@
+{
+  "type": "record",
+  "name": "Tick",
+  "namespace": "com.meridian.contracts",
+  "doc": "A single market data observation for an instrument. See docs/domain-model.md#tick.",
+  "fields": [
+    { "name": "instrument_id", "type": "string", "doc": "Instrument this observation is for." },
+    {
+      "name": "price",
+      "type": { "type": "bytes", "logicalType": "decimal", "precision": 24, "scale": 8 },
+      "doc": "Last-traded or mid price in `currency`. Decimal per ADR-0004."
+    },
+    { "name": "currency", "type": "string", "doc": "ISO 4217 currency price is quoted in." },
+    {
+      "name": "event_time",
+      "type": { "type": "long", "logicalType": "timestamp-micros" },
+      "doc": "UTC instant the tick was generated at the source. Per ADR-0005."
+    },
+    {
+      "name": "ingest_time",
+      "type": { "type": "long", "logicalType": "timestamp-micros" },
+      "doc": "UTC instant Meridian's ingest stage received this tick. Per ADR-0005."
+    }
+  ]
+}

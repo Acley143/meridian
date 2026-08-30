@@ -1,0 +1,13 @@
+# See docs/rotation.md for the full per-quarter rotation. This file is the
+# hard gate on review; docs/rotation.md is advisory context on top of it.
+
+/contracts/           @meridian/contracts-owners
+/docs/domain-model.md @meridian/contracts-owners
+/libs/quant-core/      @meridian/quant-core-owners
+/libs/quant-io/        @meridian/quant-core-owners
+/services/ingest/      @meridian/ingest-owners
+/services/pricer/      @meridian/pricer-owners
+/services/core-service/ @meridian/core-service-owners
+/apps/dashboard/        @meridian/dashboard-owners
+/infra/                 @meridian/infra-owners
+/.github/workflows/     @meridian/infra-owners

@@ -1,0 +1,94 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  no-attribution-trailer:
+    name: Verify no Co-Authored-By trailer
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Check commit trailers on this branch
+        run: |
+          set -euo pipefail
+          BASE="${{ github.event.pull_request.base.sha || 'HEAD~1' }}"
+          if ! git rev-parse "$BASE" >/dev/null 2>&1; then
+            BASE=$(git rev-list --max-parents=0 HEAD)
+          fi
+          if git log "$BASE..HEAD" --format=%B | grep -Eiq 'co-authored-by|generated with claude code'; then
+            echo "Found a Co-Authored-By trailer or 'Generated with Claude Code' line in commit history." >&2
+            exit 1
+          fi
+
+  python:
+    name: Python (ruff, mypy, pytest)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: pip install ruff mypy pytest import-linter
+      - name: ruff
+        run: ruff check libs services apps --exclude apps/dashboard
+      - name: mypy --strict (libs only)
+        run: mypy --strict libs
+      - name: pytest
+        run: pytest libs services --ignore=services/core-service --ignore=apps -q
+
+  import-linter:
+    name: quant-core purity (ADR-0010)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install import-linter
+        run: pip install import-linter
+      - name: lint-imports
+        run: lint-imports --config libs/quant-core/.importlinter
+
+  java:
+    name: Java (mvn verify, spotless)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - name: mvn verify
+        run: mvn -pl services/core-service -am verify
+      - name: spotless:check
+        run: mvn -pl services/core-service spotless:check
+
+  typescript:
+    name: TypeScript (tsc, eslint, vitest)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/dashboard
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - run: npm ci
+      - run: npx tsc --noEmit
+      - run: npx eslint .
+      - run: npx vitest run
+
+  schema-compatibility:
+    name: Schema compatibility check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate Avro schema files
+        run: python3 tools/schema-lint/check.py contracts/avro

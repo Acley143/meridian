@@ -1,0 +1,51 @@
+{
+  "type": "record",
+  "name": "PortfolioState",
+  "namespace": "com.meridian.contracts",
+  "doc": "Materialized current positions for a portfolio, published to the log-compacted portfolio.state topic. See docs/domain-model.md#portfoliostate and ADR-0003.",
+  "fields": [
+    { "name": "portfolio_id", "type": "string", "doc": "Kafka message key. Portfolio this state belongs to." },
+    {
+      "name": "positions",
+      "type": {
+        "type": "array",
+        "items": {
+          "type": "record",
+          "name": "Position",
+          "doc": "See docs/domain-model.md#position.",
+          "fields": [
+            { "name": "portfolio_id", "type": "string" },
+            { "name": "instrument_id", "type": "string" },
+            {
+              "name": "quantity",
+              "type": { "type": "bytes", "logicalType": "decimal", "precision": 24, "scale": 8 },
+              "doc": "Signed quantity: positive is long, negative is short."
+            },
+            {
+              "name": "average_cost",
+              "type": { "type": "bytes", "logicalType": "decimal", "precision": 24, "scale": 8 },
+              "doc": "Volume-weighted average price paid per unit of quantity."
+            },
+            {
+              "name": "as_of_event_time",
+              "type": { "type": "long", "logicalType": "timestamp-micros" },
+              "doc": "Event time of the last trade applied to this position."
+            }
+          ]
+        }
+      },
+      "default": [],
+      "doc": "Full current set of positions for this portfolio. Not a delta against the previous message."
+    },
+    {
+      "name": "event_time",
+      "type": { "type": "long", "logicalType": "timestamp-micros" },
+      "doc": "Event time of the trade that produced this state."
+    },
+    {
+      "name": "ingest_time",
+      "type": { "type": "long", "logicalType": "timestamp-micros" },
+      "doc": "UTC instant the core service produced this message."
+    }
+  ]
+}

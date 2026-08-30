@@ -1,0 +1,40 @@
+{
+  "type": "record",
+  "name": "RiskSnapshot",
+  "namespace": "com.meridian.contracts",
+  "doc": "Priced, risk-bearing output of the pricer for one portfolio at one instant under one model version. See docs/domain-model.md#risksnapshot and ADR-0007.",
+  "fields": [
+    { "name": "portfolio_id", "type": "string", "doc": "Part of the identity tuple (ADR-0007)." },
+    {
+      "name": "as_of_event_time",
+      "type": { "type": "long", "logicalType": "timestamp-micros" },
+      "doc": "Part of the identity tuple. Event time this snapshot values the portfolio as of."
+    },
+    {
+      "name": "pricer_version",
+      "type": "string",
+      "doc": "Part of the identity tuple. Exact pricing model/code version used."
+    },
+    {
+      "name": "portfolio_value",
+      "type": { "type": "bytes", "logicalType": "decimal", "precision": 24, "scale": 8 },
+      "doc": "Total mark-to-market value in the portfolio's base currency. Decimal per ADR-0004."
+    },
+    {
+      "name": "var_95",
+      "type": "double",
+      "doc": "1-day 95% Value at Risk, as a magnitude in the portfolio's base currency. float64 per ADR-0004 despite the currency unit — this is a risk statistic, not a cash balance."
+    },
+    {
+      "name": "greeks",
+      "type": { "type": "map", "values": "double" },
+      "default": {},
+      "doc": "Aggregated portfolio-level Greeks, keyed by Greek name (e.g. delta, gamma, vega). float64 per ADR-0004."
+    },
+    {
+      "name": "ingest_time",
+      "type": { "type": "long", "logicalType": "timestamp-micros" },
+      "doc": "UTC instant this snapshot was produced by the pricer."
+    }
+  ]
+}

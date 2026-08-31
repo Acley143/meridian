@@ -10,10 +10,6 @@ from collections.abc import Iterator
 from dataclasses import dataclass
 
 import pytest
-from testcontainers.community.kafka import KafkaContainer
-from testcontainers.core.container import DockerContainer
-from testcontainers.core.network import Network
-from testcontainers.core.waiting_utils import wait_for_logs
 
 _SCHEMA_REGISTRY_IMAGE = "confluentinc/cp-schema-registry:7.6.1"
 _KAFKA_NETWORK_ALIAS = "kafka"
@@ -28,6 +24,12 @@ class KafkaStack:
 
 @pytest.fixture(scope="session")
 def kafka_stack() -> Iterator[KafkaStack]:
+    pytest.importorskip("testcontainers", reason="integration deps not installed in this job")
+    from testcontainers.community.kafka import KafkaContainer
+    from testcontainers.core.container import DockerContainer
+    from testcontainers.core.network import Network
+    from testcontainers.core.waiting_utils import wait_for_logs
+
     network = Network()
     network.create()
     try:

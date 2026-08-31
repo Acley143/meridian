@@ -1,0 +1,107 @@
+package com.meridian.coreservice.kafka;
+
+import com.meridian.contracts.RiskSnapshot;
+import com.meridian.contracts.RiskSnapshotKey;
+import io.confluent.kafka.serializers.AbstractKafkaSchemaSerDeConfig;
+import io.confluent.kafka.serializers.KafkaAvroDeserializer;
+import io.confluent.kafka.serializers.KafkaAvroDeserializerConfig;
+import jakarta.annotation.PreDestroy;
+import java.time.Duration;
+import java.util.Collections;
+import java.util.Properties;
+import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.kafka.clients.consumer.ConsumerRecords;
+import org.apache.kafka.clients.consumer.KafkaConsumer;
+import org.apache.kafka.clients.consumer.OffsetAndMetadata;
+import org.apache.kafka.common.TopicPartition;
+import org.springframework.stereotype.Component;
+
+/**
+ * Consumes {@code risk.snapshots} and writes each record to {@code risk_snapshots} via {@link
+ * RiskSnapshotWriter} (05a's idempotent upsert). Manual offset commits only, never auto-commit --
+ * same principle and same reasoning as the Python side (see libs/quant-io/quant_io/consumer.py's
+ * module doc: "auto-commit silently converts at-least-once delivery into at-most-once -- the offset
+ * advances whether or not the message was ever durably acted on"), and same shape as
+ * services/pricer/pricer/service.py's per-message flow: do the durable side effect, THEN commit
+ * that message's own offset, never the reverse.
+ *
+ * <p>Commits per-record, not per-poll-batch: if record 3 of a 10-record batch fails to write, only
+ * offsets for records 1-2 are committed. On failure this class also calls {@link
+ * KafkaConsumer#seek} back to the failed record's offset before rethrowing -- {@code
+ * KafkaConsumer.poll()} advances the client's own in-memory fetch position for the WHOLE batch as
+ * soon as it returns, independent of whether anything in that batch is ever committed. Without the
+ * explicit {@code seek()}, a live consumer that catches the failure and keeps polling would never
+ * re-fetch the failed record or anything after it in that batch -- only a full process restart (a
+ * brand new consumer resuming from the last committed offset) would happen to recover it. That gap
+ * was found by this class's own {@code OffsetCommitFailureTest}, which failed until the {@code
+ * seek()} call was added -- redelivery-on-failure did not hold for a still-running consumer without
+ * it.
+ */
+@Component
+public class RiskSnapshotConsumerService {
+
+  private static final String TOPIC = "risk.snapshots";
+
+  private final KafkaConsumer<RiskSnapshotKey, RiskSnapshot> consumer;
+  private final RiskSnapshotWriter writer;
+
+  public RiskSnapshotConsumerService(KafkaProperties kafkaProperties, RiskSnapshotWriter writer) {
+    this(kafkaProperties, writer, "core-service-risk-snapshots");
+  }
+
+  RiskSnapshotConsumerService(
+      KafkaProperties kafkaProperties, RiskSnapshotWriter writer, String groupId) {
+    this.writer = writer;
+
+    Properties props = new Properties();
+    props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, kafkaProperties.getBootstrapServers());
+    props.put(ConsumerConfig.GROUP_ID_CONFIG, groupId);
+    props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, KafkaAvroDeserializer.class.getName());
+    props.put(
+        ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, KafkaAvroDeserializer.class.getName());
+    props.put(
+        AbstractKafkaSchemaSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG,
+        kafkaProperties.getSchemaRegistryUrl());
+    props.put(KafkaAvroDeserializerConfig.SPECIFIC_AVRO_READER_CONFIG, true);
+    props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
+    // Never auto-commit -- see class doc. Every commit in this class is an explicit, synchronous
+    // commitSync() issued only after the record's write has actually succeeded.
+    props.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, false);
+
+    this.consumer = new KafkaConsumer<>(props);
+    consumer.subscribe(Collections.singletonList(TOPIC));
+  }
+
+  /**
+   * Polls once and processes whatever batch comes back, writing and committing one record at a
+   * time. Stops (without committing) at the first record whose write fails, so that record and
+   * everything after it in the batch is redelivered on the next poll. Returns the number of records
+   * successfully written and committed.
+   */
+  public int pollOnce(Duration timeout) {
+    ConsumerRecords<RiskSnapshotKey, RiskSnapshot> records = consumer.poll(timeout);
+    int written = 0;
+    for (ConsumerRecord<RiskSnapshotKey, RiskSnapshot> record : records) {
+      TopicPartition partition = new TopicPartition(record.topic(), record.partition());
+      try {
+        writer.write(record.value());
+      } catch (RuntimeException e) {
+        // Roll the client's own fetch position back to the failed record: poll() already
+        // advanced it past the whole batch, so without this, the next poll() would fetch only
+        // NEW records and silently never redeliver this one (see the class doc).
+        consumer.seek(partition, record.offset());
+        throw e;
+      }
+      consumer.commitSync(
+          Collections.singletonMap(partition, new OffsetAndMetadata(record.offset() + 1)));
+      written++;
+    }
+    return written;
+  }
+
+  @PreDestroy
+  public void close() {
+    consumer.close();
+  }
+}

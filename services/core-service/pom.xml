@@ -64,6 +64,18 @@
       <artifactId>kafka-avro-serializer</artifactId>
       <version>7.6.1</version>
     </dependency>
+    <!-- kafka-avro-serializer's own transitive kafka-schema-registry-client pulls
+         jackson-annotations 2.10.3, older than the jackson-core/jackson-databind 2.14.2 already
+         resolved elsewhere in this tree (no shared BOM here keeping the three in lockstep).
+         2.10.3 is missing @JsonKey (added in 2.12), which RegisterSchemaRequest's serialization
+         needs, so registering a schema throws NoClassDefFoundError at runtime with no
+         compile-time signal. Pinned explicitly to match jackson-core/jackson-databind's resolved
+         version. -->
+    <dependency>
+      <groupId>com.fasterxml.jackson.core</groupId>
+      <artifactId>jackson-annotations</artifactId>
+      <version>2.14.2</version>
+    </dependency>
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-test</artifactId>
@@ -85,6 +97,12 @@
     <dependency>
       <groupId>org.testcontainers</groupId>
       <artifactId>junit-jupiter</artifactId>
+      <version>${testcontainers.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.testcontainers</groupId>
+      <artifactId>kafka</artifactId>
       <version>${testcontainers.version}</version>
       <scope>test</scope>
     </dependency>

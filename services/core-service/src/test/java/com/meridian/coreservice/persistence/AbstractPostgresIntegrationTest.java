@@ -1,34 +1,17 @@
 package com.meridian.coreservice.persistence;
 
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
-import org.testcontainers.containers.PostgreSQLContainer;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
+import com.meridian.coreservice.kafka.AbstractKafkaIntegrationTest;
 
 /**
- * Shared Testcontainers Postgres for core-service persistence tests. A fresh container per test
- * class (not reused across classes) so "migrations apply cleanly from empty" is actually exercised
- * by every test class's context startup, not assumed from one earlier run.
+ * Shared Testcontainers Postgres for core-service persistence tests. Extends {@link
+ * AbstractKafkaIntegrationTest} rather than declaring its own lone Postgres container: a plain
+ * {@code @SpringBootTest} boots the *full* application context, which includes
+ * {@code PortfolioStateProducer}/{@code ReferenceInstrumentProducer} -- both create their Kafka
+ * topic eagerly in their constructor (Task 1: real CI execution surfaced this the first time these
+ * tests actually ran -- every persistence-only test using a Postgres-only base timed out for ~70s
+ * trying to reach a Kafka broker that was never started, then failed context load entirely). A
+ * fresh Postgres container per test class (not reused across classes) so "migrations apply cleanly
+ * from empty" is actually exercised by every test class's context startup, not assumed from one
+ * earlier run -- unchanged from before, just inherited now.
  */
-@Testcontainers
-@SpringBootTest
-@ExtendWith(org.springframework.test.context.junit.jupiter.SpringExtension.class)
-public abstract class AbstractPostgresIntegrationTest {
-
-  @Container
-  static final PostgreSQLContainer<?> POSTGRES =
-      new PostgreSQLContainer<>("postgres:16-alpine")
-          .withDatabaseName("meridian")
-          .withUsername("meridian")
-          .withPassword("meridian");
-
-  @DynamicPropertySource
-  static void datasourceProperties(DynamicPropertyRegistry registry) {
-    registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
-    registry.add("spring.datasource.username", POSTGRES::getUsername);
-    registry.add("spring.datasource.password", POSTGRES::getPassword);
-  }
-}
+public abstract class AbstractPostgresIntegrationTest extends AbstractKafkaIntegrationTest {}

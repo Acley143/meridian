@@ -1,7 +1,17 @@
 # Static instrument reference data + market-rate assumptions.
-# See pricer/reference_data.py's module docstring: this is a checked-in
-# stand-in for a real reference-data feed that doesn't exist yet (no ADR
-# covers it) -- flagged in services/pricer/PLAN.md open questions.
+#
+# Q1 STAND-IN, see ADR-0019 (docs/adr/0019-reference-data-and-market-curves.md):
+#   - The instrument-shape fields (instrument_type, underlying_id,
+#     option_type, strike, expiry, currency, contract_size) are a stand-in
+#     for the reference.instruments topic, produced by services/core-service,
+#     landing this session -- this file will be retired for those fields
+#     once services/pricer consumes that topic instead.
+#   - The market-assumption fields (volatility, risk_free_rate,
+#     dividend_yield) are a stand-in for the market.curves topic (ADR-0019),
+#     which is Q2 and not implemented yet -- these fields stay here until
+#     market.curves ships.
+#
+# See pricer/reference_data.py's module docstring for the loader-side note.
 instruments:
   AAPL:
     instrument_type: EQUITY

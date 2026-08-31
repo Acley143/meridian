@@ -1,0 +1,13 @@
+{
+  "type": "record",
+  "name": "ReferenceInstrumentKey",
+  "namespace": "com.meridian.contracts",
+  "doc": "Kafka message key for the log-compacted reference.instruments topic (ADR-0019). Keyed by instrument_id, which is also the compaction identity -- one current record per instrument.",
+  "fields": [
+    {
+      "name": "instrument_id",
+      "type": "string",
+      "doc": "Instrument this reference record describes. Matches ReferenceInstrument.instrument_id."
+    }
+  ]
+}

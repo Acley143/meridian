@@ -25,6 +25,11 @@ what anyone holds of it or what it's currently worth. Instruments do not
 change day to day; a new expiry or strike is a new `Instrument`, not an
 update to an existing one.
 
+Published to the log-compacted `reference.instruments` topic by
+`services/core-service` (ADR-0019); see
+`contracts/avro/reference-instruments.avsc`. Every field below is
+field-for-field on that topic.
+
 | name | type | unit | nullable | precision | meaning |
 |---|---|---|---|---|---|
 | instrument_id | string | — | no | — | Globally unique, stable identifier. Not a exchange ticker — tickers can be reused; this is a Meridian-internal UUID or equivalent stable key. |

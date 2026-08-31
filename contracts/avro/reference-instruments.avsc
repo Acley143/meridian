@@ -1,0 +1,55 @@
+{
+  "type": "record",
+  "name": "ReferenceInstrument",
+  "namespace": "com.meridian.contracts",
+  "doc": "Static contractual definition of a tradeable instrument, published to the log-compacted reference.instruments topic. See docs/domain-model.md#instrument and ADR-0019. Keyed by instrument_id (reference-instruments-key.avsc); one current record per key, gaining keys over time -- a new expiry/strike is a new instrument, never an update to an existing one, per docs/domain-model.md#instrument. Consumers materialize this into a keyed local view gated by the same hydrate-before-ready pattern already used for portfolio.state (services/pricer/pricer/service.py's hydrate()) -- see ADR-0019 for why no ADR yet names that pattern generically.",
+  "fields": [
+    {
+      "name": "instrument_id",
+      "type": "string",
+      "doc": "Kafka message key. Globally unique, stable identifier -- not a reusable exchange ticker."
+    },
+    {
+      "name": "underlying_id",
+      "type": "string",
+      "doc": "instrument_id of the underlying this derivative references. Equal to instrument_id itself for a non-derivative (e.g. an equity)."
+    },
+    {
+      "name": "instrument_type",
+      "type": {
+        "type": "enum",
+        "name": "InstrumentType",
+        "symbols": ["EQUITY", "VANILLA_EUROPEAN_OPTION", "VANILLA_AMERICAN_OPTION"]
+      },
+      "doc": "Discriminates which fields below are meaningful and which pricer applies. Not free text -- new types require a schema change."
+    },
+    {
+      "name": "option_type",
+      "type": ["null", { "type": "enum", "name": "OptionType", "symbols": ["CALL", "PUT"] }],
+      "default": null,
+      "doc": "Right conveyed by the option. Null unless instrument_type is an option; not meaningful for EQUITY."
+    },
+    {
+      "name": "strike",
+      "type": ["null", { "type": "bytes", "logicalType": "decimal", "precision": 38, "scale": 8 }],
+      "default": null,
+      "doc": "Strike price in the instrument's quote currency (currency field below). Null unless an option. A price, not a percentage-of-spot moneyness."
+    },
+    {
+      "name": "expiry",
+      "type": ["null", { "type": "long", "logicalType": "timestamp-micros" }],
+      "default": null,
+      "doc": "UTC instant the option expires, microsecond precision. Null unless an option. Not date-only -- intraday expiry matters for the latency/accuracy budget."
+    },
+    {
+      "name": "currency",
+      "type": "string",
+      "doc": "ISO 4217 currency the instrument is quoted and settled in. Not necessarily the underlying's home currency."
+    },
+    {
+      "name": "contract_size",
+      "type": { "type": "bytes", "logicalType": "decimal", "precision": 38, "scale": 8 },
+      "doc": "Multiplier converting one contract to underlying units (e.g. 100 shares/contract). Applied exactly once, in services/pricer, per ADR-0014/ADR-0017. Not the notional -- see docs/domain-model.md#position."
+    }
+  ]
+}

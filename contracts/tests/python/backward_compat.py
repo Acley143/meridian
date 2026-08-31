@@ -47,6 +47,12 @@ def _sample_value(avro_type: Any) -> Any:
             return []
         if avro_type.get("type") == "map":
             return {}
+        if avro_type.get("type") == "enum":
+            return avro_type["symbols"][0]
+    if isinstance(avro_type, list) and "null" in avro_type:
+        # Nullable union [null, X]: null is always a structurally-valid
+        # filler, and cheaper than resolving X's own sample value.
+        return None
     raise ValueError(f"backward_compat._sample_value: unsupported type {avro_type!r}")
 
 

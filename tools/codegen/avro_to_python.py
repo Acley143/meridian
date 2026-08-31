@@ -11,7 +11,8 @@ runtime.
 
 Not a general Avro-to-Python compiler -- covers exactly the type shapes
 used in contracts/avro/*.avsc (record, string, double, boolean, decimal
-bytes, timestamp-micros long, array<record>, map<double>). Extend
+bytes, timestamp-micros long, array<record>, map<double>, enum, nullable
+union [null, X] added for ADR-0019's reference-instruments.avsc). Extend
 `_python_type`/`_to_dict_expr`/`_from_dict_expr` together if a new shape
 shows up; each keys off the same Avro type-shape switch, so they must
 agree with each other or round-tripping silently breaks for the new shape.
@@ -36,6 +37,12 @@ class _RecordDef:
     fields: list[_Field]
 
 
+@dataclass
+class _EnumDef:
+    name: str
+    symbols: list[str]
+
+
 def _is_decimal(t: Any) -> bool:
     return isinstance(t, dict) and t.get("logicalType") == "decimal"
 
@@ -56,6 +63,19 @@ def _is_map(t: Any) -> bool:
     return isinstance(t, dict) and t.get("type") == "map"
 
 
+def _is_enum(t: Any) -> bool:
+    return isinstance(t, dict) and t.get("type") == "enum"
+
+
+def _is_nullable_union(t: Any) -> bool:
+    return isinstance(t, list) and len(t) == 2 and "null" in t
+
+
+def _union_inner(t: Any) -> Any:
+    """The non-null member of a [null, X] union."""
+    return next(member for member in t if member != "null")
+
+
 def collect_records(schema: dict[str, Any]) -> list[_RecordDef]:
     """Walk a record schema, returning nested records before their parent."""
     records: list[_RecordDef] = []
@@ -64,6 +84,8 @@ def collect_records(schema: dict[str, Any]) -> list[_RecordDef]:
     def visit(node: dict[str, Any]) -> None:
         for field in node["fields"]:
             t = field["type"]
+            if _is_nullable_union(t):
+                t = _union_inner(t)
             if _is_record(t):
                 visit(t)
             elif _is_array(t) and _is_record(t["items"]):
@@ -82,6 +104,30 @@ def collect_records(schema: dict[str, Any]) -> list[_RecordDef]:
     return records
 
 
+def collect_enums(schema: dict[str, Any]) -> list[_EnumDef]:
+    """Walk a record schema, returning every distinct named enum type used,
+    in first-seen order (so generated enum classes precede the dataclasses
+    that reference them)."""
+    enums: list[_EnumDef] = []
+    seen: set[str] = set()
+
+    def visit_type(t: Any) -> None:
+        if _is_nullable_union(t):
+            visit_type(_union_inner(t))
+        elif _is_enum(t):
+            if t["name"] not in seen:
+                seen.add(t["name"])
+                enums.append(_EnumDef(name=t["name"], symbols=list(t["symbols"])))
+        elif _is_record(t):
+            for field in t["fields"]:
+                visit_type(field["type"])
+        elif _is_array(t):
+            visit_type(t["items"])
+
+    visit_type(schema)
+    return enums
+
+
 def _python_type(t: Any) -> str:
     if t == "string":
         return "str"
@@ -93,6 +139,10 @@ def _python_type(t: Any) -> str:
         return "Decimal"
     if _is_timestamp_micros(t):
         return "datetime"
+    if _is_enum(t):
+        return t["name"]
+    if _is_nullable_union(t):
+        return f"{_python_type(_union_inner(t))} | None"
     if _is_record(t):
         return t["name"]
     if _is_array(t):
@@ -110,6 +160,14 @@ def _to_dict_expr(t: Any, value_expr: str) -> str:
         return f"{value_expr}.to_dict()"
     if _is_array(t) and _is_record(t["items"]):
         return f"[_item.to_dict() for _item in {value_expr}]"
+    if _is_enum(t):
+        return f"{value_expr}.value"
+    if _is_nullable_union(t):
+        inner = _union_inner(t)
+        inner_expr = _to_dict_expr(inner, value_expr)
+        if inner_expr == value_expr:
+            return value_expr
+        return f"({inner_expr} if {value_expr} is not None else None)"
     # str, double, boolean, Decimal, datetime, plain array/map: avro.io
     # accepts these Python types directly (see tools/codegen/README.md).
     return value_expr
@@ -120,6 +178,14 @@ def _from_dict_expr(t: Any, value_expr: str) -> str:
         return f"{t['name']}.from_dict({value_expr})"
     if _is_array(t) and _is_record(t["items"]):
         return f"[{t['items']['name']}.from_dict(_item) for _item in {value_expr}]"
+    if _is_enum(t):
+        return f"{t['name']}({value_expr})"
+    if _is_nullable_union(t):
+        inner = _union_inner(t)
+        inner_expr = _from_dict_expr(inner, value_expr)
+        if inner_expr == value_expr:
+            return value_expr
+        return f"({inner_expr} if {value_expr} is not None else None)"
     return value_expr
 
 
@@ -127,6 +193,8 @@ def _uses_type(schema: dict[str, Any], predicate: Any) -> bool:
     for rec in collect_records(schema):
         for f in rec.fields:
             t = f.avro_type
+            if _is_nullable_union(t):
+                t = _union_inner(t)
             if predicate(t):
                 return True
             if _is_array(t) and predicate(t["items"]):
@@ -136,6 +204,7 @@ def _uses_type(schema: dict[str, Any], predicate: Any) -> bool:
 
 def generate_module(schema: dict[str, Any], source_avsc_path: str) -> str:
     records = collect_records(schema)
+    enums = collect_enums(schema)
     schema_json_literal = json.dumps(json.dumps(schema, indent=2))
 
     needs_datetime = _uses_type(schema, _is_timestamp_micros)
@@ -153,6 +222,8 @@ def generate_module(schema: dict[str, Any], source_avsc_path: str) -> str:
         "",
         "from dataclasses import dataclass",
     ]
+    if enums:
+        lines.append("from enum import Enum")
     if needs_datetime:
         lines.append("from datetime import datetime")
     if needs_decimal:
@@ -163,6 +234,13 @@ def generate_module(schema: dict[str, Any], source_avsc_path: str) -> str:
     lines.append('"""The exact source .avsc text, embedded so callers need no filesystem')
     lines.append('path to the schema at runtime. Parse with avro.schema.parse(SCHEMA_JSON)."""')
     lines.append("")
+
+    for enum_def in enums:
+        lines.append("")
+        lines.append(f"class {enum_def.name}(str, Enum):")
+        for symbol in enum_def.symbols:
+            lines.append(f'    {symbol} = "{symbol}"')
+        lines.append("")
 
     for rec in records:
         lines.append("")

@@ -1,7 +1,10 @@
 package com.meridian.coreservice.kafka;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.KafkaContainer;
@@ -25,6 +28,15 @@ import org.testcontainers.utility.DockerImageName;
  * the same cache reuse wired a class's tests to a *previous* class's already-stopped container,
  * producing intermittent CannotGetJdbcConnection failures under CI load. Singletons make that class
  * of bug structurally impossible instead of disabling the cache with {@code @DirtiesContext}.)
+ *
+ * <p>Sharing one Postgres container across every test class means rows from one class's tests would
+ * otherwise still be there for the next -- AuditChainTamperDetectionTest deliberately corrupts its
+ * chain, AuditLogAppendOnlyEnforcementTest leaves rows behind, and AuditChainVerificationTest
+ * depends on starting from an empty audit_log. The {@code @BeforeEach} below truncates every table
+ * before each test method to restore that isolation. TRUNCATE does not fire row-level DELETE
+ * triggers (only an explicit {@code FOR EACH STATEMENT ON TRUNCATE} trigger would, and V2's
+ * append-only trigger is {@code FOR EACH ROW} on UPDATE/DELETE only), so this does not need to --
+ * and must not -- go around ADR-0008's append-only guarantee.
  */
 @SpringBootTest
 @ExtendWith(org.springframework.test.context.junit.jupiter.SpringExtension.class)
@@ -69,5 +81,14 @@ public abstract class AbstractKafkaIntegrationTest {
     registry.add(
         "meridian.kafka.schema-registry-url",
         () -> "http://" + SCHEMA_REGISTRY.getHost() + ":" + SCHEMA_REGISTRY.getMappedPort(8081));
+  }
+
+  @Autowired private JdbcTemplate jdbcTemplate;
+
+  @BeforeEach
+  void truncateAllTables() {
+    jdbcTemplate.execute(
+        "TRUNCATE audit_log, risk_snapshots, trades, positions, portfolios, instruments"
+            + " RESTART IDENTITY CASCADE");
   }
 }

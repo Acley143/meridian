@@ -90,6 +90,28 @@ jobs:
         run: lint-imports --config libs/quant-core/.importlinter
         env:
           PYTHONPATH: libs/quant-core
+      - name: Enforcement mechanism sanity check (fixture must FAIL import-linter)
+        run: |
+          cd libs/quant-core
+          if PYTHONPATH=tests/fixtures lint-imports --config tests/fixtures/purity_check.cfg; then
+            echo "ERROR: tests/fixtures/purity_violation passed import-linter." >&2
+            echo "The ADR-0010 enforcement mechanism is broken: a module that" >&2
+            echo "imports kafka and requests must never pass this check." >&2
+            exit 1
+          else
+            echo "OK: fixture correctly failed import-linter; enforcement verified."
+          fi
+
+  quant-core-boundary:
+    name: quant-core Decimal/float boundary (ADR-0013)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Only quant_core/numeric.py may call float()/Decimal() on boundary values
+        run: python3 tools/schema-lint/check_quant_core_boundary.py libs/quant-core/quant_core
 
   java:
     name: Java (mvn verify, spotless)

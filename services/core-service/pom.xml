@@ -19,6 +19,29 @@
     <testcontainers.version>1.20.1</testcontainers.version>
   </properties>
 
+  <!-- No parent POM here (ADR-0015's reactor aggregator is a plain pom, not
+       spring-boot-starter-parent), so nothing was otherwise pinning every Spring-managed
+       dependency (Jackson's several modules, SLF4J, etc.) to one mutually-compatible version
+       set. Without this, Maven's ordinary "nearest wins" resolution picks a different version
+       for each transitively-pulled Jackson module depending on which dependency happened to
+       declare it first, which is exactly what caused three separate runtime-only failures this
+       session (a NoSuchFieldError from jackson-datatype-jsr310 expecting a newer
+       jackson-annotations than what got resolved, after an earlier fix pinned jackson-annotations
+       down to fix a DIFFERENT mismatch; none of this showed up at compile time). Importing Spring
+       Boot's own BOM is the standard fix a spring-boot-starter-parent would normally give for
+       free. -->
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-dependencies</artifactId>
+        <version>${spring-boot.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+
   <dependencies>
     <dependency>
       <groupId>com.meridian</groupId>
@@ -64,18 +87,12 @@
       <artifactId>kafka-avro-serializer</artifactId>
       <version>7.6.1</version>
     </dependency>
-    <!-- kafka-avro-serializer's own transitive kafka-schema-registry-client pulls
-         jackson-annotations 2.10.3, older than the jackson-core/jackson-databind 2.14.2 already
-         resolved elsewhere in this tree (no shared BOM here keeping the three in lockstep).
-         2.10.3 is missing @JsonKey (added in 2.12), which RegisterSchemaRequest's serialization
-         needs, so registering a schema throws NoClassDefFoundError at runtime with no
-         compile-time signal. Pinned explicitly to match jackson-core/jackson-databind's resolved
-         version. -->
-    <dependency>
-      <groupId>com.fasterxml.jackson.core</groupId>
-      <artifactId>jackson-annotations</artifactId>
-      <version>2.14.2</version>
-    </dependency>
+    <!-- jackson-annotations and slf4j-api versions now come from the spring-boot-dependencies
+         BOM import above; see that block's comment for what this replaced. Both are
+         transitively pulled by kafka-avro-serializer/kafka-clients at versions incompatible with
+         the rest of the (now BOM-managed) Jackson/logging stack; the BOM import resolves them to
+         Spring Boot 3.3.0's own consistent set instead of whatever "nearest wins" would otherwise
+         pick. -->
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-test</artifactId>
@@ -106,6 +123,25 @@
       <version>${testcontainers.version}</version>
       <scope>test</scope>
     </dependency>
+    <!-- Contract-conformance testing (Session 05d, Task 3): validates real HTTP responses
+         against contracts/openapi/service-api.yaml itself, not hand-written expectations. No
+         other OpenAPI validation tooling exists elsewhere in this repo to reuse (checked
+         contracts/README.md and contracts/tests/, per Task 3's own instruction). REST-assured
+         doubles as the real HTTP client Task 4.4 requires (an actual request/response over the
+         wire, not MockMvc), so the same test drives both the HTTP call and its OpenAPI
+         validation. -->
+    <dependency>
+      <groupId>io.rest-assured</groupId>
+      <artifactId>rest-assured</artifactId>
+      <version>5.4.0</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>com.atlassian.oai</groupId>
+      <artifactId>swagger-request-validator-restassured</artifactId>
+      <version>2.42.0</version>
+      <scope>test</scope>
+    </dependency>
   </dependencies>
 
   <repositories>
@@ -117,6 +153,17 @@
 
   <build>
     <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <configuration>
+          <!-- Without this, @PathVariable/@RequestParam without an explicit name (e.g.
+               @PathVariable String portfolioId) fails at request time; Spring Boot's
+               starter-parent sets this by default; this project has no parent POM, so nothing
+               otherwise did. Found by actually calling the running application's endpoints. -->
+          <parameters>true</parameters>
+        </configuration>
+      </plugin>
       <plugin>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-maven-plugin</artifactId>

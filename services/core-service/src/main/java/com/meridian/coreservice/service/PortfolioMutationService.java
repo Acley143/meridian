@@ -1,6 +1,8 @@
 package com.meridian.coreservice.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.meridian.contracts.Position;
+import com.meridian.coreservice.audit.AuditLogRepository;
 import com.meridian.coreservice.kafka.PortfolioStateProducer;
 import com.meridian.coreservice.persistence.domain.PositionEntity;
 import com.meridian.coreservice.persistence.domain.TradeEntity;
@@ -8,8 +10,11 @@ import com.meridian.coreservice.persistence.repository.PositionJpaRepository;
 import com.meridian.coreservice.persistence.repository.TradeJpaRepository;
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,14 +35,18 @@ public class PortfolioMutationService {
   private final PositionJpaRepository positionRepository;
   private final TradeJpaRepository tradeRepository;
   private final PortfolioStateProducer portfolioStateProducer;
+  private final AuditLogRepository auditLogRepository;
+  private final ObjectMapper objectMapper = new ObjectMapper();
 
   public PortfolioMutationService(
       PositionJpaRepository positionRepository,
       TradeJpaRepository tradeRepository,
-      PortfolioStateProducer portfolioStateProducer) {
+      PortfolioStateProducer portfolioStateProducer,
+      AuditLogRepository auditLogRepository) {
     this.positionRepository = positionRepository;
     this.tradeRepository = tradeRepository;
     this.portfolioStateProducer = portfolioStateProducer;
+    this.auditLogRepository = auditLogRepository;
   }
 
   /**
@@ -74,7 +83,41 @@ public class PortfolioMutationService {
         foldTradeIntoPosition(existing, portfolioId, instrumentId, quantity, price, eventTime);
     positionRepository.save(updated);
 
+    recordTradeBookedAuditEntry(
+        tradeId, portfolioId, instrumentId, quantity, price, eventTime, ingestTime);
+
     republishPortfolioState(portfolioId, eventTime);
+  }
+
+  private void recordTradeBookedAuditEntry(
+      String tradeId,
+      String portfolioId,
+      String instrumentId,
+      BigDecimal quantity,
+      BigDecimal price,
+      Instant eventTime,
+      Instant ingestTime) {
+    // LinkedHashMap for deterministic field order in the payload -- CanonicalForm.java hashes
+    // (entry_id, entry_type, payload) as opaque strings, so payload content only needs to be
+    // reproducible JSON, not itself canonicalized by the same length-prefixed scheme.
+    Map<String, Object> payload = new LinkedHashMap<>();
+    payload.put("trade_id", tradeId);
+    payload.put("portfolio_id", portfolioId);
+    payload.put("instrument_id", instrumentId);
+    payload.put("quantity", quantity.toPlainString());
+    payload.put("price", price.toPlainString());
+    payload.put("event_time", eventTime.toString());
+    payload.put("ingest_time", ingestTime.toString());
+
+    String payloadJson;
+    try {
+      payloadJson = objectMapper.writeValueAsString(payload);
+    } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+      throw new IllegalStateException("failed to serialize trade_booked audit payload", e);
+    }
+
+    auditLogRepository.append(
+        UUID.randomUUID().toString(), "trade_booked", payloadJson, eventTime, portfolioId);
   }
 
   private PositionEntity foldTradeIntoPosition(

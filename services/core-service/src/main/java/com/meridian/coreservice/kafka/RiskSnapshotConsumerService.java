@@ -46,6 +46,13 @@ public class RiskSnapshotConsumerService {
   private final KafkaConsumer<RiskSnapshotKey, RiskSnapshot> consumer;
   private final RiskSnapshotWriter writer;
 
+  // Explicit @Autowired: this class has a second (package-private, test-only) constructor below,
+  // so Spring cannot infer which one to use on its own -- without this, bean creation fails with
+  // "No default constructor found" (it does not fall back to the single public one). Found by
+  // actually running the full application for the first time this session, not by any test --
+  // 05c's own tests always constructed this class directly (via the 3-arg constructor or
+  // reflection), so this ambiguity was never exercised through the real Spring container before.
+  @org.springframework.beans.factory.annotation.Autowired
   public RiskSnapshotConsumerService(KafkaProperties kafkaProperties, RiskSnapshotWriter writer) {
     this(kafkaProperties, writer, "core-service-risk-snapshots");
   }

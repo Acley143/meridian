@@ -27,6 +27,7 @@ class RiskSnapshotConsumptionTest extends AbstractKafkaIntegrationTest {
 
   @Autowired private KafkaProperties kafkaProperties;
   @Autowired private RiskSnapshotRepository riskSnapshotRepository;
+  @Autowired private RiskSnapshotRepositoryWriter riskSnapshotRepositoryWriter;
   @Autowired private JdbcTemplate jdbcTemplate;
 
   private KafkaProducer<RiskSnapshotKey, RiskSnapshot> producer;
@@ -86,7 +87,7 @@ class RiskSnapshotConsumptionTest extends AbstractKafkaIntegrationTest {
                 "risk.snapshots", new RiskSnapshotKey("PF-KAFKA-DEDUPE"), snapshot))
         .get();
 
-    RiskSnapshotRepositoryWriter writer = new RiskSnapshotRepositoryWriter(riskSnapshotRepository);
+    RiskSnapshotRepositoryWriter writer = riskSnapshotRepositoryWriter;
 
     // First consumption (a fresh consumer group starting from earliest).
     RiskSnapshotConsumerService firstConsumer =

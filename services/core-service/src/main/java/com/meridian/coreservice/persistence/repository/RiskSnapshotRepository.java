@@ -1,9 +1,14 @@
 package com.meridian.coreservice.persistence.repository;
 
 import com.meridian.coreservice.persistence.domain.RiskSnapshotRecord;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.util.List;
+import java.util.Optional;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Repository;
 
 /**
@@ -79,6 +84,74 @@ public class RiskSnapshotRepository {
     Long count =
         jdbcTemplate.queryForObject(
             COUNT_BY_IDENTITY_SQL, Long.class, portfolioId, Timestamp.from(asOf), pricerVersion);
+    return count == null ? 0 : count;
+  }
+
+  private static final RowMapper<RiskSnapshotRecord> ROW_MAPPER = RiskSnapshotRepository::mapRow;
+
+  private static RiskSnapshotRecord mapRow(ResultSet rs, int rowNum) throws SQLException {
+    return new RiskSnapshotRecord(
+        rs.getString("portfolio_id"),
+        rs.getTimestamp("as_of").toInstant(),
+        rs.getString("pricer_version"),
+        rs.getBigDecimal("price"),
+        rs.getBigDecimal("cash_delta"),
+        rs.getBigDecimal("cash_gamma"),
+        rs.getBigDecimal("cash_vega"),
+        rs.getBigDecimal("cash_theta"),
+        rs.getBigDecimal("cash_rho"),
+        rs.getDouble("var_95"),
+        rs.getString("scenario_id"),
+        rs.getTimestamp("oldest_input_event_time").toInstant(),
+        rs.getTimestamp("ingest_time").toInstant());
+  }
+
+  /**
+   * Most recently ingested snapshot for a portfolio -- see {@code RiskController} for why "most
+   * recently ingested" is what "latest, under the latest pricer_version" means here.
+   */
+  public Optional<RiskSnapshotRecord> findLatest(String portfolioId) {
+    List<RiskSnapshotRecord> rows =
+        jdbcTemplate.query(
+            "SELECT * FROM risk_snapshots WHERE portfolio_id = ? ORDER BY ingest_time DESC LIMIT 1",
+            ROW_MAPPER,
+            portfolioId);
+    return rows.stream().findFirst();
+  }
+
+  /** {@code GET /portfolios/{id}/risk/history}: as_of in [from, to], most recent first, capped. */
+  public List<RiskSnapshotRecord> findHistory(
+      String portfolioId, Instant from, Instant to, int limit) {
+    return jdbcTemplate.query(
+        "SELECT * FROM risk_snapshots WHERE portfolio_id = ? AND as_of >= ? AND as_of <= ?"
+            + " ORDER BY as_of DESC LIMIT ?",
+        ROW_MAPPER,
+        portfolioId,
+        Timestamp.from(from),
+        Timestamp.from(to),
+        limit);
+  }
+
+  /** Snapshots strictly after {@code afterAsOf}, ascending -- SSE replay order (ADR-0012). */
+  public List<RiskSnapshotRecord> findAfter(String portfolioId, Instant afterAsOf) {
+    return jdbcTemplate.query(
+        "SELECT * FROM risk_snapshots WHERE portfolio_id = ? AND as_of > ? ORDER BY as_of ASC",
+        ROW_MAPPER,
+        portfolioId,
+        Timestamp.from(afterAsOf));
+  }
+
+  /**
+   * Count of snapshots strictly after {@code afterAsOf} -- the 500-snapshot half of ADR-0012's
+   * bound.
+   */
+  public long countAfter(String portfolioId, Instant afterAsOf) {
+    Long count =
+        jdbcTemplate.queryForObject(
+            "SELECT count(*) FROM risk_snapshots WHERE portfolio_id = ? AND as_of > ?",
+            Long.class,
+            portfolioId,
+            Timestamp.from(afterAsOf));
     return count == null ? 0 : count;
   }
 }

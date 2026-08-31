@@ -54,6 +54,15 @@ jobs:
           python-version: "3.12"
       - name: Install dependencies
         run: pip install ruff mypy pytest import-linter
+      - name: Install test dependencies (for mypy to resolve third-party imports)
+        run: |
+          pip install -e "libs/quant-core[dev]"
+          pip install -e "libs/quant-io[dev]"
+          pip install -e "services/ingest[dev]"
+          pip install -e "services/pricer[dev]"
+          # mpmath: used directly by libs/quant-core/tests/golden/generate_reference_values.py
+          # (arbitrary-precision reference values) but not a declared dependency anywhere.
+          pip install mpmath
       - name: ruff
         run: |
           if find libs services -name '*.py' ! -name '__init__.py' | grep -q .; then

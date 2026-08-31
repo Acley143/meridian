@@ -156,6 +156,17 @@ currency amounts and genuinely summable, which is the entire point of
 reporting them at the portfolio level at all. See ADR-0017 for the
 aggregation formulas.
 
+**Revised again (pricer session):** a portfolio holding several instruments
+that tick at different times produces a snapshot priced from a mix of
+fresh and stale inputs — correct and unavoidable in a streaming system, but
+previously invisible on the wire. Added `oldest_input_event_time`: the
+earliest `event_time` among the prices actually used to compute this
+snapshot. A snapshot where it equals `as_of` was priced entirely from
+fresh data; a large gap between them means at least one position's price
+hasn't updated in a while — the dashboard can distinguish a live risk
+number from one resting on a feed that quietly stopped, which otherwise
+looks identical to a quiet market.
+
 | name | type | unit | nullable | precision | meaning |
 |---|---|---|---|---|---|
 | portfolio_id | string | — | no | — | Part of the identity tuple (ADR-0007). |
@@ -169,6 +180,7 @@ aggregation formulas.
 | cash_rho | decimal | `Portfolio.base_currency` per 1.00 absolute change in rate | no | precision 38, scale 8 | Aggregated portfolio-level **cash rho** (ADR-0017): `ρ × quantity × contract_size`, summed across positions. Per `docs/conventions.md`. |
 | var_95 | float64 | `Portfolio.base_currency`, expressed as a magnitude | no | — | 1-day 95% Value at Risk. A risk statistic, not a cash balance — float64 per ADR-0004, even though its unit is currency. |
 | scenario_id | string | — | no (empty string default) | — | Propagated from the `Tick` stream that produced the positions/prices this snapshot is derived from (ADR-0011). End-to-end lineage: any risk number can be traced back to the exact reproducible tick stream that produced it, which is what makes "replay the same market day under two pricers and diff" work. Empty string is the wire default. |
+| oldest_input_event_time | timestamp | — | no (defaults to `as_of` on legacy readers, see below) | microsecond | The earliest `event_time` among the prices actually used to price this snapshot's positions — i.e. `min` over each position's underlying's last-known tick `event_time` at the moment this snapshot was computed. Equal to `as_of` when every input was priced off the triggering tick itself; smaller than `as_of` when at least one position's price came from an earlier tick on a different instrument that simply hasn't updated since. Lets a consumer distinguish "live" from "stale-but-not-wrong" without guessing. Added after this schema's first version; defaults to epoch (`1970-01-01T00:00:00Z`, i.e. `0`) for BACKWARD compatibility on a record written before this field existed — not a valid staleness value, a sentinel meaning "unknown, written by a producer that predates this field." |
 | ingest_time | timestamp | — | no | microsecond | UTC instant this snapshot was produced by the pricer. This, not `as_of`, is what `dashboard_render_time` is compared against downstream of the pricer for latency accounting at that stage. |
 
 ---

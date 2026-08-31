@@ -1,0 +1,45 @@
+# Static instrument reference data + market-rate assumptions.
+# See pricer/reference_data.py's module docstring: this is a checked-in
+# stand-in for a real reference-data feed that doesn't exist yet (no ADR
+# covers it) -- flagged in services/pricer/PLAN.md open questions.
+instruments:
+  AAPL:
+    instrument_type: EQUITY
+    underlying_id: AAPL
+    currency: USD
+    contract_size: 1
+
+  MSFT:
+    instrument_type: EQUITY
+    underlying_id: MSFT
+    currency: USD
+    contract_size: 1
+
+  # ATM at the fixture's first AAPL tick (150.00) -> high gamma.
+  AAPL-CALL-150:
+    instrument_type: VANILLA_EUROPEAN_OPTION
+    underlying_id: AAPL
+    option_type: CALL
+    strike: "150.00"
+    expiry: "2026-06-01T00:00:00Z"
+    currency: USD
+    contract_size: 100
+    volatility: 0.25
+    risk_free_rate: 0.04
+    dividend_yield: 0.0
+
+  # Deep ITM at the fixture's MSFT tick (200.00, strike 280) -> low gamma.
+  # Deliberately far from AAPL-CALL-150's gamma magnitude: this pair is
+  # what the ADR-0017 cross-underlying regression test uses to prove the
+  # aggregation isn't a naive sum of raw per-unit gammas.
+  MSFT-PUT-280:
+    instrument_type: VANILLA_EUROPEAN_OPTION
+    underlying_id: MSFT
+    option_type: PUT
+    strike: "280.00"
+    expiry: "2026-06-01T00:00:00Z"
+    currency: USD
+    contract_size: 100
+    volatility: 0.35
+    risk_free_rate: 0.04
+    dividend_yield: 0.0

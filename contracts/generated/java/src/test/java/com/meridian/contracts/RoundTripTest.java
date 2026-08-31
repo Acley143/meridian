@@ -77,6 +77,7 @@ class RoundTripTest {
             new BigDecimal("53200.00000000"),
             125000.0,
             "scenario-1",
+            Instant.parse("2026-01-01T00:00:00.111111Z"),
             Instant.parse("2026-01-01T00:00:00.654321Z"));
 
     RiskSnapshot back = roundTrip(snap, RiskSnapshot.class);

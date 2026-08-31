@@ -49,6 +49,7 @@ public final class CrossLanguageDecimalTool {
         BigDecimal.ZERO,
         0.0,
         "scenario-1",
+        Instant.parse("2026-01-01T00:00:00.000000Z"),
         Instant.parse("2026-01-01T00:00:00.000000Z"));
   }
 

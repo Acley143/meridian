@@ -21,10 +21,10 @@ import org.apache.avro.message.SchemaStore;
 /** Priced, risk-bearing output of the pricer for one portfolio at one instant under one model version. See docs/domain-model.md#risksnapshot and ADR-0007. Discrete Greek fields (not a map) so each carries its own doc/default and the registry's BACKWARD check can catch a typo in a field name at schema-review time rather than at read time. Portfolio-level Greeks are cash Greeks (ADR-0017), Decimal(38,8) -- not the per-unit float64 Greeks quant_core.types.PricingResult carries -- because raw per-unit Greeks are not summable across a portfolio's different underlyings. */
 @org.apache.avro.specific.AvroGenerated
 public class RiskSnapshot extends org.apache.avro.specific.SpecificRecordBase implements org.apache.avro.specific.SpecificRecord {
-  private static final long serialVersionUID = -2064968762443013410L;
+  private static final long serialVersionUID = -1406579456229067672L;
 
 
-  public static final org.apache.avro.Schema SCHEMA$ = new org.apache.avro.Schema.Parser().parse("{\"type\":\"record\",\"name\":\"RiskSnapshot\",\"namespace\":\"com.meridian.contracts\",\"doc\":\"Priced, risk-bearing output of the pricer for one portfolio at one instant under one model version. See docs/domain-model.md#risksnapshot and ADR-0007. Discrete Greek fields (not a map) so each carries its own doc/default and the registry's BACKWARD check can catch a typo in a field name at schema-review time rather than at read time. Portfolio-level Greeks are cash Greeks (ADR-0017), Decimal(38,8) -- not the per-unit float64 Greeks quant_core.types.PricingResult carries -- because raw per-unit Greeks are not summable across a portfolio's different underlyings.\",\"fields\":[{\"name\":\"portfolio_id\",\"type\":{\"type\":\"string\",\"avro.java.string\":\"String\"},\"doc\":\"Part of the identity tuple (ADR-0007).\"},{\"name\":\"as_of\",\"type\":{\"type\":\"long\",\"logicalType\":\"timestamp-micros\"},\"doc\":\"Part of the identity tuple. Event time this snapshot values the portfolio as of -- distinct from ingest_time below, which is when the pricer produced this message.\"},{\"name\":\"pricer_version\",\"type\":{\"type\":\"string\",\"avro.java.string\":\"String\"},\"doc\":\"Part of the identity tuple. Exact pricing model/code version used (ADR-0007).\"},{\"name\":\"price\",\"type\":{\"type\":\"bytes\",\"logicalType\":\"decimal\",\"precision\":38,\"scale\":8},\"doc\":\"Total mark-to-market value of the portfolio, in the portfolio's base currency. Decimal (precision 38, scale 8) per ADR-0004/ADR-0013. Named to match quant_core.types.PricingResult.price (ADR-0014); this is a portfolio-level aggregate, not a single-instrument price.\"},{\"name\":\"cash_delta\",\"type\":{\"type\":\"bytes\",\"logicalType\":\"decimal\",\"precision\":38,\"scale\":8},\"doc\":\"Aggregated portfolio-level cash delta (ADR-0017): sum of delta * S * 0.01 * quantity * contract_size across positions -- currency change per 1% relative move in spot. Decimal, not float64: raw per-unit deltas across different underlyings are not in comparable units and cannot be summed meaningfully; a cash amount can be. Per docs/conventions.md.\"},{\"name\":\"cash_gamma\",\"type\":{\"type\":\"bytes\",\"logicalType\":\"decimal\",\"precision\":38,\"scale\":8},\"doc\":\"Aggregated portfolio-level cash gamma (ADR-0017): sum of gamma * S^2 * 0.0001 * quantity * contract_size across positions -- change in cash_delta per 1% move in spot. Per docs/conventions.md.\"},{\"name\":\"cash_vega\",\"type\":{\"type\":\"bytes\",\"logicalType\":\"decimal\",\"precision\":38,\"scale\":8},\"doc\":\"Aggregated portfolio-level cash vega (ADR-0017): sum of vega * quantity * contract_size across positions -- currency per 1.00 absolute change in volatility, not per 1% (docs/conventions.md).\"},{\"name\":\"cash_theta\",\"type\":{\"type\":\"bytes\",\"logicalType\":\"decimal\",\"precision\":38,\"scale\":8},\"doc\":\"Aggregated portfolio-level cash theta (ADR-0017): sum of theta * quantity * contract_size across positions -- currency per calendar year, not per day (docs/conventions.md).\"},{\"name\":\"cash_rho\",\"type\":{\"type\":\"bytes\",\"logicalType\":\"decimal\",\"precision\":38,\"scale\":8},\"doc\":\"Aggregated portfolio-level cash rho (ADR-0017): sum of rho * quantity * contract_size across positions -- currency per 1.00 absolute change in the risk-free rate (docs/conventions.md).\"},{\"name\":\"var_95\",\"type\":\"double\",\"doc\":\"1-day 95% Value at Risk, as a magnitude in the portfolio's base currency. float64 per ADR-0004 despite the currency unit -- this is a risk statistic, not a cash balance.\"},{\"name\":\"scenario_id\",\"type\":{\"type\":\"string\",\"avro.java.string\":\"String\"},\"doc\":\"Propagated from the Tick stream that produced the prices behind this snapshot (ADR-0011). End-to-end lineage: any risk number can be traced back to the exact reproducible tick stream that produced it -- what makes 'replay the same market day under two pricers and diff' actually work. Added after this schema's first version; empty string is the BACKWARD-compatible default.\",\"default\":\"\"},{\"name\":\"ingest_time\",\"type\":{\"type\":\"long\",\"logicalType\":\"timestamp-micros\"},\"doc\":\"UTC instant this snapshot was produced by the pricer.\"}]}");
+  public static final org.apache.avro.Schema SCHEMA$ = new org.apache.avro.Schema.Parser().parse("{\"type\":\"record\",\"name\":\"RiskSnapshot\",\"namespace\":\"com.meridian.contracts\",\"doc\":\"Priced, risk-bearing output of the pricer for one portfolio at one instant under one model version. See docs/domain-model.md#risksnapshot and ADR-0007. Discrete Greek fields (not a map) so each carries its own doc/default and the registry's BACKWARD check can catch a typo in a field name at schema-review time rather than at read time. Portfolio-level Greeks are cash Greeks (ADR-0017), Decimal(38,8) -- not the per-unit float64 Greeks quant_core.types.PricingResult carries -- because raw per-unit Greeks are not summable across a portfolio's different underlyings.\",\"fields\":[{\"name\":\"portfolio_id\",\"type\":{\"type\":\"string\",\"avro.java.string\":\"String\"},\"doc\":\"Part of the identity tuple (ADR-0007).\"},{\"name\":\"as_of\",\"type\":{\"type\":\"long\",\"logicalType\":\"timestamp-micros\"},\"doc\":\"Part of the identity tuple. Event time this snapshot values the portfolio as of -- distinct from ingest_time below, which is when the pricer produced this message.\"},{\"name\":\"pricer_version\",\"type\":{\"type\":\"string\",\"avro.java.string\":\"String\"},\"doc\":\"Part of the identity tuple. Exact pricing model/code version used (ADR-0007).\"},{\"name\":\"price\",\"type\":{\"type\":\"bytes\",\"logicalType\":\"decimal\",\"precision\":38,\"scale\":8},\"doc\":\"Total mark-to-market value of the portfolio, in the portfolio's base currency. Decimal (precision 38, scale 8) per ADR-0004/ADR-0013. Named to match quant_core.types.PricingResult.price (ADR-0014); this is a portfolio-level aggregate, not a single-instrument price.\"},{\"name\":\"cash_delta\",\"type\":{\"type\":\"bytes\",\"logicalType\":\"decimal\",\"precision\":38,\"scale\":8},\"doc\":\"Aggregated portfolio-level cash delta (ADR-0017): sum of delta * S * 0.01 * quantity * contract_size across positions -- currency change per 1% relative move in spot. Decimal, not float64: raw per-unit deltas across different underlyings are not in comparable units and cannot be summed meaningfully; a cash amount can be. Per docs/conventions.md.\"},{\"name\":\"cash_gamma\",\"type\":{\"type\":\"bytes\",\"logicalType\":\"decimal\",\"precision\":38,\"scale\":8},\"doc\":\"Aggregated portfolio-level cash gamma (ADR-0017): sum of gamma * S^2 * 0.0001 * quantity * contract_size across positions -- change in cash_delta per 1% move in spot. Per docs/conventions.md.\"},{\"name\":\"cash_vega\",\"type\":{\"type\":\"bytes\",\"logicalType\":\"decimal\",\"precision\":38,\"scale\":8},\"doc\":\"Aggregated portfolio-level cash vega (ADR-0017): sum of vega * quantity * contract_size across positions -- currency per 1.00 absolute change in volatility, not per 1% (docs/conventions.md).\"},{\"name\":\"cash_theta\",\"type\":{\"type\":\"bytes\",\"logicalType\":\"decimal\",\"precision\":38,\"scale\":8},\"doc\":\"Aggregated portfolio-level cash theta (ADR-0017): sum of theta * quantity * contract_size across positions -- currency per calendar year, not per day (docs/conventions.md).\"},{\"name\":\"cash_rho\",\"type\":{\"type\":\"bytes\",\"logicalType\":\"decimal\",\"precision\":38,\"scale\":8},\"doc\":\"Aggregated portfolio-level cash rho (ADR-0017): sum of rho * quantity * contract_size across positions -- currency per 1.00 absolute change in the risk-free rate (docs/conventions.md).\"},{\"name\":\"var_95\",\"type\":\"double\",\"doc\":\"1-day 95% Value at Risk, as a magnitude in the portfolio's base currency. float64 per ADR-0004 despite the currency unit -- this is a risk statistic, not a cash balance.\"},{\"name\":\"scenario_id\",\"type\":{\"type\":\"string\",\"avro.java.string\":\"String\"},\"doc\":\"Propagated from the Tick stream that produced the prices behind this snapshot (ADR-0011). End-to-end lineage: any risk number can be traced back to the exact reproducible tick stream that produced it -- what makes 'replay the same market day under two pricers and diff' actually work. Added after this schema's first version; empty string is the BACKWARD-compatible default.\",\"default\":\"\"},{\"name\":\"oldest_input_event_time\",\"type\":{\"type\":\"long\",\"logicalType\":\"timestamp-micros\"},\"doc\":\"Earliest event_time among the prices actually used to price this snapshot's positions -- min over each position's underlying's last-known tick event_time at computation time. Equal to as_of when every input was priced off the triggering tick itself; smaller when at least one position's price is from an earlier tick on an instrument that hasn't updated since. Lets a consumer distinguish a live risk number from one resting on a feed that quietly stopped -- a dead feed and a quiet market otherwise look identical downstream. Added after this schema's first version; the BACKWARD-compatible default (epoch, 0) is a sentinel meaning 'unknown, written before this field existed,' never a real staleness value.\",\"default\":0},{\"name\":\"ingest_time\",\"type\":{\"type\":\"long\",\"logicalType\":\"timestamp-micros\"},\"doc\":\"UTC instant this snapshot was produced by the pricer.\"}]}");
   public static org.apache.avro.Schema getClassSchema() { return SCHEMA$; }
 
   private static final SpecificData MODEL$ = new SpecificData();
@@ -106,6 +106,8 @@ public class RiskSnapshot extends org.apache.avro.specific.SpecificRecordBase im
   private double var_95;
   /** Propagated from the Tick stream that produced the prices behind this snapshot (ADR-0011). End-to-end lineage: any risk number can be traced back to the exact reproducible tick stream that produced it -- what makes 'replay the same market day under two pricers and diff' actually work. Added after this schema's first version; empty string is the BACKWARD-compatible default. */
   private java.lang.String scenario_id;
+  /** Earliest event_time among the prices actually used to price this snapshot's positions -- min over each position's underlying's last-known tick event_time at computation time. Equal to as_of when every input was priced off the triggering tick itself; smaller when at least one position's price is from an earlier tick on an instrument that hasn't updated since. Lets a consumer distinguish a live risk number from one resting on a feed that quietly stopped -- a dead feed and a quiet market otherwise look identical downstream. Added after this schema's first version; the BACKWARD-compatible default (epoch, 0) is a sentinel meaning 'unknown, written before this field existed,' never a real staleness value. */
+  private java.time.Instant oldest_input_event_time;
   /** UTC instant this snapshot was produced by the pricer. */
   private java.time.Instant ingest_time;
 
@@ -129,9 +131,10 @@ public class RiskSnapshot extends org.apache.avro.specific.SpecificRecordBase im
    * @param cash_rho Aggregated portfolio-level cash rho (ADR-0017): sum of rho * quantity * contract_size across positions -- currency per 1.00 absolute change in the risk-free rate (docs/conventions.md).
    * @param var_95 1-day 95% Value at Risk, as a magnitude in the portfolio's base currency. float64 per ADR-0004 despite the currency unit -- this is a risk statistic, not a cash balance.
    * @param scenario_id Propagated from the Tick stream that produced the prices behind this snapshot (ADR-0011). End-to-end lineage: any risk number can be traced back to the exact reproducible tick stream that produced it -- what makes 'replay the same market day under two pricers and diff' actually work. Added after this schema's first version; empty string is the BACKWARD-compatible default.
+   * @param oldest_input_event_time Earliest event_time among the prices actually used to price this snapshot's positions -- min over each position's underlying's last-known tick event_time at computation time. Equal to as_of when every input was priced off the triggering tick itself; smaller when at least one position's price is from an earlier tick on an instrument that hasn't updated since. Lets a consumer distinguish a live risk number from one resting on a feed that quietly stopped -- a dead feed and a quiet market otherwise look identical downstream. Added after this schema's first version; the BACKWARD-compatible default (epoch, 0) is a sentinel meaning 'unknown, written before this field existed,' never a real staleness value.
    * @param ingest_time UTC instant this snapshot was produced by the pricer.
    */
-  public RiskSnapshot(java.lang.String portfolio_id, java.time.Instant as_of, java.lang.String pricer_version, java.math.BigDecimal price, java.math.BigDecimal cash_delta, java.math.BigDecimal cash_gamma, java.math.BigDecimal cash_vega, java.math.BigDecimal cash_theta, java.math.BigDecimal cash_rho, java.lang.Double var_95, java.lang.String scenario_id, java.time.Instant ingest_time) {
+  public RiskSnapshot(java.lang.String portfolio_id, java.time.Instant as_of, java.lang.String pricer_version, java.math.BigDecimal price, java.math.BigDecimal cash_delta, java.math.BigDecimal cash_gamma, java.math.BigDecimal cash_vega, java.math.BigDecimal cash_theta, java.math.BigDecimal cash_rho, java.lang.Double var_95, java.lang.String scenario_id, java.time.Instant oldest_input_event_time, java.time.Instant ingest_time) {
     this.portfolio_id = portfolio_id;
     this.as_of = as_of.truncatedTo(java.time.temporal.ChronoUnit.MICROS);
     this.pricer_version = pricer_version;
@@ -143,6 +146,7 @@ public class RiskSnapshot extends org.apache.avro.specific.SpecificRecordBase im
     this.cash_rho = cash_rho;
     this.var_95 = var_95;
     this.scenario_id = scenario_id;
+    this.oldest_input_event_time = oldest_input_event_time.truncatedTo(java.time.temporal.ChronoUnit.MICROS);
     this.ingest_time = ingest_time.truncatedTo(java.time.temporal.ChronoUnit.MICROS);
   }
 
@@ -167,7 +171,8 @@ public class RiskSnapshot extends org.apache.avro.specific.SpecificRecordBase im
     case 8: return cash_rho;
     case 9: return var_95;
     case 10: return scenario_id;
-    case 11: return ingest_time;
+    case 11: return oldest_input_event_time;
+    case 12: return ingest_time;
     default: throw new IndexOutOfBoundsException("Invalid index: " + field$);
     }
   }
@@ -185,6 +190,7 @@ public class RiskSnapshot extends org.apache.avro.specific.SpecificRecordBase im
       new org.apache.avro.Conversions.DecimalConversion(),
       null,
       null,
+      new org.apache.avro.data.TimeConversions.TimestampMicrosConversion(),
       new org.apache.avro.data.TimeConversions.TimestampMicrosConversion(),
       null
   };
@@ -210,7 +216,8 @@ public class RiskSnapshot extends org.apache.avro.specific.SpecificRecordBase im
     case 8: cash_rho = (java.math.BigDecimal)value$; break;
     case 9: var_95 = (java.lang.Double)value$; break;
     case 10: scenario_id = value$ != null ? value$.toString() : null; break;
-    case 11: ingest_time = (java.time.Instant)value$; break;
+    case 11: oldest_input_event_time = (java.time.Instant)value$; break;
+    case 12: ingest_time = (java.time.Instant)value$; break;
     default: throw new IndexOutOfBoundsException("Invalid index: " + field$);
     }
   }
@@ -414,6 +421,24 @@ public class RiskSnapshot extends org.apache.avro.specific.SpecificRecordBase im
   }
 
   /**
+   * Gets the value of the 'oldest_input_event_time' field.
+   * @return Earliest event_time among the prices actually used to price this snapshot's positions -- min over each position's underlying's last-known tick event_time at computation time. Equal to as_of when every input was priced off the triggering tick itself; smaller when at least one position's price is from an earlier tick on an instrument that hasn't updated since. Lets a consumer distinguish a live risk number from one resting on a feed that quietly stopped -- a dead feed and a quiet market otherwise look identical downstream. Added after this schema's first version; the BACKWARD-compatible default (epoch, 0) is a sentinel meaning 'unknown, written before this field existed,' never a real staleness value.
+   */
+  public java.time.Instant getOldestInputEventTime() {
+    return oldest_input_event_time;
+  }
+
+
+  /**
+   * Sets the value of the 'oldest_input_event_time' field.
+   * Earliest event_time among the prices actually used to price this snapshot's positions -- min over each position's underlying's last-known tick event_time at computation time. Equal to as_of when every input was priced off the triggering tick itself; smaller when at least one position's price is from an earlier tick on an instrument that hasn't updated since. Lets a consumer distinguish a live risk number from one resting on a feed that quietly stopped -- a dead feed and a quiet market otherwise look identical downstream. Added after this schema's first version; the BACKWARD-compatible default (epoch, 0) is a sentinel meaning 'unknown, written before this field existed,' never a real staleness value.
+   * @param value the value to set.
+   */
+  public void setOldestInputEventTime(java.time.Instant value) {
+    this.oldest_input_event_time = value.truncatedTo(java.time.temporal.ChronoUnit.MICROS);
+  }
+
+  /**
    * Gets the value of the 'ingest_time' field.
    * @return UTC instant this snapshot was produced by the pricer.
    */
@@ -494,6 +519,8 @@ public class RiskSnapshot extends org.apache.avro.specific.SpecificRecordBase im
     private double var_95;
     /** Propagated from the Tick stream that produced the prices behind this snapshot (ADR-0011). End-to-end lineage: any risk number can be traced back to the exact reproducible tick stream that produced it -- what makes 'replay the same market day under two pricers and diff' actually work. Added after this schema's first version; empty string is the BACKWARD-compatible default. */
     private java.lang.String scenario_id;
+    /** Earliest event_time among the prices actually used to price this snapshot's positions -- min over each position's underlying's last-known tick event_time at computation time. Equal to as_of when every input was priced off the triggering tick itself; smaller when at least one position's price is from an earlier tick on an instrument that hasn't updated since. Lets a consumer distinguish a live risk number from one resting on a feed that quietly stopped -- a dead feed and a quiet market otherwise look identical downstream. Added after this schema's first version; the BACKWARD-compatible default (epoch, 0) is a sentinel meaning 'unknown, written before this field existed,' never a real staleness value. */
+    private java.time.Instant oldest_input_event_time;
     /** UTC instant this snapshot was produced by the pricer. */
     private java.time.Instant ingest_time;
 
@@ -552,9 +579,13 @@ public class RiskSnapshot extends org.apache.avro.specific.SpecificRecordBase im
         this.scenario_id = data().deepCopy(fields()[10].schema(), other.scenario_id);
         fieldSetFlags()[10] = other.fieldSetFlags()[10];
       }
-      if (isValidValue(fields()[11], other.ingest_time)) {
-        this.ingest_time = data().deepCopy(fields()[11].schema(), other.ingest_time);
+      if (isValidValue(fields()[11], other.oldest_input_event_time)) {
+        this.oldest_input_event_time = data().deepCopy(fields()[11].schema(), other.oldest_input_event_time);
         fieldSetFlags()[11] = other.fieldSetFlags()[11];
+      }
+      if (isValidValue(fields()[12], other.ingest_time)) {
+        this.ingest_time = data().deepCopy(fields()[12].schema(), other.ingest_time);
+        fieldSetFlags()[12] = other.fieldSetFlags()[12];
       }
     }
 
@@ -608,9 +639,13 @@ public class RiskSnapshot extends org.apache.avro.specific.SpecificRecordBase im
         this.scenario_id = data().deepCopy(fields()[10].schema(), other.scenario_id);
         fieldSetFlags()[10] = true;
       }
-      if (isValidValue(fields()[11], other.ingest_time)) {
-        this.ingest_time = data().deepCopy(fields()[11].schema(), other.ingest_time);
+      if (isValidValue(fields()[11], other.oldest_input_event_time)) {
+        this.oldest_input_event_time = data().deepCopy(fields()[11].schema(), other.oldest_input_event_time);
         fieldSetFlags()[11] = true;
+      }
+      if (isValidValue(fields()[12], other.ingest_time)) {
+        this.ingest_time = data().deepCopy(fields()[12].schema(), other.ingest_time);
+        fieldSetFlags()[12] = true;
       }
     }
 
@@ -1097,6 +1132,49 @@ public class RiskSnapshot extends org.apache.avro.specific.SpecificRecordBase im
     }
 
     /**
+      * Gets the value of the 'oldest_input_event_time' field.
+      * Earliest event_time among the prices actually used to price this snapshot's positions -- min over each position's underlying's last-known tick event_time at computation time. Equal to as_of when every input was priced off the triggering tick itself; smaller when at least one position's price is from an earlier tick on an instrument that hasn't updated since. Lets a consumer distinguish a live risk number from one resting on a feed that quietly stopped -- a dead feed and a quiet market otherwise look identical downstream. Added after this schema's first version; the BACKWARD-compatible default (epoch, 0) is a sentinel meaning 'unknown, written before this field existed,' never a real staleness value.
+      * @return The value.
+      */
+    public java.time.Instant getOldestInputEventTime() {
+      return oldest_input_event_time;
+    }
+
+
+    /**
+      * Sets the value of the 'oldest_input_event_time' field.
+      * Earliest event_time among the prices actually used to price this snapshot's positions -- min over each position's underlying's last-known tick event_time at computation time. Equal to as_of when every input was priced off the triggering tick itself; smaller when at least one position's price is from an earlier tick on an instrument that hasn't updated since. Lets a consumer distinguish a live risk number from one resting on a feed that quietly stopped -- a dead feed and a quiet market otherwise look identical downstream. Added after this schema's first version; the BACKWARD-compatible default (epoch, 0) is a sentinel meaning 'unknown, written before this field existed,' never a real staleness value.
+      * @param value The value of 'oldest_input_event_time'.
+      * @return This builder.
+      */
+    public com.meridian.contracts.RiskSnapshot.Builder setOldestInputEventTime(java.time.Instant value) {
+      validate(fields()[11], value);
+      this.oldest_input_event_time = value.truncatedTo(java.time.temporal.ChronoUnit.MICROS);
+      fieldSetFlags()[11] = true;
+      return this;
+    }
+
+    /**
+      * Checks whether the 'oldest_input_event_time' field has been set.
+      * Earliest event_time among the prices actually used to price this snapshot's positions -- min over each position's underlying's last-known tick event_time at computation time. Equal to as_of when every input was priced off the triggering tick itself; smaller when at least one position's price is from an earlier tick on an instrument that hasn't updated since. Lets a consumer distinguish a live risk number from one resting on a feed that quietly stopped -- a dead feed and a quiet market otherwise look identical downstream. Added after this schema's first version; the BACKWARD-compatible default (epoch, 0) is a sentinel meaning 'unknown, written before this field existed,' never a real staleness value.
+      * @return True if the 'oldest_input_event_time' field has been set, false otherwise.
+      */
+    public boolean hasOldestInputEventTime() {
+      return fieldSetFlags()[11];
+    }
+
+
+    /**
+      * Clears the value of the 'oldest_input_event_time' field.
+      * Earliest event_time among the prices actually used to price this snapshot's positions -- min over each position's underlying's last-known tick event_time at computation time. Equal to as_of when every input was priced off the triggering tick itself; smaller when at least one position's price is from an earlier tick on an instrument that hasn't updated since. Lets a consumer distinguish a live risk number from one resting on a feed that quietly stopped -- a dead feed and a quiet market otherwise look identical downstream. Added after this schema's first version; the BACKWARD-compatible default (epoch, 0) is a sentinel meaning 'unknown, written before this field existed,' never a real staleness value.
+      * @return This builder.
+      */
+    public com.meridian.contracts.RiskSnapshot.Builder clearOldestInputEventTime() {
+      fieldSetFlags()[11] = false;
+      return this;
+    }
+
+    /**
       * Gets the value of the 'ingest_time' field.
       * UTC instant this snapshot was produced by the pricer.
       * @return The value.
@@ -1113,9 +1191,9 @@ public class RiskSnapshot extends org.apache.avro.specific.SpecificRecordBase im
       * @return This builder.
       */
     public com.meridian.contracts.RiskSnapshot.Builder setIngestTime(java.time.Instant value) {
-      validate(fields()[11], value);
+      validate(fields()[12], value);
       this.ingest_time = value.truncatedTo(java.time.temporal.ChronoUnit.MICROS);
-      fieldSetFlags()[11] = true;
+      fieldSetFlags()[12] = true;
       return this;
     }
 
@@ -1125,7 +1203,7 @@ public class RiskSnapshot extends org.apache.avro.specific.SpecificRecordBase im
       * @return True if the 'ingest_time' field has been set, false otherwise.
       */
     public boolean hasIngestTime() {
-      return fieldSetFlags()[11];
+      return fieldSetFlags()[12];
     }
 
 
@@ -1135,7 +1213,7 @@ public class RiskSnapshot extends org.apache.avro.specific.SpecificRecordBase im
       * @return This builder.
       */
     public com.meridian.contracts.RiskSnapshot.Builder clearIngestTime() {
-      fieldSetFlags()[11] = false;
+      fieldSetFlags()[12] = false;
       return this;
     }
 
@@ -1155,7 +1233,8 @@ public class RiskSnapshot extends org.apache.avro.specific.SpecificRecordBase im
         record.cash_rho = fieldSetFlags()[8] ? this.cash_rho : (java.math.BigDecimal) defaultValue(fields()[8]);
         record.var_95 = fieldSetFlags()[9] ? this.var_95 : (java.lang.Double) defaultValue(fields()[9]);
         record.scenario_id = fieldSetFlags()[10] ? this.scenario_id : (java.lang.String) defaultValue(fields()[10]);
-        record.ingest_time = fieldSetFlags()[11] ? this.ingest_time : (java.time.Instant) defaultValue(fields()[11]);
+        record.oldest_input_event_time = fieldSetFlags()[11] ? this.oldest_input_event_time : (java.time.Instant) defaultValue(fields()[11]);
+        record.ingest_time = fieldSetFlags()[12] ? this.ingest_time : (java.time.Instant) defaultValue(fields()[12]);
         return record;
       } catch (org.apache.avro.AvroMissingFieldException e) {
         throw e;

@@ -1,0 +1,27 @@
+# Seeds portfolio.state directly (Task 8) -- core-service doesn't exist
+# yet; ADR-0003 is designed for exactly this, the pricer consumes a
+# contract, not a service.
+portfolios:
+  # Multi-instrument, single-currency (USD -- "multi-currency-free"),
+  # non-unit contract_size (100, both positions): the fixture Task 8 asks
+  # for. Also exercises staleness (AAPL-CALL and MSFT-PUT tick at
+  # different times) and the ADR-0017 cross-underlying aggregation.
+  PF-1:
+    event_time: "2026-01-01T00:00:00Z"
+    positions:
+      - instrument_id: AAPL-CALL-150
+        quantity: "10"
+        average_cost: "12.50"
+      - instrument_id: MSFT-PUT-280
+        quantity: "-5"
+        average_cost: "8.00"
+
+  # A second, single-position portfolio on AAPL directly (EQUITY, unit
+  # contract_size) -- every AAPL tick affects both PF-1 and PF-2, which is
+  # what the fan-out measurement (Task 6) and reverse-index tests exercise.
+  PF-2:
+    event_time: "2026-01-01T00:00:00Z"
+    positions:
+      - instrument_id: AAPL
+        quantity: "1000"
+        average_cost: "145.00"

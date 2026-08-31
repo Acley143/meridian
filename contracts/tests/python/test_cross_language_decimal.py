@@ -61,6 +61,7 @@ def _sample_risk_snapshot_dict(price: Decimal) -> dict:
         "cash_rho": Decimal(0),
         "var_95": 0.0,
         "scenario_id": "scenario-1",
+        "oldest_input_event_time": now,
         "ingest_time": now,
     }
 

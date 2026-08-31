@@ -69,6 +69,7 @@ def test_risk_snapshot_round_trips() -> None:
         cash_rho=Decimal("53200.00000000"),
         var_95=125000.0,
         scenario_id="scenario-1",
+        oldest_input_event_time=_NOW,
         ingest_time=_NOW,
     )
     back = RiskSnapshot.from_dict(_round_trip(snap.to_dict(), RISK_SNAPSHOT_SCHEMA_JSON))

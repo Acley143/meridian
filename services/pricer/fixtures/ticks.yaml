@@ -1,0 +1,24 @@
+# A short, hand-authored, deterministic tick sequence driving
+# fixtures/portfolios.yaml. Not GBM-simulated (services/ingest's job) --
+# fixed values chosen to exercise specific pricer behavior:
+#   tick 1 (AAPL): PF-2 prices immediately (equity only); PF-1 does not
+#     yet (MSFT-PUT-280's underlying, MSFT, has no observed price).
+#   tick 2 (MSFT): PF-1 prices for the first time, using AAPL's price from
+#     tick 1 (already stale relative to this tick) and MSFT's price from
+#     this tick -- oldest_input_event_time == tick 1's event_time.
+#   tick 3 (AAPL): both PF-1 and PF-2 reprice; PF-1's oldest_input_event_time
+#     is now tick 2's event_time (MSFT hasn't updated since).
+scenario_id: pricer-fixture-v1
+ticks:
+  - instrument_id: AAPL
+    price: "150.00"
+    currency: USD
+    event_time: "2026-01-02T09:30:00Z"
+  - instrument_id: MSFT
+    price: "200.00"
+    currency: USD
+    event_time: "2026-01-02T09:30:01Z"
+  - instrument_id: AAPL
+    price: "151.00"
+    currency: USD
+    event_time: "2026-01-02T09:30:05Z"

@@ -8,6 +8,7 @@ from decimal import Decimal
 from pathlib import Path
 
 from meridian_contracts.tick import Tick
+from quant_io.consumer import PartitionEOF
 from quant_io.tick_producer import TickProducer, make_tick_consumer
 
 from conftest import KafkaStack
@@ -46,7 +47,10 @@ def test_round_trip_through_real_broker_and_registry(kafka_stack: KafkaStack) ->
     try:
         msg = None
         for _ in range(20):
-            msg = consumer.poll(5.0)
+            polled = consumer.poll(5.0)
+            if isinstance(polled, PartitionEOF):
+                continue
+            msg = polled
             if msg is not None and msg.value().scenario_id == sent.scenario_id:
                 break
         assert msg is not None, "no message consumed from market.ticks"

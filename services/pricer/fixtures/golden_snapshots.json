@@ -1,0 +1,58 @@
+[
+  {
+    "portfolio_id": "PF-2",
+    "as_of": "2026-01-02T09:30:00+00:00",
+    "pricer_version": "0.1.0",
+    "price": "150000.00000000",
+    "cash_delta": "1500.00000000",
+    "cash_gamma": "0E-8",
+    "cash_vega": "0E-8",
+    "cash_theta": "0E-8",
+    "cash_rho": "0E-8",
+    "var_95": 0.0,
+    "scenario_id": "pricer-fixture-v1",
+    "oldest_input_event_time": "2026-01-02T09:30:00+00:00"
+  },
+  {
+    "portfolio_id": "PF-1",
+    "as_of": "2026-01-02T09:30:01+00:00",
+    "pricer_version": "0.1.0",
+    "price": "-27865.74963500",
+    "cash_delta": "1764.56449589",
+    "cash_gamma": "29.28561644",
+    "cash_vega": "26940.45213923",
+    "cash_theta": "-15078.99746849",
+    "cash_rho": "83746.43830536",
+    "var_95": 0.0,
+    "scenario_id": "pricer-fixture-v1",
+    "oldest_input_event_time": "2026-01-02T09:30:00+00:00"
+  },
+  {
+    "portfolio_id": "PF-1",
+    "as_of": "2026-01-02T09:30:05+00:00",
+    "pricer_version": "0.1.0",
+    "price": "-27285.23047000",
+    "cash_delta": "1794.78408149",
+    "cash_gamma": "29.21979028",
+    "cash_vega": "26872.99326314",
+    "cash_theta": "-15156.08479483",
+    "cash_rho": "84747.09558071",
+    "var_95": 0.0,
+    "scenario_id": "pricer-fixture-v1",
+    "oldest_input_event_time": "2026-01-02T09:30:01+00:00"
+  },
+  {
+    "portfolio_id": "PF-2",
+    "as_of": "2026-01-02T09:30:05+00:00",
+    "pricer_version": "0.1.0",
+    "price": "151000.00000000",
+    "cash_delta": "1510.00000000",
+    "cash_gamma": "0E-8",
+    "cash_vega": "0E-8",
+    "cash_theta": "0E-8",
+    "cash_rho": "0E-8",
+    "var_95": 0.0,
+    "scenario_id": "pricer-fixture-v1",
+    "oldest_input_event_time": "2026-01-02T09:30:05+00:00"
+  }
+]

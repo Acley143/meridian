@@ -57,6 +57,12 @@
       "doc": "Propagated from the Tick stream that produced the prices behind this snapshot (ADR-0011). End-to-end lineage: any risk number can be traced back to the exact reproducible tick stream that produced it -- what makes 'replay the same market day under two pricers and diff' actually work. Added after this schema's first version; empty string is the BACKWARD-compatible default."
     },
     {
+      "name": "oldest_input_event_time",
+      "type": { "type": "long", "logicalType": "timestamp-micros" },
+      "default": 0,
+      "doc": "Earliest event_time among the prices actually used to price this snapshot's positions -- min over each position's underlying's last-known tick event_time at computation time. Equal to as_of when every input was priced off the triggering tick itself; smaller when at least one position's price is from an earlier tick on an instrument that hasn't updated since. Lets a consumer distinguish a live risk number from one resting on a feed that quietly stopped -- a dead feed and a quiet market otherwise look identical downstream. Added after this schema's first version; the BACKWARD-compatible default (epoch, 0) is a sentinel meaning 'unknown, written before this field existed,' never a real staleness value."
+    },
+    {
       "name": "ingest_time",
       "type": { "type": "long", "logicalType": "timestamp-micros" },
       "doc": "UTC instant this snapshot was produced by the pricer."

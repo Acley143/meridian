@@ -203,3 +203,54 @@ One row in the append-only, hash-chained audit log (ADR-0008).
 | entry_hash | string (hex-encoded SHA-256) | — | no | — | SHA-256 of this row's own canonical form (`entry_id` + `entry_type` + `payload`, excluding `entry_hash` itself). Stored so a verifier doesn't need to recompute it from scratch to check the *next* row's `prev_hash`. |
 | event_time | timestamp | — | no | microsecond | UTC instant the audited fact occurred. |
 | ingest_time | timestamp | — | no | microsecond | UTC instant this audit row was written. |
+
+### Canonical form (Session 05b, ADR-0008)
+
+`entry_hash` and `prev_hash` are SHA-256 over a row's **canonical form** —
+a byte-exact, deterministic serialization of exactly three fields, in this
+fixed order: `entry_id`, `entry_type`, `payload`. **`event_time`,
+`ingest_time`, and `prev_hash` are deliberately not part of what's
+hashed** — this is the field scope this table's own `entry_hash` doc above
+already specifies (`entry_id + entry_type + payload`), not a broader "hash
+the whole row." One concrete consequence, stated plainly rather than left
+for a reader to discover: a mutation confined to `event_time` or
+`ingest_time` alone does not break the chain. See the editorial amendment
+in `docs/adr/0008-hash-chained-audit-log.md` for the full honest threat
+model this sits inside.
+
+**Byte layout.** For each of the three fields in order, encode its UTF-8
+byte length as ASCII decimal digits, then a single `:` (0x3A), then the
+field's UTF-8 bytes themselves — a netstring-style, length-prefixed
+encoding chosen specifically because plain concatenation or a fixed
+delimiter is ambiguous (`entry_id="AB", entry_type="CDE"` and
+`entry_id="ABCD", entry_type="E"` concatenate to the same bytes without a
+length prefix). Concretely:
+
+```
+canonical(row) = len(entry_id) ++ ":" ++ entry_id
+              ++ len(entry_type) ++ ":" ++ entry_type
+              ++ len(payload) ++ ":" ++ payload
+```
+
+where `++` is byte concatenation, `len(x)` is the ASCII-decimal-digit
+encoding of `x`'s UTF-8 byte length (e.g. `11` for an 11-byte field, no
+leading zeros, no separator between digits), and every field's own bytes
+are its UTF-8 encoding. `entry_hash = hex(SHA-256(canonical(row)))`,
+lowercase hex, no `0x` prefix — matching every other hex-encoded hash
+field in this document.
+
+**Genesis row.** The first row ever written to `audit_log` has
+`prev_hash = ""` (empty string) — there is no row before it to hash. This
+is the *only* row in a valid chain permitted to carry an empty
+`prev_hash`; a verifier that encounters `prev_hash = ""` anywhere other
+than the chain's first row (lowest `seq`, see `V2__audit_log_hash_chain.sql`)
+must treat that as a broken link, not as a second genesis.
+
+**Ordering.** Rows have no ordering field among `AuditEntry`'s own domain
+fields — `entry_id` is an opaque identifier assigned at write time, not a
+sequence. `audit_log.seq` (added in `V2__audit_log_hash_chain.sql`, an
+internal database-only column, not part of `AuditEntry`) is the
+authoritative insertion order the chain is built and verified against,
+the same pattern `risk_snapshots.id` already established in
+`V1__init_schema.sql` for a table whose domain identity is a different
+column entirely.

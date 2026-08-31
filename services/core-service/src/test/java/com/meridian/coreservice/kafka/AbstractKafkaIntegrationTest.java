@@ -85,6 +85,17 @@ public abstract class AbstractKafkaIntegrationTest {
 
   @Autowired private JdbcTemplate jdbcTemplate;
 
+  // Do NOT "fix" test isolation by giving each class its own database/schema on this shared
+  // container instead of truncating. It does not work, and it's the same bug Session C found:
+  // @DynamicPropertySource values are not part of Spring's test-context cache key, so a class
+  // whose Spring context gets a cache HIT (structurally identical @SpringBootTest config, which is
+  // every subclass here) reuses the PREVIOUS class's already-built DataSource/HikariPool -- i.e.
+  // its previous class's database -- no matter what a fresh @DynamicPropertySource call registers.
+  // Per-class databases only actually isolate anything if paired with a per-class context, which
+  // means @DirtiesContext, which is the ~6-minute-job regression this file exists to avoid (see the
+  // class javadoc above). TRUNCATE-between-tests is the isolation strategy precisely because it
+  // works with one shared container AND one cached context, sidestepping the cache-key problem
+  // entirely instead of re-triggering it.
   @BeforeEach
   void truncateAllTables() {
     jdbcTemplate.execute(

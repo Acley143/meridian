@@ -133,7 +133,7 @@ jobs:
           java-version: "21"
           cache: maven
       - name: mvn verify
-        run: mvn -pl services/core-service -am verify
+        run: mvn -pl services/core-service -am verify -Dsurefire.runOrder=reversealphabetical
       - name: spotless:check
         run: mvn -pl services/core-service com.diffplug.spotless:spotless-maven-plugin:check
 

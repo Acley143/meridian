@@ -91,7 +91,16 @@ public class SseController {
 
   private void replayOrResync(SseEmitter emitter, String portfolioId, Instant afterAsOf) {
     long count = riskSnapshotRepository.countAfter(portfolioId, afterAsOf);
-    boolean tooOld = Duration.between(afterAsOf, Instant.now()).compareTo(MAX_REPLAY_AGE) > 0;
+    // Age bound is measured against the newest persisted as_of for this portfolio, not
+    // Instant.now() -- as_of is scenario-derived event time (ADR-0011), deliberately decoupled
+    // from wall clock, so comparing it to now() resyncs every reconnect for any scenario whose
+    // as_of isn't approximately current wall-clock time. See ADR-0012's editorial amendment. No
+    // snapshots at all for this portfolio means nothing to be "too old" relative to.
+    boolean tooOld =
+        riskSnapshotRepository
+            .findMaxAsOf(portfolioId)
+            .map(newest -> Duration.between(afterAsOf, newest).compareTo(MAX_REPLAY_AGE) > 0)
+            .orElse(false);
 
     try {
       if (count > MAX_REPLAY_SNAPSHOTS || tooOld) {

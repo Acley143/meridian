@@ -133,6 +133,55 @@ class SseResumeTest extends AbstractRestIntegrationTest {
   }
 
   @Test
+  void replayStillWorksWhenAllSnapshotsAreFarFromWallClockNow() throws Exception {
+    // ADR-0011: as_of is scenario-derived event time, deliberately decoupled from wall clock. A
+    // historical scenario replay can have every as_of hours or days in the past relative to
+    // Instant.now() while the snapshots themselves are seconds apart in event time -- the case
+    // this test exercises should heal transparently via replay, not resync (ADR-0012's editorial
+    // amendment: the age bound is measured against the newest persisted as_of for the portfolio,
+    // not against now()).
+    String portfolioId = "PF-SSE-HISTORICAL";
+    jdbcTemplate.update(
+        "INSERT INTO portfolios (portfolio_id, name, base_currency, owner) VALUES (?, 'SSE"
+            + " Historical Replay Test', 'USD', 'desk-1') ON CONFLICT DO NOTHING",
+        portfolioId);
+
+    Instant farPast = Instant.parse("2020-01-01T00:00:00Z");
+    Instant t1 = farPast;
+    Instant t2 = farPast.plusSeconds(60);
+    Instant t3 = farPast.plusSeconds(120);
+
+    String streamUrl = baseUrl() + "/portfolios/" + portfolioId + "/risk/stream";
+
+    String lastReceivedId;
+    try (SseTestClient client = new SseTestClient(streamUrl, null)) {
+      assertThat(client.statusCode(Duration.ofSeconds(10))).isEqualTo(200);
+
+      produceLive(snap(portfolioId, t1));
+      SseTestClient.SseEvent eventA = client.nextEvent(Duration.ofSeconds(10));
+      assertThat(eventA).isNotNull();
+      lastReceivedId = eventA.id();
+    }
+
+    produceLive(snap(portfolioId, t2));
+    produceLive(snap(portfolioId, t3));
+
+    try (SseTestClient client = new SseTestClient(streamUrl, lastReceivedId)) {
+      assertThat(client.statusCode(Duration.ofSeconds(10))).isEqualTo(200);
+
+      java.util.List<SseTestClient.SseEvent> replayed =
+          client.drainAvailable(2, Duration.ofSeconds(15));
+
+      assertThat(replayed).hasSize(2);
+      assertThat(replayed.get(0).id())
+          .isEqualTo(portfolioId + ":" + SseEventId.asOfMicros(t2) + ":v1.0.0");
+      assertThat(replayed.get(1).id())
+          .isEqualTo(portfolioId + ":" + SseEventId.asOfMicros(t3) + ":v1.0.0");
+      assertThat(replayed.stream().anyMatch(e -> "resync".equals(e.eventName()))).isFalse();
+    }
+  }
+
+  @Test
   void malformedLastEventIdIsRejectedCleanlyNot500() throws Exception {
     String portfolioId = "PF-SSE-MALFORMED";
     String streamUrl = baseUrl() + "/portfolios/" + portfolioId + "/risk/stream";

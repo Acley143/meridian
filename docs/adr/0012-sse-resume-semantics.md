@@ -56,3 +56,26 @@ backlog over the stream.
 ## Addendum
 See also ADR-0009, which this ADR extends with resume semantics for the SSE
 stream it establishes.
+
+## Editorial amendments
+- 2026-08-31 (core-service): **The 15-minute age bound is measured in event
+  time, against persisted snapshot history, not against wall-clock
+  `now()`.** The Decision above says "replayed... a later `as_of`" without
+  saying what the age half of the bound is measured *against*; the initial
+  implementation read that as `now() - as_of`, using `Instant.now()`.
+  `as_of` is scenario-derived event time (ADR-0011), deliberately decoupled
+  from wall clock so that a historical scenario can be replayed at all. A
+  bound measured against `now()` makes that decoupling self-defeating: any
+  reconnect against a portfolio whose `as_of` isn't approximately
+  wall-clock-current resyncs immediately, regardless of how many snapshots
+  or how much event time actually separates the client from current state
+  — ADR-0011's replay capability and this ADR's resume semantics were
+  mutually incompatible as written. The bound is instead: count bound —
+  snapshots after the given `as_of` for that portfolio (already a stored
+  quantity, unaffected by this amendment); age bound — the given `as_of`
+  compared to the *newest persisted* `as_of` for that portfolio, not to
+  `now()`. Both are robust to event time diverging arbitrarily from wall
+  clock, which this system treats as a designed property, not an anomaly.
+  Non-substantive to the bound's intent (still "500 snapshots or 15 minutes
+  of the portfolio's own history, whichever is smaller") but substantive to
+  its correctness whenever event time and wall clock diverge.

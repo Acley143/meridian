@@ -154,4 +154,19 @@ public class RiskSnapshotRepository {
             Timestamp.from(afterAsOf));
     return count == null ? 0 : count;
   }
+
+  /**
+   * Newest {@code as_of} persisted for a portfolio -- the age half of ADR-0012's replay bound is
+   * measured against this, not wall-clock {@code now()} (see the ADR's editorial amendment): {@code
+   * as_of} is scenario-derived event time (ADR-0011) and can legitimately sit far from wall clock,
+   * e.g. a historical scenario replay. Empty if the portfolio has no snapshots at all.
+   */
+  public Optional<Instant> findMaxAsOf(String portfolioId) {
+    Timestamp max =
+        jdbcTemplate.queryForObject(
+            "SELECT max(as_of) FROM risk_snapshots WHERE portfolio_id = ?",
+            Timestamp.class,
+            portfolioId);
+    return Optional.ofNullable(max).map(Timestamp::toInstant);
+  }
 }

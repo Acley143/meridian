@@ -17,7 +17,7 @@ guarantee three separate components depend on to behave correctly.
 ## Decision
 | Topic | Key | Guarantee |
 |---|---|---|
-| `ticks` (schema: `tick-key.avsc`) | `instrument_id` | All ticks for one instrument are totally ordered. A pricer consuming this topic never sees a stale price after a fresher one for the same instrument. |
+| `market.ticks` (schema: `tick-key.avsc`) | `instrument_id` | All ticks for one instrument are totally ordered. A pricer consuming this topic never sees a stale price after a fresher one for the same instrument. |
 | `risk.snapshots` (schema: `risk-snapshot-key.avsc`) | `portfolio_id` | Snapshots for one portfolio arrive in `as_of` order. This is what makes ADR-0012's SSE resume-from-`Last-Event-ID` coherent — replay only makes sense as "everything after this point," which requires the stream to already be ordered. |
 | `portfolio.state` (schema: `portfolio-state-key.avsc`) | `portfolio_id` | Required by log compaction (ADR-0003) — the key *is* the compaction identity. Kafka retains the latest value per key; a different key per message from the same portfolio would defeat compaction, not just ordering. |
 
@@ -61,3 +61,11 @@ detail.
   per-portfolio ordering ADR-0012's resume semantics depend on. The
   *value* already carries the full ADR-0007 identity tuple; the key only
   needs to route, not identify.
+
+## Editorial amendments
+- 2026-09-01: Topic renamed `ticks` → `market.ticks` (naming-convention
+  cleanup — see `contracts/README.md`'s topic-naming convention;
+  `risk.snapshots` and `portfolio.state` already carried a domain prefix,
+  `ticks` was the inconsistent one). Updated inline in the Decision table
+  above. Non-substantive: the key (`instrument_id`), the guarantee it
+  buys, and every other word of the decision are unchanged.

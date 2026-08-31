@@ -11,7 +11,7 @@ Consumes ticks and portfolio state, prices every position using
 ## In scope this quarter
 - [ ] Consume `portfolio.state` and materialize a local view keyed by
       `portfolio_id` (ADR-0003).
-- [ ] Consume the `ticks` topic and, on each relevant tick, re-price affected
+- [ ] Consume the `market.ticks` topic and, on each relevant tick, re-price affected
       positions using `libs/quant-core`'s Black-Scholes pricer.
 - [ ] Produce `RiskSnapshot`s (`contracts/avro/risk-snapshot.avsc`) keyed
       per ADR-0007: `price`, and the five cash Greeks
@@ -62,7 +62,7 @@ Consumes ticks and portfolio state, prices every position using
   `libs/quant-io`.
 
 ## Interfaces
-Consumes `ticks` and `portfolio.state`. Produces `risk.snapshots`, schema
+Consumes `market.ticks` and `portfolio.state`. Produces `risk.snapshots`, schema
 `contracts/avro/risk-snapshot.avsc`.
 
 ## Definition of done

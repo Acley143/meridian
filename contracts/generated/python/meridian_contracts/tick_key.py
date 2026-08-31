@@ -10,14 +10,14 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-SCHEMA_JSON = "{\n  \"type\": \"record\",\n  \"name\": \"TickKey\",\n  \"namespace\": \"com.meridian.contracts\",\n  \"doc\": \"Kafka message key for the ticks topic. Keyed by instrument_id so all ticks for one instrument land on the same partition, in order.\",\n  \"fields\": [\n    {\n      \"name\": \"instrument_id\",\n      \"type\": \"string\",\n      \"doc\": \"Instrument this tick observation is for. Matches Tick.instrument_id.\"\n    }\n  ]\n}"
+SCHEMA_JSON = "{\n  \"type\": \"record\",\n  \"name\": \"TickKey\",\n  \"namespace\": \"com.meridian.contracts\",\n  \"doc\": \"Kafka message key for the market.ticks topic. Keyed by instrument_id so all ticks for one instrument land on the same partition, in order.\",\n  \"fields\": [\n    {\n      \"name\": \"instrument_id\",\n      \"type\": \"string\",\n      \"doc\": \"Instrument this tick observation is for. Matches Tick.instrument_id.\"\n    }\n  ]\n}"
 """The exact source .avsc text, embedded so callers need no filesystem
 path to the schema at runtime. Parse with avro.schema.parse(SCHEMA_JSON)."""
 
 
 @dataclass(frozen=True)
 class TickKey:
-    """Kafka message key for the ticks topic. Keyed by instrument_id so all ticks for one instrument land on the same partition, in order."""
+    """Kafka message key for the market.ticks topic. Keyed by instrument_id so all ticks for one instrument land on the same partition, in order."""
 
     instrument_id: str
 

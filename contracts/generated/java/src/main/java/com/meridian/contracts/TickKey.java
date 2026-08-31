@@ -18,13 +18,13 @@ import org.apache.avro.message.BinaryMessageEncoder;
 import org.apache.avro.message.BinaryMessageDecoder;
 import org.apache.avro.message.SchemaStore;
 
-/** Kafka message key for the ticks topic. Keyed by instrument_id so all ticks for one instrument land on the same partition, in order. */
+/** Kafka message key for the market.ticks topic. Keyed by instrument_id so all ticks for one instrument land on the same partition, in order. */
 @org.apache.avro.specific.AvroGenerated
 public class TickKey extends org.apache.avro.specific.SpecificRecordBase implements org.apache.avro.specific.SpecificRecord {
   private static final long serialVersionUID = 4703312695866254894L;
 
 
-  public static final org.apache.avro.Schema SCHEMA$ = new org.apache.avro.Schema.Parser().parse("{\"type\":\"record\",\"name\":\"TickKey\",\"namespace\":\"com.meridian.contracts\",\"doc\":\"Kafka message key for the ticks topic. Keyed by instrument_id so all ticks for one instrument land on the same partition, in order.\",\"fields\":[{\"name\":\"instrument_id\",\"type\":{\"type\":\"string\",\"avro.java.string\":\"String\"},\"doc\":\"Instrument this tick observation is for. Matches Tick.instrument_id.\"}]}");
+  public static final org.apache.avro.Schema SCHEMA$ = new org.apache.avro.Schema.Parser().parse("{\"type\":\"record\",\"name\":\"TickKey\",\"namespace\":\"com.meridian.contracts\",\"doc\":\"Kafka message key for the market.ticks topic. Keyed by instrument_id so all ticks for one instrument land on the same partition, in order.\",\"fields\":[{\"name\":\"instrument_id\",\"type\":{\"type\":\"string\",\"avro.java.string\":\"String\"},\"doc\":\"Instrument this tick observation is for. Matches Tick.instrument_id.\"}]}");
   public static org.apache.avro.Schema getClassSchema() { return SCHEMA$; }
 
   private static final SpecificData MODEL$ = new SpecificData();

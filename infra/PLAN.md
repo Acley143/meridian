@@ -19,7 +19,7 @@ Postgres to develop against.
 **Partition counts are set once, at topic creation, and are not a tuning
 knob to revisit casually (ADR-0016).** Kafka's default partitioner hashes
 a message's key modulo the partition count, so changing partition count on
-an already-keyed topic (`ticks`, `risk.snapshots`, `portfolio.state`)
+an already-keyed topic (`market.ticks`, `risk.snapshots`, `portfolio.state`)
 silently redistributes future messages for the same key to a different
 partition than past ones — breaking the per-key ordering every consumer of
 those topics depends on, with no error anywhere. Whatever topic-creation

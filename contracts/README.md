@@ -13,6 +13,24 @@ in Meridian, derived mechanically from `docs/domain-model.md`.
 - `tests/` — contract tests: round-trip (each language), cross-language
   decimal fidelity, and schema-evolution tests. See "Testing" below.
 
+## Topic naming convention
+
+Kafka topic names are `<domain>.<entity>`: lowercase, dot-separated,
+entity **plural** for a stream of events, **singular** for compacted
+state. Domains in use: `market`, `risk`, `portfolio`.
+
+| Topic | Domain | Entity | Why this shape |
+|---|---|---|---|
+| `market.ticks` | `market` | plural (`ticks`) | A stream of tick events. |
+| `risk.snapshots` | `risk` | plural (`snapshots`) | A stream of snapshot events — the name also matches the `RiskSnapshot` type. |
+| `portfolio.state` | `portfolio` | singular (`state`) | Log-compacted (ADR-0003) — one current value per key, not a stream of distinct events. |
+
+This is a style rule, not recorded as an ADR — see `docs/adr/0016-partition-key-semantics.md`
+for the decision that actually constrains behavior (the partition key and
+the ordering guarantee it buys). Naming has no meaningful alternative and
+no consequence beyond consistency; the ADR log is for decisions that
+constrain the system, not for style, so it stays uncluttered.
+
 ## Regenerating bindings
 
 **Generated code is never hand-edited.** Python and Java bindings for the

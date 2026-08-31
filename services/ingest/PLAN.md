@@ -43,7 +43,7 @@ runs lives in `libs/quant-core`, not here.
   producer wrapper.
 
 ## Interfaces
-Produces to the `ticks` Kafka topic, schema `contracts/avro/tick.avsc`. No
+Produces to the `market.ticks` Kafka topic, schema `contracts/avro/tick.avsc`. No
 inbound interface — this is a pure source.
 
 ## Definition of done

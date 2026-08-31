@@ -1,5 +1,9 @@
 package com.meridian.coreservice.kafka;
 
+import java.time.Duration;
+import java.util.Set;
+import org.apache.kafka.clients.consumer.KafkaConsumer;
+import org.apache.kafka.common.TopicPartition;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -96,10 +100,42 @@ public abstract class AbstractKafkaIntegrationTest {
   // class javadoc above). TRUNCATE-between-tests is the isolation strategy precisely because it
   // works with one shared container AND one cached context, sidestepping the cache-key problem
   // entirely instead of re-triggering it.
+  //
+  // Do NOT "fix" Kafka isolation (see seekToEnd below) by deleting and recreating topics between
+  // tests as the Kafka-side symmetric answer to the truncation above, either. The Spring-managed
+  // consumer bean (RiskSnapshotConsumerService's production instance, group
+  // core-service-risk-snapshots) is live and already subscribed for the life of this shared
+  // context; topic deletion is asynchronous on the broker, and pulling a topic out from under a
+  // running, subscribed consumer triggers rebalances and unpredictable UNKNOWN_TOPIC_OR_PARTITION/
+  // timeout errors on whichever test happens to be running when the deletion lands. That trades
+  // this class's current deterministic failure for a flaky one, which is worse, not better.
+  // seekToEnd (below) fixes this on the read side, per test-created consumer, instead.
   @BeforeEach
   void truncateAllTables() {
     jdbcTemplate.execute(
         "TRUNCATE audit_log, risk_snapshots, trades, positions, portfolios, instruments"
             + " RESTART IDENTITY CASCADE");
+  }
+
+  // Kafka topics are shared across every test class in this suite and are never truncated the
+  // way the tables above are -- only Postgres is reset per test. A brand-new consumer group with
+  // auto.offset.reset=earliest on a shared topic (portfolio.state, risk.snapshots) therefore reads
+  // every earlier test class's leftover messages too, including ones whose Postgres rows this
+  // @BeforeEach has since wiped. Call this right after subscribe (i.e. right after constructing
+  // the consumer, before producing the test's OWN records) so it only ever sees what this test
+  // produces. Do not call this on a consumer meant to read history that predates its own creation
+  // -- that is the intended, real behavior for a small number of tests (e.g.
+  // RiskSnapshotConsumptionTest simulating a consumer-group offset reset over an
+  // already-produced message), not a bug seekToEnd should paper over.
+  static void seekToEnd(KafkaConsumer<?, ?> consumer) {
+    Set<TopicPartition> assignment = consumer.assignment();
+    while (assignment.isEmpty()) {
+      consumer.poll(Duration.ofMillis(100));
+      assignment = consumer.assignment();
+    }
+    consumer.seekToEnd(assignment);
+    for (TopicPartition partition : assignment) {
+      consumer.position(partition); // force the lazy seek to resolve before returning
+    }
   }
 }

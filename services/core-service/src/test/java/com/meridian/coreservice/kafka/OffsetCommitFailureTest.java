@@ -63,26 +63,6 @@ class OffsetCommitFailureTest extends AbstractKafkaIntegrationTest {
     Instant asOf2 = Instant.parse("2026-08-31T12:01:00Z"); // the poisoned one
     Instant asOf3 = Instant.parse("2026-08-31T12:02:00Z");
 
-    Properties props = new Properties();
-    props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, kafkaProperties.getBootstrapServers());
-    props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, KafkaAvroSerializer.class.getName());
-    props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, KafkaAvroSerializer.class.getName());
-    props.put(
-        AbstractKafkaSchemaSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG,
-        kafkaProperties.getSchemaRegistryUrl());
-    try (KafkaProducer<RiskSnapshotKey, RiskSnapshot> producer = new KafkaProducer<>(props)) {
-      RiskSnapshotKey key = new RiskSnapshotKey("PF-POISON");
-      producer
-          .send(new ProducerRecord<>("risk.snapshots", key, sampleSnapshot("PF-POISON", asOf1)))
-          .get();
-      producer
-          .send(new ProducerRecord<>("risk.snapshots", key, sampleSnapshot("PF-POISON", asOf2)))
-          .get();
-      producer
-          .send(new ProducerRecord<>("risk.snapshots", key, sampleSnapshot("PF-POISON", asOf3)))
-          .get();
-    }
-
     AtomicBoolean poisoned = new AtomicBoolean(true);
     RiskSnapshotWriter poisonableWriter =
         snapshot -> {
@@ -109,6 +89,32 @@ class OffsetCommitFailureTest extends AbstractKafkaIntegrationTest {
     RiskSnapshotConsumerService consumer =
         new RiskSnapshotConsumerService(kafkaProperties, poisonableWriter, "poison-test-group");
     try {
+      // Skip past anything earlier test classes left on the shared risk.snapshots topic before
+      // this test produces its own records -- otherwise this fresh, earliest-reset consumer group
+      // reads that leftover history too, including records referencing portfolios @BeforeEach has
+      // since truncated, and fails on the FK violation instead of ever reaching this scenario.
+      consumer.seekToEnd();
+
+      Properties props = new Properties();
+      props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, kafkaProperties.getBootstrapServers());
+      props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, KafkaAvroSerializer.class.getName());
+      props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, KafkaAvroSerializer.class.getName());
+      props.put(
+          AbstractKafkaSchemaSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG,
+          kafkaProperties.getSchemaRegistryUrl());
+      try (KafkaProducer<RiskSnapshotKey, RiskSnapshot> producer = new KafkaProducer<>(props)) {
+        RiskSnapshotKey key = new RiskSnapshotKey("PF-POISON");
+        producer
+            .send(new ProducerRecord<>("risk.snapshots", key, sampleSnapshot("PF-POISON", asOf1)))
+            .get();
+        producer
+            .send(new ProducerRecord<>("risk.snapshots", key, sampleSnapshot("PF-POISON", asOf2)))
+            .get();
+        producer
+            .send(new ProducerRecord<>("risk.snapshots", key, sampleSnapshot("PF-POISON", asOf3)))
+            .get();
+      }
+
       // Poll until the batch containing all three records arrives, then process it. The first
       // record (asOf1) must write+commit; the second (asOf2, poisoned) must throw, which must
       // propagate out of pollOnce -- proving the loop stopped there rather than swallowing the

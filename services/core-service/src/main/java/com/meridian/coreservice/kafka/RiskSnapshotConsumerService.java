@@ -9,6 +9,7 @@ import jakarta.annotation.PreDestroy;
 import java.time.Duration;
 import java.util.Collections;
 import java.util.Properties;
+import java.util.Set;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
@@ -105,6 +106,25 @@ public class RiskSnapshotConsumerService {
       written++;
     }
     return written;
+  }
+
+  /**
+   * Test-only: waits for this consumer's partition assignment then seeks to the end of each
+   * assigned partition, so it only sees records produced after this call -- not leftover messages
+   * earlier test classes left on the shared {@code risk.snapshots} topic (Kafka isn't truncated
+   * between tests, only Postgres is). Call right after construction, before producing the test's
+   * own records.
+   */
+  void seekToEnd() {
+    Set<TopicPartition> assignment = consumer.assignment();
+    while (assignment.isEmpty()) {
+      consumer.poll(Duration.ofMillis(100));
+      assignment = consumer.assignment();
+    }
+    consumer.seekToEnd(assignment);
+    for (TopicPartition partition : assignment) {
+      consumer.position(partition);
+    }
   }
 
   @PreDestroy

@@ -44,16 +44,6 @@ class PortfolioMutationPublishesStateTest extends AbstractKafkaIntegrationTest {
         "INSERT INTO instruments (instrument_id, underlying_id, instrument_type, currency,"
             + " contract_size) VALUES ('AAPL', 'AAPL', 'EQUITY', 'USD', 1)");
 
-    Instant eventTime = Instant.parse("2026-08-31T12:00:00Z");
-    portfolioMutationService.applyTrade(
-        "trade-1",
-        "PF-STATE-TEST",
-        "AAPL",
-        new BigDecimal("100.00000000"),
-        new BigDecimal("150.00000000"),
-        eventTime,
-        Instant.now());
-
     Properties props = new Properties();
     props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, kafkaProperties.getBootstrapServers());
     props.put(ConsumerConfig.GROUP_ID_CONFIG, "portfolio-state-assert-" + System.nanoTime());
@@ -68,6 +58,20 @@ class PortfolioMutationPublishesStateTest extends AbstractKafkaIntegrationTest {
 
     try (KafkaConsumer<PortfolioStateKey, PortfolioState> consumer = new KafkaConsumer<>(props)) {
       consumer.subscribe(Collections.singletonList("portfolio.state"));
+      // Skip past anything earlier test classes left on the shared portfolio.state topic before
+      // triggering this test's own mutation -- otherwise this fresh, earliest-reset consumer
+      // group reads that leftover history too.
+      seekToEnd(consumer);
+
+      Instant eventTime = Instant.parse("2026-08-31T12:00:00Z");
+      portfolioMutationService.applyTrade(
+          "trade-1",
+          "PF-STATE-TEST",
+          "AAPL",
+          new BigDecimal("100.00000000"),
+          new BigDecimal("150.00000000"),
+          eventTime,
+          Instant.now());
 
       ConsumerRecord<PortfolioStateKey, PortfolioState> found = null;
       long deadline = System.currentTimeMillis() + Duration.ofSeconds(30).toMillis();

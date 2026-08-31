@@ -48,6 +48,22 @@ Q4-only. Drive 1,000 ticks/sec for 30 minutes against the full local stack
 and assert the throughput and latency budgets in `docs/nfr-budget.md`
 directly, plus no consumer lag growth.
 
+## Singleton test infrastructure requires explicit reset of every kind of state
+
+Containers, Spring contexts, and brokers are shared for speed. Each kind of
+state they hold must be reset deliberately, and it is easy to enumerate only
+some of them:
+
+- **Spring context** — shared by cache; `@DynamicPropertySource` values are
+  not part of the cache key, so per-class configuration does not isolate
+  anything.
+- **Postgres** — shared container; reset by `TRUNCATE` in `@BeforeEach`.
+- **Kafka** — shared broker; topics are not reset. Tests creating their own
+  consumers must `seekToEnd` before producing.
+
+When adding a new kind of shared state, add it to this list. Three separate
+failures in Q1 traced to resetting some state but not all of it.
+
 ## Rules
 
 - A bug fix starts with a failing test that reproduces it, added in the same

@@ -90,15 +90,6 @@ class CompactionConfigurationTest extends AbstractKafkaIntegrationTest {
         new PortfolioState(
             "PF-COMPACTION-TEST", List.of(), Instant.parse("2026-08-31T12:01:00Z"), Instant.now());
 
-    try (KafkaProducer<PortfolioStateKey, PortfolioState> producer = new KafkaProducer<>(props)) {
-      producer.send(new ProducerRecord<>("portfolio.state", key, first)).get();
-      producer.send(new ProducerRecord<>("portfolio.state", key, second)).get();
-    }
-
-    // Not asserting compaction removed the first message here -- the cleaner may not have run
-    // yet in this short-lived test, which is exactly the limitation documented above. This
-    // confirms both messages round-trip correctly under the same key, in send order, the raw-log
-    // behavior compaction is layered on top of.
     Properties consumerProps = new Properties();
     consumerProps.put(
         org.apache.kafka.clients.consumer.ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG,
@@ -125,6 +116,20 @@ class CompactionConfigurationTest extends AbstractKafkaIntegrationTest {
     try (org.apache.kafka.clients.consumer.KafkaConsumer<PortfolioStateKey, PortfolioState>
         consumer = new org.apache.kafka.clients.consumer.KafkaConsumer<>(consumerProps)) {
       consumer.subscribe(Collections.singletonList("portfolio.state"));
+      // Skip past anything earlier test classes left on the shared portfolio.state topic before
+      // this test produces its own records -- otherwise this fresh, earliest-reset consumer group
+      // reads that leftover history too.
+      seekToEnd(consumer);
+
+      try (KafkaProducer<PortfolioStateKey, PortfolioState> producer = new KafkaProducer<>(props)) {
+        producer.send(new ProducerRecord<>("portfolio.state", key, first)).get();
+        producer.send(new ProducerRecord<>("portfolio.state", key, second)).get();
+      }
+
+      // Not asserting compaction removed the first message here -- the cleaner may not have run
+      // yet in this short-lived test, which is exactly the limitation documented above. This
+      // confirms both messages round-trip correctly under the same key, in send order, the
+      // raw-log behavior compaction is layered on top of.
       long deadline = System.currentTimeMillis() + 30_000;
       while (observed.size() < 2 && System.currentTimeMillis() < deadline) {
         consumer

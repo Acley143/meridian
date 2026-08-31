@@ -18,6 +18,7 @@ lint:
 	ruff check libs services apps --exclude apps/dashboard
 	mypy --strict libs
 	PYTHONPATH=libs/quant-core lint-imports --config libs/quant-core/.importlinter
+	PYTHONPATH=libs/quant-core:libs/quant-io lint-imports --config libs/.importlinter
 	mvn -pl services/core-service com.diffplug.spotless:spotless-maven-plugin:check
 	cd apps/dashboard && npx tsc --noEmit && npx eslint .
 

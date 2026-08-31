@@ -74,4 +74,30 @@ flagged as such in the PR.
   real thing, closing both gaps. Owner: Eng-A, by-when: Q3 planning.
 
 ## Session log
-(none yet)
+- 2026-08-30 (ingest session, Eng-C, out-of-scope fix): `docker-compose.yml`
+  did not actually work when this session needed it as the smoke test for
+  Kafka/schema-registry. Two bugs, both fixed narrowly to unblock the
+  session rather than as a full infra pass:
+  1. `CLUSTER_ID: MeridianLocalDevCluster1` is not a valid base64-encoded
+     16-byte UUID (KRaft requires one) — the broker exited 1 on every
+     startup. Replaced with a generated valid one.
+  2. Kafka's single `PLAINTEXT` listener was advertised as
+     `localhost:9092` to every client, including other containers. Inside
+     the `schema-registry` container, `localhost` means itself, not the
+     `kafka` container, so schema-registry could never actually reach the
+     broker (`Coordinator load in progress: retrying` in a loop, or an
+     outright connection refusal, depending on timing). Split into two
+     listeners: `PLAINTEXT` advertised as `kafka:9092` for other
+     containers on the compose network, `PLAINTEXT_HOST` advertised as
+     `localhost:9093` for the host machine.
+  **Interface change:** Kafka's host-facing port is now **9093**, not 9092
+  (`infra/PLAN.md`'s own "Interfaces" section named `localhost:9092` as
+  what every workstream codes against). `services/ingest/ingest/cli.py`'s
+  default was updated to match. Any other workstream hardcoding 9092 needs
+  the same update.
+  Owner: Eng-A, by-when: review this fix properly as part of this
+  workstream's own Q1 deliverables — it was done under time pressure from
+  another session and hasn't had this workstream's usual scrutiny (e.g.
+  whether `PLAINTEXT_HOST`/`9093` are the names/numbers Eng-A would
+  actually want, or whether `make up`/`README.md` need updating to mention
+  the new port).

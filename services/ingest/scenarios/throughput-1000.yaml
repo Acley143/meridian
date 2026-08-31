@@ -1,0 +1,110 @@
+# Sized for the 1,000 ticks/sec sustained-throughput NFR (docs/nfr-budget.md).
+# 20 instruments x 3,000 ticks = 60,000 records: enough for a `replay`-mode
+# run to reach and hold steady-state throughput, not just burst and finish.
+# Changing any value below requires a new scenario_id (see README.md).
+scenario_id: throughput-1000-v1
+seed: 7
+start_time: "2026-01-01T00:00:00Z"
+tick_interval_seconds: 0.001
+tick_count: 3000
+instruments:
+  INST-00:
+    s0: "100.00"
+    drift: 0.04
+    volatility: 0.22
+    currency: USD
+  INST-01:
+    s0: "101.50"
+    drift: 0.02
+    volatility: 0.18
+    currency: USD
+  INST-02:
+    s0: "98.75"
+    drift: 0.06
+    volatility: 0.30
+    currency: USD
+  INST-03:
+    s0: "250.00"
+    drift: 0.01
+    volatility: 0.15
+    currency: EUR
+  INST-04:
+    s0: "42.10"
+    drift: 0.03
+    volatility: 0.28
+    currency: USD
+  INST-05:
+    s0: "310.25"
+    drift: 0.05
+    volatility: 0.20
+    currency: GBP
+  INST-06:
+    s0: "75.00"
+    drift: 0.04
+    volatility: 0.24
+    currency: USD
+  INST-07:
+    s0: "63.40"
+    drift: 0.02
+    volatility: 0.19
+    currency: USD
+  INST-08:
+    s0: "189.90"
+    drift: 0.03
+    volatility: 0.26
+    currency: EUR
+  INST-09:
+    s0: "500.00"
+    drift: 0.01
+    volatility: 0.12
+    currency: USD
+  INST-10:
+    s0: "88.88"
+    drift: 0.05
+    volatility: 0.31
+    currency: USD
+  INST-11:
+    s0: "142.30"
+    drift: 0.02
+    volatility: 0.17
+    currency: GBP
+  INST-12:
+    s0: "27.60"
+    drift: 0.06
+    volatility: 0.35
+    currency: USD
+  INST-13:
+    s0: "410.00"
+    drift: 0.02
+    volatility: 0.21
+    currency: USD
+  INST-14:
+    s0: "55.55"
+    drift: 0.04
+    volatility: 0.23
+    currency: EUR
+  INST-15:
+    s0: "220.20"
+    drift: 0.03
+    volatility: 0.16
+    currency: USD
+  INST-16:
+    s0: "33.33"
+    drift: 0.05
+    volatility: 0.29
+    currency: USD
+  INST-17:
+    s0: "178.40"
+    drift: 0.01
+    volatility: 0.14
+    currency: GBP
+  INST-18:
+    s0: "92.15"
+    drift: 0.04
+    volatility: 0.27
+    currency: USD
+  INST-19:
+    s0: "365.75"
+    drift: 0.02
+    volatility: 0.18
+    currency: USD

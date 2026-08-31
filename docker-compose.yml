@@ -2,17 +2,29 @@ services:
   kafka:
     image: confluentinc/cp-kafka:7.6.1
     ports:
-      - "9092:9092"
+      - "9093:9093"
     environment:
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: broker,controller
-      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      # Two PLAINTEXT listeners: PLAINTEXT (advertised as kafka:9092) for
+      # other containers on the compose network (schema-registry), and
+      # PLAINTEXT_HOST (advertised as localhost:9093) for processes on the
+      # host machine. The previous single-listener config advertised
+      # "localhost:9092" to every client, including containers -- inside
+      # the schema-registry container, "localhost" is itself, not the kafka
+      # container, so it could never actually reach the broker. See
+      # infra/PLAN.md session log.
+      KAFKA_LISTENERS: PLAINTEXT://:9092,PLAINTEXT_HOST://:9093,CONTROLLER://:9094
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:9093
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
       KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
-      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9094
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-      CLUSTER_ID: MeridianLocalDevCluster1
+      # Must be a base64-encoded 16-byte UUID (KRaft requirement) -- the
+      # previous value ("MeridianLocalDevCluster1") is not, and made the
+      # broker exit 1 on every startup. See infra/PLAN.md session log.
+      CLUSTER_ID: d7DtnaXiTKKe0JV6B_k4-w
 
   schema-registry:
     image: confluentinc/cp-schema-registry:7.6.1

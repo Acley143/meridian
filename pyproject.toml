@@ -1,0 +1,21 @@
+[tool.pytest.ini_options]
+# Fixes pytest's rootdir at the repo root so the shared `conftest.py`
+# here (the testcontainers Kafka + schema-registry stack used by
+# libs/quant-io and services/ingest contract tests) is always collected,
+# regardless of which subdirectory `pytest` is invoked against.
+
+[tool.mypy]
+# `contracts/generated/python` is installed editable (PEP 660), which mypy's
+# static import resolution can't see -- it doesn't execute the installed
+# import-hook finder the way the real interpreter does, so `import
+# meridian_contracts` otherwise fails as "Cannot find implementation or
+# library stub". Pointing mypy at the source directory directly sidesteps
+# that; this is the first code (libs/quant-io) to actually import the
+# generated bindings, which is why the gap wasn't visible before now.
+mypy_path = "contracts/generated/python"
+
+[[tool.mypy.overrides]]
+# No type stubs published for confluent-kafka; this is the boundary
+# libs/quant-io exists to own (ADR-0010), so the untyped-ness stops here.
+module = "confluent_kafka.*"
+ignore_missing_imports = true

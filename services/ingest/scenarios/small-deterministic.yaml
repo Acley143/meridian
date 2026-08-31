@@ -1,0 +1,18 @@
+# Small, fast, deterministic scenario for unit and contract tests.
+# Changing any value below requires a new scenario_id (see README.md).
+scenario_id: small-deterministic-v1
+seed: 42
+start_time: "2026-01-01T00:00:00Z"
+tick_interval_seconds: 1.0
+tick_count: 20
+instruments:
+  AAPL:
+    s0: "150.00"
+    drift: 0.05
+    volatility: 0.20
+    currency: USD
+  MSFT:
+    s0: "300.00"
+    drift: 0.03
+    volatility: 0.25
+    currency: USD

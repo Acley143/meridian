@@ -1,0 +1,11 @@
+[importlinter]
+root_packages =
+    quant_core
+    quant_io
+
+[importlinter:contract:1]
+name = quant-io may depend on quant-core; never the reverse
+type = layers
+layers =
+    quant_io
+    quant_core

@@ -4,7 +4,10 @@ version = "0.1.0"
 description = "Kafka/schema-registry I/O adapters for Meridian's Python services."
 requires-python = ">=3.12"
 dependencies = [
-    "confluent-kafka>=2.4",
+    # Pinned to 2.4.x: 2.15's schema_registry module unconditionally imports
+    # an async client requiring httpx/authlib/cachetools, none of which are
+    # otherwise needed here. Revisit the pin once that's opt-in upstream.
+    "confluent-kafka>=2.4,<2.5",
     "fastavro>=1.9",
     "quant-core",
 ]

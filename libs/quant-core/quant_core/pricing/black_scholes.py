@@ -1,5 +1,10 @@
 """Black-Scholes closed-form pricing for vanilla European options.
 
+Every function here prices and computes Greeks **per single unit of
+underlying**, in the underlying's own currency, with no contract multiplier
+applied (ADR-0014). `services/pricer` applies `Instrument.contract_size`
+exactly once, at the position level — never here.
+
 Continuous dividend yield, all five Greeks (delta, gamma, vega, theta, rho)
 per the sign/unit conventions in `docs/conventions.md`. Uses
 `statistics.NormalDist`, which is erf-based and accurate in the tails —
@@ -33,13 +38,14 @@ from quant_core.types import (
     validate_option_against_market,
 )
 
-_DAYS_PER_YEAR = timedelta(days=365.25)
+_DAYS_PER_YEAR = timedelta(days=365)
 _NORMAL = NormalDist()
 _SQRT_2PI = math.sqrt(2.0 * math.pi)
 
 
 def _time_to_expiry(option: EuropeanOption, market: MarketState) -> float:
-    """ACT/365F, per docs/conventions.md — years, not days."""
+    """ACT/365F: actual calendar days between valuation and expiry, divided
+    by a fixed 365-day year. Years, not days. Per docs/conventions.md."""
     return (option.expiry - market.valuation_time) / _DAYS_PER_YEAR
 
 
@@ -48,7 +54,8 @@ def _std_normal_pdf(x: float) -> float:
 
 
 def price(option: EuropeanOption, market: MarketState) -> PricingResult:
-    """Price and all five Greeks for a vanilla European option."""
+    """Price and all five Greeks for a vanilla European option, per unit of
+    underlying (ADR-0014) — no contract multiplier applied."""
     validate_option_against_market(option, market)
 
     s = to_model(market.spot)

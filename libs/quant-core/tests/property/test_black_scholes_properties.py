@@ -7,7 +7,7 @@ import math
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
-from hypothesis import given, settings
+from hypothesis import example, given, settings
 from hypothesis import strategies as st
 from quant_core.pricing.black_scholes import price
 from quant_core.types import EuropeanOption, MarketState, OptionRight
@@ -33,7 +33,7 @@ def _market(spot: float, vol: float, r: float, q: float) -> MarketState:
 
 
 def _option(strike: float, ttm_years: float, right: OptionRight) -> EuropeanOption:
-    expiry = _VALUATION_TIME + timedelta(days=ttm_years * 365.25)
+    expiry = _VALUATION_TIME + timedelta(days=ttm_years * 365)
     return EuropeanOption(underlying_id="TEST", strike=Decimal(str(strike)), expiry=expiry, right=right)
 
 
@@ -91,6 +91,14 @@ def test_price_monotonic_in_volatility(spot: float, strike: float, r: float, q: 
 
 @settings(max_examples=200)
 @given(spot=_spot, strike=_strike, vol=_vol, r=_rate, q=_div, ttm=_ttm_years, is_call=st.booleans())
+# Pin the regimes where the naive intrinsic floor (spot - strike) and the
+# correct forward-discounted floor diverge, rather than leaving it to
+# chance whether random search ever combines a deep-ITM put with a high
+# rate and a long tenor, or a deep-ITM call with a high dividend yield.
+# Without these, wide-but-uncorrelated ranges can pass 200 random examples
+# without ever exercising the regime this property exists to guard.
+@example(spot=50.0, strike=100.0, vol=0.2, r=0.10, q=0.0, ttm=5.0, is_call=False)
+@example(spot=200.0, strike=100.0, vol=0.2, r=0.0, q=0.10, ttm=5.0, is_call=True)
 def test_price_at_least_forward_discounted_intrinsic(spot: float, strike: float, vol: float, r: float, q: float, ttm: float, is_call: bool) -> None:
     # The no-arbitrage floor for a *European* option under a continuous
     # dividend yield is intrinsic value on the discounted forward

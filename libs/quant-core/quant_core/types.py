@@ -77,6 +77,10 @@ class PricingResult:
     conventions in `docs/conventions.md` — in particular, theta is
     per calendar year and vega/rho are per 1.00 absolute change, not
     per 1%/basis point.
+
+    `price` and every Greek are **per single unit of underlying**, with no
+    contract multiplier applied (ADR-0014) — `services/pricer` applies
+    `Instrument.contract_size` exactly once, at the position level.
     """
 
     price: Decimal

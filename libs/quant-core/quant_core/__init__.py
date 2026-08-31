@@ -19,5 +19,13 @@ Bump this only in a PR that changes model behavior, and say in that PR's
 description what changed about the model. A PR that doesn't change pricing
 behavior must not bump this.
 
+Version identity only binds once a `RiskSnapshot` carrying it has actually
+been persisted (ADR-0007) — as of this version, none has: `services/pricer`
+doesn't exist yet. Until the first snapshot is written, a model-behavior
+change here (e.g. the ACT/365F day-count fix in this version) does not
+fork any stored history, so it does not itself force a bump. Don't take
+that as license to skip bumping later — once snapshots exist, the rule
+above is absolute again.
+
 Q1 ships 0.1.0.
 """

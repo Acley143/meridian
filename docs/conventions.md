@@ -29,15 +29,19 @@ everywhere they appear as a `quant_core` input or output.
 
 ## Time to expiry
 
-Time to expiry `T` is in **years**, computed as:
+Time to expiry `T` is in **years**, under the **ACT/365F** day-count
+convention: the actual number of calendar days between `valuation_time` and
+`expiry` (the "actual" in ACT), divided by a **fixed 365-day year** (the
+"365 Fixed" in 365F — never 365.25, never the calendar's actual day count
+for that particular year). Computed as:
 
 ```
-T = (expiry - valuation_time) / timedelta(days=365.25)
+T = (expiry - valuation_time) / timedelta(days=365)
 ```
 
-ACT/365F day-count convention. This is stated explicitly here because it is
-not otherwise inferable from the code, and a different day-count convention
-silently changes every Greek that depends on `T` (theta, vega, rho all do).
+This is stated explicitly here because it is not otherwise inferable from
+the code, and a different day-count convention silently changes every Greek
+that depends on `T` (theta, vega, rho all do).
 
 ## Money and quantities
 

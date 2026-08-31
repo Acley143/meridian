@@ -38,6 +38,22 @@ Run the load test against every line in `docs/nfr-budget.md`, fix what fails,
 and write up the results. No new features unless a budget line requires one
 to pass.
 
+## Open questions
+
+- **Cross-currency portfolio aggregation (Q2 blocker).** Per ADR-0014,
+  `libs/quant-core` prices each instrument in that instrument's own
+  currency and has no visibility into a portfolio's `base_currency`
+  (`docs/domain-model.md#Portfolio`) — it cannot detect or prevent a
+  currency mismatch by construction. Q2's portfolio VaR is the first
+  deliverable that aggregates positions across a portfolio; if any two
+  positions in a book are quoted in different currencies, summing them
+  without conversion is silently wrong and no existing component catches
+  it. Needs a decision on where FX conversion happens (`services/pricer` at
+  aggregation time is the natural place, but that's not yet decided) before
+  VaR aggregation is implemented. Owner: TBD (spans `services/pricer` and
+  `services/core-service`, not a single workstream), by-when: before Q2
+  VaR work starts.
+
 ## Team & ownership
 
 See `docs/rotation.md` for who owns which surface, per quarter.

@@ -18,6 +18,14 @@ Consumes ticks and portfolio state, prices every position using
       aggregation beyond per-position pass-through is Q2+).
 - [ ] Idempotent-upsert-safe production (no duplicate/gap under at-least-once
       redelivery).
+- [ ] Apply `Instrument.contract_size` to `quant-core`'s per-unit
+      `PricingResult` exactly once, at the position level, when combining a
+      priced position into `portfolio_value` (ADR-0014 — `quant-core`
+      itself never sees or applies this multiplier). Test: a position with
+      a non-unit `contract_size` (e.g. 100) must produce a portfolio value
+      that fails if the multiplication is removed — not a general
+      pricing-smoke test, one that specifically pins the multiplier being
+      applied.
 
 ## Explicitly out of scope
 - Portfolio-level VaR computation (Q2) — `var_95` is produced but not yet
@@ -34,8 +42,9 @@ Consumes ticks and portfolio state, prices every position using
 - **Must not touch:** `libs/quant-core` internals (may depend on it),
   `contracts/` (coordinate with Eng-A for any schema change).
 - **Depends on:** `contracts/avro/{tick,portfolio-state,risk-snapshot}.avsc`
-  (ADR-0002), ADR-0003, ADR-0004, ADR-0005, ADR-0007, `libs/quant-core`,
-  `libs/quant-io`.
+  (ADR-0002), ADR-0003, ADR-0004, ADR-0005, ADR-0007, ADR-0014 (quant-core
+  prices per unit of underlying; this service owns `contract_size`),
+  `libs/quant-core`, `libs/quant-io`.
 
 ## Interfaces
 Consumes `ticks` and `portfolio.state`. Produces `risk.snapshots`, schema

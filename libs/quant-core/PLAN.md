@@ -74,18 +74,18 @@ one.
       `tests/golden/test_black_scholes_golden.py`).
 
 ## Open questions
-- Time-to-expiry day-count: resolved as ACT/365F with a 365.25-day year
-  (not the strict ACT/365F 365-day divisor) per the Q1 task spec;
-  documented in `docs/conventions.md`. Worth confirming with Eng-B —
-  "ACT/365F" conventionally means a fixed 365-day divisor, so pairing it
-  with 365.25 is unusual and may have been a spec typo. Owner: Eng-B,
-  by-when: before any pricer consumes quant-core in `services/pricer`.
+- ~~Time-to-expiry day-count~~ **Resolved.** ACT/365F: actual calendar days
+  divided by a fixed 365-day year (not 365.25 — an earlier draft of this
+  plan paired the two, which was an error, not a deliberate choice).
+  `T = (expiry - valuation_time) / timedelta(days=365)`. Documented in
+  `docs/conventions.md`.
 - `EuropeanOption` omits `instrument_id`, `currency`, and `contract_size`
-  from `docs/domain-model.md#Instrument` — pricing doesn't need them, and
-  currency/contract_size conversion belongs at the position/portfolio
-  layer (`services/pricer`), not inside a pure per-instrument pricer.
-  Owner: Eng-B, by-when: revisit if `services/pricer`'s integration needs
-  a fuller type than the pricing-scoped one here.
+  from `docs/domain-model.md#Instrument` — pricing doesn't need them.
+  `contract_size` ownership is now settled by ADR-0014: quant-core prices
+  per unit of underlying, and `services/pricer` applies `contract_size`
+  exactly once at the position level (see that workstream's `PLAN.md`).
+  `currency` is out of scope for Q1 per ADR-0014 and tracked as a root
+  `PLAN.md` open question ahead of Q2 portfolio VaR.
 - `simulate_path`'s `PathParams` (s0, drift, volatility, dt) is a new type
   with no `docs/domain-model.md` counterpart, since it's a pure numerics
   input, not a wire type. Owner: Eng-B, by-when: N/A unless
@@ -106,3 +106,12 @@ one.
   the continuous dividend yield is zero; implemented and tested the
   correct forward-discounted no-arbitrage floor instead (see
   `tests/property/test_black_scholes_properties.py`).
+- 2026-08-30 (follow-up, same day): Fixed the day-count divisor — the
+  365.25 figure in the first pass was an error against the stated ACT/365F
+  convention, not a deliberate deviation; changed to a fixed 365 and
+  regenerated the golden fixture. Added a named boundary test for the put
+  no-arbitrage floor breaking even at q=0 (deep ITM, long-dated, r>0) and
+  widened the property tests' rate/tenor ranges so that bound is actually
+  exercised, not just accidentally never triggered. Added ADR-0014 pinning
+  quant-core to per-unit-of-underlying pricing and giving `services/pricer`
+  sole ownership of the `contract_size` multiplier.

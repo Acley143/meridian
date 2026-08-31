@@ -25,7 +25,7 @@ _ABS_TOL = 5e-8
 
 
 def _build(case: dict[str, Any]) -> tuple[EuropeanOption, MarketState]:
-    expiry = _VALUATION_TIME + timedelta(days=case["time_to_expiry_years"] * 365.25)
+    expiry = _VALUATION_TIME + timedelta(days=case["time_to_expiry_years"] * 365)
     option = EuropeanOption(
         underlying_id="TEST",
         strike=Decimal(str(case["strike"])),

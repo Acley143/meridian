@@ -42,16 +42,16 @@ import org.springframework.stereotype.Component;
 @Component
 public class RiskSnapshotConsumerService {
 
-  private static final String TOPIC = "risk.snapshots";
+  private static final String DEFAULT_TOPIC = "risk.snapshots";
 
   private final KafkaConsumer<RiskSnapshotKey, RiskSnapshot> consumer;
   private final RiskSnapshotWriter writer;
 
-  // Explicit @Autowired: this class has a second (package-private, test-only) constructor below,
+  // Explicit @Autowired: this class has further (package-private, test-only) constructors below,
   // so Spring cannot infer which one to use on its own -- without this, bean creation fails with
   // "No default constructor found" (it does not fall back to the single public one). Found by
   // actually running the full application for the first time this session, not by any test --
-  // 05c's own tests always constructed this class directly (via the 3-arg constructor or
+  // 05c's own tests always constructed this class directly (via a test constructor or
   // reflection), so this ambiguity was never exercised through the real Spring container before.
   @org.springframework.beans.factory.annotation.Autowired
   public RiskSnapshotConsumerService(KafkaProperties kafkaProperties, RiskSnapshotWriter writer) {
@@ -60,6 +60,24 @@ public class RiskSnapshotConsumerService {
 
   RiskSnapshotConsumerService(
       KafkaProperties kafkaProperties, RiskSnapshotWriter writer, String groupId) {
+    this(kafkaProperties, writer, groupId, DEFAULT_TOPIC);
+  }
+
+  /**
+   * Test-only: lets a test give its consumer a private topic instead of the real {@code
+   * risk.snapshots}. The real {@link RiskSnapshotConsumerRunner} bean is live for the life of a
+   * shared {@code @SpringBootTest} context (see {@code AbstractKafkaIntegrationTest}'s class doc)
+   * and keeps polling {@code risk.snapshots} under its own consumer group throughout every test in
+   * the suite -- Kafka delivers to every consumer group independently, so a test that produces to
+   * the real topic gets its records written for real by that background consumer's own (genuine,
+   * unsubstituted) writer, regardless of what the test's own consumer group does. A test that
+   * injects a write failure to prove commit-after-write (e.g. {@code OffsetCommitFailureTest}) must
+   * use a topic the production consumer never subscribes to, or its assertions race a real write
+   * they have no way to prevent. Tests that deliberately want to observe the shared topic's history
+   * (e.g. {@code RiskSnapshotConsumptionTest}) use the 3-arg constructor above instead.
+   */
+  RiskSnapshotConsumerService(
+      KafkaProperties kafkaProperties, RiskSnapshotWriter writer, String groupId, String topic) {
     this.writer = writer;
 
     Properties props = new Properties();
@@ -78,7 +96,7 @@ public class RiskSnapshotConsumerService {
     props.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, false);
 
     this.consumer = new KafkaConsumer<>(props);
-    consumer.subscribe(Collections.singletonList(TOPIC));
+    consumer.subscribe(Collections.singletonList(topic));
   }
 
   /**

@@ -26,8 +26,20 @@ import org.springframework.jdbc.core.JdbcTemplate;
  * and everything after it in the batch did NOT, then flip the poison off and prove the exact same
  * poisoned record is genuinely REdelivered (not skipped) on the next poll -- not just that commit
  * wasn't called.
+ *
+ * <p>Produces to and consumes from a private topic ({@link #TOPIC}), not the real {@code
+ * risk.snapshots}: the real {@link RiskSnapshotConsumerRunner} bean is live for the life of this
+ * class's shared {@code @SpringBootTest} context and keeps polling {@code risk.snapshots} under its
+ * own consumer group throughout the whole suite. Kafka delivers to every consumer group
+ * independently, so a record produced to the real topic gets written for real by that background
+ * consumer's genuine, unsubstituted writer regardless of what this test's poisoned writer does --
+ * this test's own assertions on {@link RiskSnapshotRepository#countByIdentity} were racing that
+ * background write and losing. A private topic the production consumer never subscribes to makes
+ * that race structurally impossible instead of merely unlikely.
  */
 class OffsetCommitFailureTest extends AbstractKafkaIntegrationTest {
+
+  private static final String TOPIC = "risk.snapshots.offset-commit-failure-test";
 
   @Autowired private KafkaProperties kafkaProperties;
   @Autowired private RiskSnapshotRepository riskSnapshotRepository;
@@ -87,12 +99,13 @@ class OffsetCommitFailureTest extends AbstractKafkaIntegrationTest {
         };
 
     RiskSnapshotConsumerService consumer =
-        new RiskSnapshotConsumerService(kafkaProperties, poisonableWriter, "poison-test-group");
+        new RiskSnapshotConsumerService(
+            kafkaProperties, poisonableWriter, "poison-test-group", TOPIC);
     try {
-      // Skip past anything earlier test classes left on the shared risk.snapshots topic before
-      // this test produces its own records -- otherwise this fresh, earliest-reset consumer group
-      // reads that leftover history too, including records referencing portfolios @BeforeEach has
-      // since truncated, and fails on the FK violation instead of ever reaching this scenario.
+      // TOPIC is private to this test class, but Kafka topics still aren't truncated between
+      // test runs the way Postgres is -- a rerun against the same containers (e.g. local dev
+      // iteration) could otherwise see this test's own leftover records from a prior run. Skip
+      // past anything already on TOPIC before producing this run's records.
       consumer.seekToEnd();
 
       Properties props = new Properties();
@@ -104,15 +117,9 @@ class OffsetCommitFailureTest extends AbstractKafkaIntegrationTest {
           kafkaProperties.getSchemaRegistryUrl());
       try (KafkaProducer<RiskSnapshotKey, RiskSnapshot> producer = new KafkaProducer<>(props)) {
         RiskSnapshotKey key = new RiskSnapshotKey("PF-POISON");
-        producer
-            .send(new ProducerRecord<>("risk.snapshots", key, sampleSnapshot("PF-POISON", asOf1)))
-            .get();
-        producer
-            .send(new ProducerRecord<>("risk.snapshots", key, sampleSnapshot("PF-POISON", asOf2)))
-            .get();
-        producer
-            .send(new ProducerRecord<>("risk.snapshots", key, sampleSnapshot("PF-POISON", asOf3)))
-            .get();
+        producer.send(new ProducerRecord<>(TOPIC, key, sampleSnapshot("PF-POISON", asOf1))).get();
+        producer.send(new ProducerRecord<>(TOPIC, key, sampleSnapshot("PF-POISON", asOf2))).get();
+        producer.send(new ProducerRecord<>(TOPIC, key, sampleSnapshot("PF-POISON", asOf3))).get();
       }
 
       // Poll until the batch containing all three records arrives, then process it. The first

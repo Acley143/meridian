@@ -20,6 +20,12 @@
       "name": "ingest_time",
       "type": { "type": "long", "logicalType": "timestamp-micros" },
       "doc": "UTC instant Meridian's ingest stage received this tick. Per ADR-0005."
+    },
+    {
+      "name": "scenario_id",
+      "type": "string",
+      "default": "",
+      "doc": "Identifies the seeded simulated market scenario this tick belongs to (ADR-0011, ADR-0006) -- the same scenario_id reproduces a byte-identical tick stream. Added after this schema's first version; empty string is the BACKWARD-compatible default for a producer that predates ADR-0011. Propagated through to RiskSnapshot.scenario_id for end-to-end lineage."
     }
   ]
 }

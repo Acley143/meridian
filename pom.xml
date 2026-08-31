@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <!--
+    Reactor aggregator only (ADR-0015). No shared parent config, no
+    artifact of its own. Lists every Java module so
+    "mvn -pl services/core-service -am verify" can build
+    contracts-generated-java first and link core-service against it.
+  -->
+  <groupId>com.meridian</groupId>
+  <artifactId>meridian-reactor</artifactId>
+  <version>0.1.0</version>
+  <packaging>pom</packaging>
+
+  <modules>
+    <module>contracts/generated/java</module>
+    <module>services/core-service</module>
+  </modules>
+</project>

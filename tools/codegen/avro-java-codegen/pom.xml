@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <!--
+    Not a build artifact of the reactor (see /pom.xml, ADR-0015). This
+    module exists only to be invoked standalone by tools/codegen/generate.py
+    ("mvn -q -f tools/codegen/avro-java-codegen/pom.xml generate-sources"),
+    which then copies its output into contracts/generated/java. It never
+    participates in "mvn -pl services/core-service -am verify" and produces
+    no artifact of its own.
+  -->
+  <groupId>com.meridian</groupId>
+  <artifactId>avro-java-codegen</artifactId>
+  <version>0.1.0</version>
+  <packaging>pom</packaging>
+
+  <properties>
+    <maven.compiler.source>21</maven.compiler.source>
+    <maven.compiler.target>21</maven.compiler.target>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <!-- Pinned exactly (ADR-0015): an unpinned generator makes the CI drift
+         check flap on every plugin release, not just on real schema changes. -->
+    <avro.version>1.11.3</avro.version>
+  </properties>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.avro</groupId>
+        <artifactId>avro-maven-plugin</artifactId>
+        <version>${avro.version}</version>
+        <executions>
+          <execution>
+            <id>generate-avro-java-bindings</id>
+            <phase>generate-sources</phase>
+            <goals>
+              <goal>schema</goal>
+            </goals>
+            <configuration>
+              <sourceDirectory>${project.basedir}/../../../contracts/avro</sourceDirectory>
+              <outputDirectory>${project.basedir}/target/generated-sources/avro</outputDirectory>
+              <enableDecimalLogicalType>true</enableDecimalLogicalType>
+              <stringType>String</stringType>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+</project>

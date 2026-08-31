@@ -60,4 +60,7 @@ inbound interface — this is a pure source.
   Eng-B (quant-core owner) and Eng-C jointly, by-when: Q2 planning.
 
 ## Session log
-(none yet)
+- 2026-08-31 (contracts session, Eng-A): `contracts/avro/tick.avsc` gained
+  `scenario_id` (ADR-0011), default `""`, propagated end-to-end to
+  `RiskSnapshot.scenario_id`. This workstream's ticks must set a real
+  `scenario_id`, not rely on the wire default.

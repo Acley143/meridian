@@ -40,5 +40,9 @@ coverage/
 .env.*
 secrets/
 
-# Generated code (regenerate via `make gen`, never hand-edit or commit stale output)
-**/generated/
+# NOTE: contracts/generated/ is intentionally NOT ignored. Per ADR-0002,
+# generated Python/Java bindings are checked into git for reviewability and
+# built from, not produced fresh by CI or a consuming build. Never hand-edit
+# it -- regenerate via `make gen` (tools/codegen/generate.py) and commit the
+# diff; the contracts-drift CI job fails if it disagrees with a fresh
+# regeneration.

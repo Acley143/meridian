@@ -1,0 +1,13 @@
+{
+  "type": "record",
+  "name": "PortfolioStateKey",
+  "namespace": "com.meridian.contracts",
+  "doc": "Kafka message key for the log-compacted portfolio.state topic (ADR-0003). Keyed by portfolio_id, which is also what makes log compaction correct (one live record per key). A null VALUE for this key is a tombstone meaning portfolio deletion -- see portfolio-state.avsc's doc for the full convention.",
+  "fields": [
+    {
+      "name": "portfolio_id",
+      "type": "string",
+      "doc": "Portfolio this state belongs to. Matches PortfolioState.portfolio_id."
+    }
+  ]
+}

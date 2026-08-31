@@ -15,13 +15,18 @@ nothing for the dashboard to talk to.
       `portfolio.state` (ADR-0003).
 - [ ] REST endpoints from `contracts/openapi/service-api.yaml`:
       `GET /portfolios/{id}`, `GET /portfolios/{id}/positions`.
-- [ ] SSE endpoint `GET /portfolios/{id}/risk-stream`, consuming
-      `risk.snapshots` and forwarding to connected clients.
+- [ ] SSE endpoint `GET /portfolios/{id}/risk/stream`, consuming
+      `risk.snapshots` and forwarding to connected clients (ADR-0012).
 
 ## Explicitly out of scope
-- The hash-chained audit log (ADR-0008) — Q2.
-- `GET /portfolios/{id}/risk-snapshots/latest` — nice to have, not required
-  for Q1's live-stream demo path; add if time allows, not required for DoD.
+- The hash-chained audit log (ADR-0008) — Q2. `GET /portfolios/{id}/audit`
+  is defined in `contracts/openapi/service-api.yaml` as a Q1 contract (so
+  dashboard/client work isn't blocked on it), but the endpoint may 501
+  until the Q2 audit-log deliverable lands — see the spec's `501` response.
+- `GET /portfolios/{id}/risk` and `/risk/history` — nice to have, not
+  required for Q1's live-stream demo path; add if time allows, not required
+  for DoD. (`POST /trades` is required — trade booking is how positions get
+  created at all.)
 - Any pricing logic — this service never computes a price or a Greek.
 - Calling the pricer synchronously for anything — forbidden by ADR-0003.
 
@@ -52,4 +57,11 @@ REST + SSE per `contracts/openapi/service-api.yaml`. Produces
   needs otherwise. Owner: Eng-D, by-when: before Q2 planning.
 
 ## Session log
-(none yet)
+- 2026-08-31 (contracts session, Eng-A): `contracts/openapi/service-api.yaml`
+  restructured for the Q1 surface — risk endpoints moved under
+  `/portfolios/{id}/risk`, `/risk/history` (new), `/risk/stream` (renamed
+  from `/risk-stream`); `POST /trades` and `GET /portfolios/{id}/audit`
+  (contract-only, Q2 implementation) added. `contracts/generated/java` now
+  exists as a Maven reactor sibling (ADR-0015) — build/test with
+  `mvn -pl services/core-service -am verify` from the repo root, not
+  `-f services/core-service/pom.xml`.

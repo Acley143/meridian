@@ -2,34 +2,59 @@
   "type": "record",
   "name": "RiskSnapshot",
   "namespace": "com.meridian.contracts",
-  "doc": "Priced, risk-bearing output of the pricer for one portfolio at one instant under one model version. See docs/domain-model.md#risksnapshot and ADR-0007.",
+  "doc": "Priced, risk-bearing output of the pricer for one portfolio at one instant under one model version. See docs/domain-model.md#risksnapshot and ADR-0007. Discrete Greek fields (not a map) so each carries its own doc/default and the registry's BACKWARD check can catch a typo in a field name at schema-review time rather than at read time.",
   "fields": [
     { "name": "portfolio_id", "type": "string", "doc": "Part of the identity tuple (ADR-0007)." },
     {
-      "name": "as_of_event_time",
+      "name": "as_of",
       "type": { "type": "long", "logicalType": "timestamp-micros" },
-      "doc": "Part of the identity tuple. Event time this snapshot values the portfolio as of."
+      "doc": "Part of the identity tuple. Event time this snapshot values the portfolio as of -- distinct from ingest_time below, which is when the pricer produced this message."
     },
     {
       "name": "pricer_version",
       "type": "string",
-      "doc": "Part of the identity tuple. Exact pricing model/code version used."
+      "doc": "Part of the identity tuple. Exact pricing model/code version used (ADR-0007)."
     },
     {
-      "name": "portfolio_value",
+      "name": "price",
       "type": { "type": "bytes", "logicalType": "decimal", "precision": 38, "scale": 8 },
-      "doc": "Total mark-to-market value in the portfolio's base currency. Decimal (precision 38, scale 8) per ADR-0004/ADR-0013."
+      "doc": "Total mark-to-market value of the portfolio, in the portfolio's base currency. Decimal (precision 38, scale 8) per ADR-0004/ADR-0013. Named to match quant_core.types.PricingResult.price (ADR-0014); this is a portfolio-level aggregate, not a single-instrument price."
+    },
+    {
+      "name": "delta",
+      "type": "double",
+      "doc": "Aggregated portfolio-level delta, per docs/conventions.md. float64 per ADR-0004."
+    },
+    {
+      "name": "gamma",
+      "type": "double",
+      "doc": "Aggregated portfolio-level gamma, per docs/conventions.md. float64 per ADR-0004."
+    },
+    {
+      "name": "vega",
+      "type": "double",
+      "doc": "Aggregated portfolio-level vega, per 1.00 absolute change in volatility -- not per 1% (docs/conventions.md). float64 per ADR-0004."
+    },
+    {
+      "name": "theta",
+      "type": "double",
+      "doc": "Aggregated portfolio-level theta, per calendar year -- not per day (docs/conventions.md). float64 per ADR-0004."
+    },
+    {
+      "name": "rho",
+      "type": "double",
+      "doc": "Aggregated portfolio-level rho, per 1.00 absolute change in the risk-free rate (docs/conventions.md). float64 per ADR-0004."
     },
     {
       "name": "var_95",
       "type": "double",
-      "doc": "1-day 95% Value at Risk, as a magnitude in the portfolio's base currency. float64 per ADR-0004 despite the currency unit — this is a risk statistic, not a cash balance."
+      "doc": "1-day 95% Value at Risk, as a magnitude in the portfolio's base currency. float64 per ADR-0004 despite the currency unit -- this is a risk statistic, not a cash balance."
     },
     {
-      "name": "greeks",
-      "type": { "type": "map", "values": "double" },
-      "default": {},
-      "doc": "Aggregated portfolio-level Greeks, keyed by Greek name (e.g. delta, gamma, vega). float64 per ADR-0004."
+      "name": "scenario_id",
+      "type": "string",
+      "default": "",
+      "doc": "Propagated from the Tick stream that produced the prices behind this snapshot (ADR-0011). End-to-end lineage: any risk number can be traced back to the exact reproducible tick stream that produced it -- what makes 'replay the same market day under two pricers and diff' actually work. Added after this schema's first version; empty string is the BACKWARD-compatible default."
     },
     {
       "name": "ingest_time",

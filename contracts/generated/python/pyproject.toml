@@ -1,0 +1,15 @@
+[project]
+name = "meridian-contracts"
+version = "0.1.0"
+description = "GENERATED Avro Python bindings for Meridian's Kafka message schemas. Do not hand-edit -- see contracts/README.md."
+requires-python = ">=3.12"
+dependencies = [
+    "avro>=1.11",
+]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["meridian_contracts*"]

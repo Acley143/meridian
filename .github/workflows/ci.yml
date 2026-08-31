@@ -124,9 +124,33 @@ jobs:
           java-version: "21"
           cache: maven
       - name: mvn verify
-        run: mvn -f services/core-service/pom.xml verify
+        run: mvn -pl services/core-service -am verify
       - name: spotless:check
-        run: mvn -f services/core-service/pom.xml spotless:check
+        run: mvn -pl services/core-service com.diffplug.spotless:spotless-maven-plugin:check
+
+  contracts-tests:
+    name: Contract tests (round-trip + cross-language decimal fidelity)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install Python bindings + test deps
+        run: |
+          pip install "avro>=1.11" pytest
+          pip install -e contracts/generated/python
+      - name: Java round-trip tests (contracts-generated-java)
+        run: mvn -q -pl contracts/generated/java test
+      - name: Python round-trip + cross-language decimal fidelity tests
+        run: |
+          cd contracts/tests/python
+          pytest -q test_round_trip.py test_cross_language_decimal.py
 
   typescript:
     name: TypeScript (tsc, eslint, vitest)
@@ -160,19 +184,36 @@ jobs:
           echo "SKIP: no dashboard source/lockfile yet (skeleton stage, see apps/dashboard/PLAN.md)"
 
   gen-check:
-    name: Codegen (make gen)
+    name: Codegen drift check (make gen, ADR-0015)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: make gen
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+      - name: Regenerate into a temp directory and diff against what's committed
         run: |
-          echo "SKIP: tools/codegen is not implemented yet - see tools/codegen/README.md and root CLAUDE.md (generated code is never hand-edited; nothing to regenerate/verify until this tool exists)"
+          python3 tools/codegen/generate.py contracts/ --python-out /tmp/gen-python --java-out /tmp/gen-java
+          diff -r contracts/generated/python/meridian_contracts /tmp/gen-python
+          diff -r contracts/generated/java/src/main/java /tmp/gen-java
+          echo "OK: committed bindings match a fresh regeneration."
 
   schema-registry-compatibility:
     name: Schema registry BACKWARD compatibility (ADR-0002)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Compatibility check against registry
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install avro + pytest
+        run: pip install "avro>=1.11" pytest
+      - name: Schema evolution test (approximates the registry's BACKWARD check via Avro's own schema resolution; no live registry deployed in CI -- see contracts/tests/python/backward_compat.py)
         run: |
-          echo "SKIP: no schema registry deployed in CI yet and no prior registered schema version exists to check compatibility against - see tools/schema-lint/README.md. Local .avsc structural validation runs in the contracts job instead."
+          cd contracts/tests/python
+          pytest -q test_schema_evolution.py

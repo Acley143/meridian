@@ -11,6 +11,7 @@ simulated tick feed, a core service that can hold portfolio/trade state and
 expose it, and a dashboard that can render one risk number live. Depth comes
 later; Q1 proves the pipe is connected.
 
+- [contracts](contracts/PLAN.md)
 - [libs/quant-core](libs/quant-core/PLAN.md)
 - [libs/quant-io](libs/quant-io/PLAN.md)
 - [services/ingest](services/ingest/PLAN.md)

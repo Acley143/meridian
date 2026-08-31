@@ -7,6 +7,16 @@ info:
     (ADR-0009). Request/response operations are plain REST; the live risk
     stream is SSE. Types below are a mechanical translation of
     docs/domain-model.md.
+
+
+    **Money is a JSON string, never a JSON number.** Every decimal field
+    below (precision 38, scale 8 per ADR-0004/ADR-0013) is typed `string` in
+    this spec, deliberately. IEEE-754 doubles cannot represent a scale-8
+    decimal exactly, and a JavaScript client parsing a JSON number will
+    silently coerce it to the nearest representable double, corrupting the
+    value with no error raised anywhere. Every client must parse these
+    fields with a decimal library (e.g. `decimal.js` in TypeScript), never
+    with `Number()` or `JSON.parse`'s default numeric coercion.
 servers:
   - url: http://localhost:8080
 
@@ -16,11 +26,7 @@ paths:
       summary: Fetch a portfolio's metadata.
       operationId: getPortfolio
       parameters:
-        - name: portfolioId
-          in: path
-          required: true
-          schema:
-            type: string
+        - $ref: "#/components/parameters/PortfolioId"
       responses:
         "200":
           description: OK
@@ -36,11 +42,7 @@ paths:
       summary: Fetch the current positions for a portfolio.
       operationId: listPositions
       parameters:
-        - name: portfolioId
-          in: path
-          required: true
-          schema:
-            type: string
+        - $ref: "#/components/parameters/PortfolioId"
       responses:
         "200":
           description: OK
@@ -51,16 +53,12 @@ paths:
                 items:
                   $ref: "#/components/schemas/Position"
 
-  /portfolios/{portfolioId}/risk-snapshots/latest:
+  /portfolios/{portfolioId}/risk:
     get:
-      summary: Fetch the most recent risk snapshot for a portfolio, under the latest pricer_version.
-      operationId: getLatestRiskSnapshot
+      summary: Fetch the latest risk snapshot for a portfolio, under the latest pricer_version.
+      operationId: getLatestRisk
       parameters:
-        - name: portfolioId
-          in: path
-          required: true
-          schema:
-            type: string
+        - $ref: "#/components/parameters/PortfolioId"
       responses:
         "200":
           description: OK
@@ -71,27 +69,70 @@ paths:
         "404":
           description: No snapshot exists yet for that portfolio.
 
-  /portfolios/{portfolioId}/risk-stream:
+  /portfolios/{portfolioId}/risk/history:
+    get:
+      summary: Bounded range query over a portfolio's risk snapshot history.
+      description: >
+        Returns snapshots with `as_of` in `[from, to]`, most recent first,
+        capped at `limit`. This is a REST alternative to
+        `/risk/stream` for a client that wants a fixed window of history
+        rather than a live feed -- e.g. to render a chart on page load
+        before subscribing to the stream for updates.
+      operationId: getRiskHistory
+      parameters:
+        - $ref: "#/components/parameters/PortfolioId"
+        - name: from
+          in: query
+          required: true
+          description: Inclusive lower bound on `as_of`, RFC 3339.
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          required: true
+          description: Inclusive upper bound on `as_of`, RFC 3339.
+          schema:
+            type: string
+            format: date-time
+        - name: limit
+          in: query
+          required: false
+          description: Maximum snapshots returned. Same bound as SSE replay (ADR-0012).
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 500
+            default: 500
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RiskSnapshot"
+        "400":
+          description: "`from` is after `to`, or the range exceeds what the service is willing to scan in one request."
+
+  /portfolios/{portfolioId}/risk/stream:
     get:
       summary: Server-Sent Events stream of RiskSnapshot updates for a portfolio.
       description: >
         Resume semantics per ADR-0012. Each event's `id:` field is
-        `{portfolio_id}:{as_of_micros}:{pricer_version}` — the ADR-0007
+        `{portfolio_id}:{as_of_micros}:{pricer_version}` -- the ADR-0007
         identity tuple. On reconnect the browser's EventSource automatically
         sends `Last-Event-ID` with the id of the last event it received; the
         service parses it and replays persisted snapshots for this portfolio
         with a later `as_of` than the one in the header. Replay is bounded at
-        500 snapshots or 15 minutes, whichever is smaller — beyond that bound
-        the service emits a `resync` event instead of replaying, and the
-        client must refetch full state via `GET /portfolios/{id}/positions`
-        and `GET /portfolios/{id}/risk-snapshots/latest`.
+        500 snapshots or 15 minutes, whichever is smaller -- beyond that
+        bound the service emits a `resync` event instead of replaying, and
+        the client must refetch full state via `GET /portfolios/{id}/positions`
+        and `GET /portfolios/{id}/risk`.
       operationId: streamRisk
       parameters:
-        - name: portfolioId
-          in: path
-          required: true
-          schema:
-            type: string
+        - $ref: "#/components/parameters/PortfolioId"
         - name: Last-Event-ID
           in: header
           required: false
@@ -114,7 +155,71 @@ paths:
               schema:
                 $ref: "#/components/schemas/RiskSnapshot"
 
+  /trades:
+    post:
+      summary: Book a trade.
+      description: >
+        Synchronous REST booking endpoint (Q1 default; see
+        services/core-service/PLAN.md open questions for whether this stays
+        REST or moves to an inbound Kafka topic). Updates the affected
+        portfolio's positions and produces a PortfolioState message
+        (ADR-0003).
+      operationId: bookTrade
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TradeRequest"
+      responses:
+        "201":
+          description: Trade booked.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Trade"
+        "400":
+          description: Malformed trade (e.g. non-positive contract_size on the referenced instrument, unknown portfolio_id/instrument_id).
+
+  /portfolios/{portfolioId}/audit:
+    get:
+      summary: Fetch audit log entries for a portfolio.
+      description: >
+        Contract defined in Q1; the hash-chained audit log itself (ADR-0008)
+        is a Q2 deliverable in services/core-service/PLAN.md. This endpoint
+        may 501 until then.
+      operationId: getAudit
+      parameters:
+        - $ref: "#/components/parameters/PortfolioId"
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 500
+            default: 100
+      responses:
+        "200":
+          description: OK, most recent first.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AuditEntry"
+        "501":
+          description: Audit log not yet implemented (Q1).
+
 components:
+  parameters:
+    PortfolioId:
+      name: portfolioId
+      in: path
+      required: true
+      schema:
+        type: string
+
   schemas:
     Portfolio:
       type: object
@@ -142,7 +247,7 @@ components:
           type: string
         quantity:
           type: string
-          description: Decimal (precision 38, scale 8) encoded as a string, per ADR-0004/ADR-0013. Signed — positive is long.
+          description: Decimal (precision 38, scale 8) encoded as a string, per ADR-0004/ADR-0013. Signed -- positive is long.
         average_cost:
           type: string
           description: Decimal (precision 38, scale 8) encoded as a string, per ADR-0004/ADR-0013.
@@ -153,27 +258,115 @@ components:
 
     RiskSnapshot:
       type: object
-      description: See docs/domain-model.md#risksnapshot and ADR-0007.
-      required: [portfolio_id, as_of_event_time, pricer_version, portfolio_value, var_95, greeks, ingest_time]
+      description: See docs/domain-model.md#risksnapshot, ADR-0007, and contracts/avro/risk-snapshot.avsc (this is the same shape as the wire schema).
+      required: [portfolio_id, as_of, pricer_version, price, delta, gamma, vega, theta, rho, var_95, scenario_id, ingest_time]
       properties:
         portfolio_id:
           type: string
-        as_of_event_time:
+        as_of:
           type: string
           format: date-time
+          description: Part of the ADR-0007 identity tuple. Distinct from ingest_time.
         pricer_version:
           type: string
-        portfolio_value:
+        price:
           type: string
-          description: Decimal (precision 38, scale 8) encoded as a string, per ADR-0004/ADR-0013.
+          description: Decimal (precision 38, scale 8) encoded as a string, per ADR-0004/ADR-0013. Portfolio-level mark-to-market value.
+        delta:
+          type: number
+          format: double
+          description: Per docs/conventions.md.
+        gamma:
+          type: number
+          format: double
+          description: Per docs/conventions.md.
+        vega:
+          type: number
+          format: double
+          description: Per 1.00 absolute change in volatility, not per 1% (docs/conventions.md).
+        theta:
+          type: number
+          format: double
+          description: Per calendar year, not per day (docs/conventions.md).
+        rho:
+          type: number
+          format: double
+          description: Per 1.00 absolute change in rate (docs/conventions.md).
         var_95:
           type: number
           format: double
-        greeks:
-          type: object
-          additionalProperties:
-            type: number
-            format: double
+        scenario_id:
+          type: string
+          description: Propagated from the Tick stream that produced this snapshot (ADR-0011), for end-to-end lineage.
+        ingest_time:
+          type: string
+          format: date-time
+
+    TradeRequest:
+      type: object
+      description: Body of POST /trades. See docs/domain-model.md#trade -- trade_id and ingest_time are server-assigned, not client-supplied.
+      required: [portfolio_id, instrument_id, quantity, price, event_time]
+      properties:
+        portfolio_id:
+          type: string
+        instrument_id:
+          type: string
+        quantity:
+          type: string
+          description: Decimal (precision 38, scale 8) encoded as a string, per ADR-0004/ADR-0013. Signed -- positive is a buy, negative is a sell.
+        price:
+          type: string
+          description: Decimal (precision 38, scale 8) encoded as a string, per ADR-0004/ADR-0013. Execution price per unit, not adjusted for fees.
+        event_time:
+          type: string
+          format: date-time
+          description: UTC instant the trade executed upstream.
+
+    Trade:
+      type: object
+      description: See docs/domain-model.md#trade.
+      required: [trade_id, portfolio_id, instrument_id, quantity, price, event_time, ingest_time]
+      properties:
+        trade_id:
+          type: string
+        portfolio_id:
+          type: string
+        instrument_id:
+          type: string
+        quantity:
+          type: string
+          description: Decimal (precision 38, scale 8) encoded as a string, per ADR-0004/ADR-0013.
+        price:
+          type: string
+          description: Decimal (precision 38, scale 8) encoded as a string, per ADR-0004/ADR-0013.
+        event_time:
+          type: string
+          format: date-time
+        ingest_time:
+          type: string
+          format: date-time
+
+    AuditEntry:
+      type: object
+      description: See docs/domain-model.md#auditentry and ADR-0008.
+      required: [entry_id, entry_type, payload, prev_hash, entry_hash, event_time, ingest_time]
+      properties:
+        entry_id:
+          type: string
+        entry_type:
+          type: string
+        payload:
+          type: string
+          description: Canonical JSON serialization of the audited event.
+        prev_hash:
+          type: string
+          description: Hex-encoded SHA-256 of the previous row's canonical form. Empty string for the first row only.
+        entry_hash:
+          type: string
+          description: Hex-encoded SHA-256 of this row's own canonical form.
+        event_time:
+          type: string
+          format: date-time
         ingest_time:
           type: string
           format: date-time

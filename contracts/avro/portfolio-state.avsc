@@ -2,7 +2,7 @@
   "type": "record",
   "name": "PortfolioState",
   "namespace": "com.meridian.contracts",
-  "doc": "Materialized current positions for a portfolio, published to the log-compacted portfolio.state topic. See docs/domain-model.md#portfoliostate and ADR-0003.",
+  "doc": "Materialized current positions for a portfolio, published to the log-compacted portfolio.state topic. See docs/domain-model.md#portfoliostate and ADR-0003. TOMBSTONE CONVENTION: this schema describes the VALUE when a portfolio exists. A Kafka message on this topic with a portfolio_id key and a NULL value is a tombstone (standard Kafka log-compaction semantics) meaning that portfolio has been deleted -- a null message has no Avro payload, so this cannot be a field in the schema below; it is a producer-side convention. services/core-service (the sole producer, ADR-0003) must publish a null-valued message keyed on portfolio_id on deletion, and every consumer (services/pricer) must treat a null value as a delete, not a decode failure. See docs/domain-model.md#portfoliostate for the same note.",
   "fields": [
     { "name": "portfolio_id", "type": "string", "doc": "Kafka message key. Portfolio this state belongs to." },
     {

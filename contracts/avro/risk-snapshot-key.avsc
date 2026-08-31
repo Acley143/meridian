@@ -1,0 +1,13 @@
+{
+  "type": "record",
+  "name": "RiskSnapshotKey",
+  "namespace": "com.meridian.contracts",
+  "doc": "Kafka message key for the risk.snapshots topic. Keyed by portfolio_id for partition affinity -- the full ADR-0007 identity tuple (portfolio_id, as_of, pricer_version) governs storage-level idempotency, but the key only needs to keep one portfolio's snapshots ordered on one partition.",
+  "fields": [
+    {
+      "name": "portfolio_id",
+      "type": "string",
+      "doc": "Portfolio this risk snapshot is for. Matches RiskSnapshot.portfolio_id."
+    }
+  ]
+}

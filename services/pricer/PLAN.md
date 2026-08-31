@@ -14,13 +14,13 @@ Consumes ticks and portfolio state, prices every position using
 - [ ] Consume the `ticks` topic and, on each relevant tick, re-price affected
       positions using `libs/quant-core`'s Black-Scholes pricer.
 - [ ] Produce `RiskSnapshot`s (`contracts/avro/risk-snapshot.avsc`) keyed per
-      ADR-0007, portfolio-level `portfolio_value` only (VaR/Greeks
+      ADR-0007, portfolio-level `price` only (VaR/Greeks
       aggregation beyond per-position pass-through is Q2+).
 - [ ] Idempotent-upsert-safe production (no duplicate/gap under at-least-once
       redelivery).
 - [ ] Apply `Instrument.contract_size` to `quant-core`'s per-unit
       `PricingResult` exactly once, at the position level, when combining a
-      priced position into `portfolio_value` (ADR-0014 — `quant-core`
+      priced position into `price` (ADR-0014 — `quant-core`
       itself never sees or applies this multiplier). Test: a position with
       a non-unit `contract_size` (e.g. 100) must produce a portfolio value
       that fails if the multiplication is removed — not a general
@@ -66,4 +66,11 @@ Consumes `ticks` and `portfolio.state`. Produces `risk.snapshots`, schema
   behavior. Owner: Eng-B, by-when: before the recovery test is written.
 
 ## Session log
-(none yet)
+- 2026-08-31 (contracts session, Eng-A): `contracts/avro/risk-snapshot.avsc`
+  gained real fields this session — `portfolio_value` renamed `price`,
+  the `greeks` map replaced with discrete `delta`/`gamma`/`vega`/`theta`/`rho`
+  doubles, and `scenario_id` added (propagate from the `Tick`s that produced
+  this snapshot). This workstream's deliverables above are updated to match
+  the new field name; the aggregation logic itself (how per-position Greeks
+  become the portfolio-level fields) is still this workstream's to design —
+  see Open questions.

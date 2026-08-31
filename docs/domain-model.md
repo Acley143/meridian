@@ -98,6 +98,7 @@ message type in the system; this is what the throughput budget in
 | currency | string (ISO 4217) | — | no | — | Currency `price` is quoted in. |
 | event_time | timestamp | — | no | microsecond | UTC instant the tick was generated at the source (exchange/feed). This is the numerator's reference point for the latency budget. |
 | ingest_time | timestamp | — | no | microsecond | UTC instant Meridian's ingest stage received this tick. `ingest_time − event_time` is feed latency; `dashboard_render_time − event_time` is the end-to-end p99 budget. |
+| scenario_id | string | — | no (empty string default) | — | Identifies the seeded simulated market scenario this tick belongs to (ADR-0011, ADR-0006) — the same `scenario_id` reproduces a byte-identical tick stream. Empty string is the wire default for BACKWARD compatibility (this field was added after `Tick` was first drafted); the Q1 simulated feed always sets a real value. This is what lets a `RiskSnapshot` be traced back to the exact reproducible tick stream that produced it — see `RiskSnapshot.scenario_id`. |
 
 ---
 
@@ -107,6 +108,17 @@ The materialized, current set of positions for a portfolio, as produced onto
 the `portfolio.state` log-compacted topic by the core service (ADR-0003).
 This is what the pricer consumes to build its local view — it is a snapshot
 of "positions right now," not an event.
+
+**Tombstone convention (producer-side, not expressible in the value schema
+below):** a Kafka message on this log-compacted topic with a `portfolio_id`
+key and a **null value** is a tombstone, per standard Kafka log-compaction
+semantics, and means that portfolio has been deleted. A null message has no
+Avro payload at all, so this cannot be a field inside `PortfolioState`
+itself — it is a producer-side convention that `services/core-service` (the
+sole producer, ADR-0003) must follow, and every consumer of this topic
+(`services/pricer`) must handle a null value as a delete, not a decode
+failure. See `contracts/avro/portfolio-state.avsc`'s top-level `doc` for the
+same note at the point a schema author will actually see it.
 
 | name | type | unit | nullable | precision | meaning |
 |---|---|---|---|---|---|
@@ -123,15 +135,32 @@ The priced, risk-bearing output of the pricer for one portfolio at one
 instant, under one model version. Identity and delivery semantics are fixed
 by ADR-0007.
 
+**Revised when this became a wire format (contracts session, see
+`docs/adr/0015-contracts-build-topology.md`'s sibling schema work):** the
+original sketch used a free-form `greeks: map<string, float64>` for
+extensibility. As an Avro field, a map's values carry no per-key schema of
+their own — no per-Greek doc string, no per-Greek default, no way for the
+registry's `BACKWARD` check to catch a typo in a key ("delta" vs "Delta")
+until it silently produces an empty aggregate at read time. Replaced with
+discrete typed fields, one per Greek, matching `docs/conventions.md`'s
+sign/unit conventions exactly the way `quant_core.types.PricingResult`
+already does. `portfolio_value` is renamed `price` to match the field name
+used throughout `libs/quant-core` for the same concept (ADR-0014).
+
 | name | type | unit | nullable | precision | meaning |
 |---|---|---|---|---|---|
 | portfolio_id | string | — | no | — | Part of the identity tuple (ADR-0007). |
-| as_of_event_time | timestamp | — | no | microsecond | Part of the identity tuple. The event time this snapshot values the portfolio as of — not the time the computation ran. |
+| as_of | timestamp | — | no | microsecond | Part of the identity tuple. The event time this snapshot values the portfolio as of — not the time the computation ran, and not `ingest_time` below. Renamed from `as_of_event_time` for brevity; same field. |
 | pricer_version | string | — | no | — | Part of the identity tuple. Identifies the exact pricing model/code version used, enabling re-pricing history and diffing (ADR-0007). Not a build number of the whole service — scoped specifically to the pricing logic. |
-| portfolio_value | decimal | `Portfolio.base_currency` | no | precision 38, scale 8 | Total mark-to-market value of the portfolio. A cash amount — decimal per ADR-0004/ADR-0013. |
+| price | decimal | `Portfolio.base_currency` | no | precision 38, scale 8 | Total mark-to-market value of the portfolio. A cash amount — decimal per ADR-0004/ADR-0013. Named to match `quant_core`'s `PricingResult.price` (ADR-0014); this is a portfolio-level aggregate, not a per-instrument price. |
+| delta | float64 | `Portfolio.base_currency` per 1.00 absolute change in spot | no | — | Aggregated portfolio-level delta. Per `docs/conventions.md`. |
+| gamma | float64 | `Portfolio.base_currency` per 1.00 absolute change in spot | no | — | Aggregated portfolio-level gamma. Per `docs/conventions.md`. |
+| vega | float64 | `Portfolio.base_currency` per 1.00 absolute change in volatility | no | — | Aggregated portfolio-level vega. Per `docs/conventions.md` — per 1.00 vol, not per 1%. |
+| theta | float64 | `Portfolio.base_currency` per calendar year | no | — | Aggregated portfolio-level theta. Per `docs/conventions.md` — per year, not per day. |
+| rho | float64 | `Portfolio.base_currency` per 1.00 absolute change in rate | no | — | Aggregated portfolio-level rho. Per `docs/conventions.md`. |
 | var_95 | float64 | `Portfolio.base_currency`, expressed as a magnitude | no | — | 1-day 95% Value at Risk. A risk statistic, not a cash balance — float64 per ADR-0004, even though its unit is currency. |
-| greeks | map\<string, float64\> | per-instrument, keyed by Greek name (e.g. "delta", "gamma", "vega") | no (may be empty map) | — | Aggregated portfolio-level Greeks. Keys are not standardized further in Q1; see the relevant workstream `PLAN.md` before extending. |
-| ingest_time | timestamp | — | no | microsecond | UTC instant this snapshot was produced by the pricer. This, not `as_of_event_time`, is what `dashboard_render_time` is compared against downstream of the pricer for latency accounting at that stage. |
+| scenario_id | string | — | no (empty string default) | — | Propagated from the `Tick` stream that produced the positions/prices this snapshot is derived from (ADR-0011). End-to-end lineage: any risk number can be traced back to the exact reproducible tick stream that produced it, which is what makes "replay the same market day under two pricers and diff" work. Empty string is the wire default. |
+| ingest_time | timestamp | — | no | microsecond | UTC instant this snapshot was produced by the pricer. This, not `as_of`, is what `dashboard_render_time` is compared against downstream of the pricer for latency accounting at that stage. |
 
 ---
 

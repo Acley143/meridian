@@ -53,4 +53,9 @@ client, consumed only by direct import from `services/pricer` and
   before `services/ingest` needs to produce to a shared topic.
 
 ## Session log
-(none yet)
+- 2026-08-31 (contracts session, Eng-A): `contracts/generated/python`
+  (package `meridian_contracts`) now exists — real dataclass bindings for
+  `Tick`, `RiskSnapshot`, `PortfolioState` (+ nested `Position`) and their
+  key types, with `to_dict`/`from_dict` and an embedded schema. This
+  workstream's Avro serialize/deserialize helpers wrap these, not a
+  hand-rolled parser — `pip install -e contracts/generated/python`.

@@ -1,0 +1,13 @@
+{
+  "type": "record",
+  "name": "TickKey",
+  "namespace": "com.meridian.contracts",
+  "doc": "Kafka message key for the ticks topic. Keyed by instrument_id so all ticks for one instrument land on the same partition, in order.",
+  "fields": [
+    {
+      "name": "instrument_id",
+      "type": "string",
+      "doc": "Instrument this tick observation is for. Matches Tick.instrument_id."
+    }
+  ]
+}

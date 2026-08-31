@@ -68,6 +68,20 @@ public class SseController {
     // still running is delivered (not lost), at the cost of the ordering caveat in the class doc.
     broadcaster.subscribe(portfolioId, emitter);
 
+    // Force the response headers out immediately, on every connection, before any replay or live
+    // event: nothing else here writes to the emitter until a snapshot exists to send, so with no
+    // Last-Event-ID (no replay) and a quiet portfolio, the response would otherwise sit unflushed
+    // in the servlet container's buffer indefinitely -- the connection never actually opens from
+    // the client's point of view (a browser's EventSource.onopen never fires; nothing distinguishes
+    // "open, no data yet" from "never opened"). A comment frame is ignored by EventSource clients,
+    // so this changes nothing observable except that the connection commits.
+    try {
+      emitter.send(SseEmitter.event().comment("connected"));
+    } catch (IOException e) {
+      emitter.completeWithError(e);
+      return emitter;
+    }
+
     if (parsed != null) {
       replayOrResync(emitter, portfolioId, parsed.asOf());
     }

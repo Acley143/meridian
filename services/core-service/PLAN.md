@@ -1,6 +1,6 @@
 # core-service — Plan
 
-**Owner:** Eng-D  ·  **Quarter:** Q1  ·  **Status:** not started
+**Owner:** Eng-D  ·  **Quarter:** Q1  ·  **Status:** Q1 deliverables complete
 
 ## Mission
 Owns portfolio, position, and trade state; is the sole producer of
@@ -9,47 +9,77 @@ Without this, there's no durable record of what any portfolio holds and
 nothing for the dashboard to talk to.
 
 ## In scope this quarter
-- [ ] Portfolio/Position/Trade persistence (Postgres, per
+- [x] Portfolio/Position/Trade persistence (Postgres, per
       `docker-compose.yml`) matching `docs/domain-model.md` field-for-field.
-- [ ] Trade booking endpoint that updates positions and produces
+- [x] Trade booking endpoint that updates positions and produces
       `portfolio.state` (ADR-0003).
-- [ ] REST endpoints from `contracts/openapi/service-api.yaml`:
+- [x] REST endpoints from `contracts/openapi/service-api.yaml`:
       `GET /portfolios/{id}`, `GET /portfolios/{id}/positions`.
-- [ ] SSE endpoint `GET /portfolios/{id}/risk/stream`, consuming
+- [x] SSE endpoint `GET /portfolios/{id}/risk/stream`, consuming
       `risk.snapshots` and forwarding to connected clients (ADR-0012).
 
 ## Explicitly out of scope
-- The hash-chained audit log (ADR-0008) — Q2. `GET /portfolios/{id}/audit`
-  is defined in `contracts/openapi/service-api.yaml` as a Q1 contract (so
-  dashboard/client work isn't blocked on it), but the endpoint may 501
-  until the Q2 audit-log deliverable lands — see the spec's `501` response.
-- `GET /portfolios/{id}/risk` and `/risk/history` — nice to have, not
-  required for Q1's live-stream demo path; add if time allows, not required
-  for DoD. (`POST /trades` is required — trade booking is how positions get
-  created at all.)
 - Any pricing logic — this service never computes a price or a Greek.
 - Calling the pricer synchronously for anything — forbidden by ADR-0003.
+- `market.curves` (ADR-0019) — Q2, owned by `services/ingest`, not this
+  service.
+
+## Delivered beyond the Q1 minimum (see session log)
+- The hash-chained audit log (ADR-0008) was originally scoped Q2, with
+  `GET /portfolios/{id}/audit` allowed to `501` until then. It landed ahead
+  of schedule (Session 05b) with a working write path added in 05d (trade
+  booking now writes a `trade_booked` entry) — the endpoint is wired up for
+  real rather than kept behind a stub `501`, since a permanently-empty
+  501 behind working functionality would have been a worse outcome. See
+  `AuditController`'s doc comment for the reasoning.
+- `GET /portfolios/{id}/risk` and `/risk/history` (marked "nice to have,
+  add if time allows" in the original scope) were both implemented.
+- `services/core-service` also produces `reference.instruments`
+  (ADR-0019, keyed by `instrument_id`) via an internal `InstrumentService`
+  seam — no REST endpoint exposes instrument creation yet; that's a future
+  session's work.
 
 ## Boundaries
 - **Owns:** `services/core-service/**`.
 - **Must not touch:** `contracts/` without coordinating with Eng-A;
   `libs/quant-core`.
 - **Depends on:** `contracts/avro/portfolio-state.avsc` (ADR-0002, ADR-0003),
-  `contracts/openapi/service-api.yaml` (ADR-0009), ADR-0004, ADR-0005.
+  `contracts/avro/reference-instruments.avsc` (ADR-0019),
+  `contracts/openapi/service-api.yaml` (ADR-0009), ADR-0004, ADR-0005,
+  ADR-0007, ADR-0008, ADR-0012.
 
 ## Interfaces
-REST + SSE per `contracts/openapi/service-api.yaml`. Produces
-`portfolio.state`, schema `contracts/avro/portfolio-state.avsc`. Consumes
-`risk.snapshots` (to forward over SSE) but does not produce to it.
+REST + SSE per `contracts/openapi/service-api.yaml`. Sole producer of
+`portfolio.state` (`contracts/avro/portfolio-state.avsc`) and
+`reference.instruments` (`contracts/avro/reference-instruments.avsc`).
+Consumes `risk.snapshots` (ADR-0007 identity, idempotent upsert into
+Postgres) both to persist it and to forward it over SSE; does not produce
+to `risk.snapshots`. Writes the hash-chained audit log (ADR-0008) on trade
+booking.
 
 ## Definition of done
-- [ ] Deliverables above complete
-- [ ] Tests per `docs/test-strategy.md` (contract tests against both the
-      Avro topic and the OpenAPI spec)
-- [ ] Contract tests pass against `contracts/`
-- [ ] Docs updated
-- [ ] NFR targets in `docs/nfr-budget.md` met or an ADR explains the
-      deviation
+- [x] Deliverables above complete
+- [x] Tests per `docs/test-strategy.md` (contract tests against both the
+      Avro topic — real Kafka + schema-registry round trips via
+      `KafkaAvroSerializer`/`KafkaAvroDeserializer` in the 05c/05d test
+      suites — and the OpenAPI spec, via `swagger-request-validator`
+      against `contracts/openapi/service-api.yaml` itself, Session 05d)
+- [x] Contract tests pass against `contracts/` (the pre-existing
+      `contracts/tests/python` suite: 32/32, including the two new
+      `reference-instruments.avsc` cases added in 05a)
+- [x] Docs updated (`docs/domain-model.md`, ADR-0019, ADR-0008's editorial
+      amendment, this file)
+- [~] NFR targets in `docs/nfr-budget.md`: these are stated as Q4
+      load-testing pass/fail criteria (latency, sustained throughput,
+      recovery under load), not something a Q1 session measures directly;
+      no load-test harness exists yet for this service. The one criterion
+      exercised at unit/integration scope this quarter — "kill a consumer
+      mid-stream; on restart, zero duplicate rows and zero gaps" — is
+      covered by 05a's upsert-dedup test and 05c's offset-commit-failure
+      redelivery test (with a real bug in the redelivery path found and
+      fixed by that test, see 05c's session log). Full load-test
+      validation against the stated numbers remains open, tracked here
+      rather than silently assumed.
 
 ## Open questions
 - Trade booking: synchronous REST endpoint vs. its own inbound Kafka topic?
@@ -65,3 +95,64 @@ REST + SSE per `contracts/openapi/service-api.yaml`. Produces
   exists as a Maven reactor sibling (ADR-0015) — build/test with
   `mvn -pl services/core-service -am verify` from the repo root, not
   `-f services/core-service/pom.xml`.
+- 2026-08-31 (Session 05a): ADR-0019 (reference data / market curves),
+  `reference-instruments.avsc` + key schema, Postgres schema
+  (`V1__init_schema.sql`: instruments/portfolios/positions/trades/
+  risk_snapshots/audit_log, `NUMERIC(38,8)` throughout per ADR-0013,
+  ADR-0007's identity as a real `UNIQUE` constraint), and idempotent
+  `RiskSnapshotRepository` upsert. Extended `tools/codegen`'s Python
+  generator to support Avro enums and nullable unions (first schema to
+  need either). ADR-0018 (a generic "hydration/readiness gate" ADR) does
+  **not exist** — `services/pricer/pricer/service.py`'s `hydrate()` is the
+  only place that pattern is documented; ADR-0019 points at the code
+  directly rather than inventing the ADR. Flagged as a gap for whoever
+  owns that generalization.
+- 2026-08-31 (Session 05b): Hash-chained audit log (ADR-0008) — canonical
+  form specified in `docs/domain-model.md#auditentry` (length-prefixed
+  encoding of `entry_id`+`entry_type`+`payload` only; `event_time`/
+  `ingest_time`/`prev_hash` deliberately excluded, per the domain model's
+  own pre-existing `entry_hash` doc), an independent verifier
+  (`AuditChainVerifier`, deliberately not sharing code with the writer),
+  and a database-level append-only trigger (`V2__audit_log_hash_chain.sql`).
+  ADR-0008 amended (editorial, per the ADR-0016 pattern) with an honest
+  threat model: tamper-*evident*, not tamper-*proof* — a privileged actor
+  who rewrites the whole chain forward produces a chain that still
+  verifies. Real tamper-evidence needs an externally-anchored head hash;
+  not solved here, flagged as a real gap.
+- 2026-08-31 (Session 05c): Kafka wiring — `RiskSnapshotConsumerService`
+  (manual per-record `commitSync`, never auto-commit, same reasoning as
+  `libs/quant-io`'s Python consumer), `PortfolioStateProducer` and
+  `ReferenceInstrumentProducer` (both log-compacted, `cleanup.policy`
+  enforced by `CompactedTopicInitializer` since `infra/PLAN.md`'s topic
+  creation is still "not started"), and `PortfolioMutationService`/
+  `InstrumentService` as internal seams ahead of 05d's REST layer. A
+  teeth-check in `OffsetCommitFailureTest` caught a real bug: without an
+  explicit `consumer.seek()` back on write failure, `KafkaConsumer.poll()`
+  had already advanced the client's own fetch position past the whole
+  batch, so a still-running consumer would never re-fetch a failed record
+  on its own — only a full process restart would. Fixed.
+- 2026-08-31 (Session 05d): REST + SSE. `POST /trades` wired to 05c's
+  `PortfolioMutationService` (its first real caller); `GET /portfolios/
+  {id}/audit` wired up for real rather than kept behind Q1's planned
+  `501` (see "Delivered beyond the Q1 minimum" above) — a `portfolio_id`
+  column was added to `audit_log` (`V3__audit_log_portfolio_scoping.sql`,
+  server-side filtering only, not part of `AuditEntry`'s wire shape or
+  canonical form) since nothing previously wrote to the audit log at all.
+  SSE resume per ADR-0012, replay from Postgres, bounded resync. Money
+  serializes as a JSON string globally via a Jackson `BigDecimal`
+  serializer. Contract conformance tested against
+  `contracts/openapi/service-api.yaml` itself via
+  `swagger-request-validator`. Running the actual application for the
+  first time this session (Testcontainers is unavailable in this sandbox;
+  hand-verified against the real `docker-compose.yml` stack instead)
+  surfaced and fixed several real, previously-latent bugs never exercised
+  by any unit test: `RiskSnapshotConsumerService` had two constructors
+  and no `@Autowired`, so Spring couldn't instantiate it at all; nothing
+  anywhere actually drove `RiskSnapshotConsumerService.pollOnce()` in the
+  running application (added `RiskSnapshotConsumerRunner`); and the
+  module had no BOM pinning Jackson/SLF4J to a mutually-compatible
+  version set, causing three separate runtime-only failures (fixed by
+  importing `spring-boot-dependencies` as `dependencyManagement`, plus
+  `-parameters` on the compiler, which `@PathVariable`/`@RequestParam`
+  need without an explicit name and which a `spring-boot-starter-parent`
+  would otherwise have set for free).

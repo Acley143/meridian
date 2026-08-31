@@ -18,13 +18,13 @@ import org.apache.avro.message.BinaryMessageEncoder;
 import org.apache.avro.message.BinaryMessageDecoder;
 import org.apache.avro.message.SchemaStore;
 
-/** Priced, risk-bearing output of the pricer for one portfolio at one instant under one model version. See docs/domain-model.md#risksnapshot and ADR-0007. Discrete Greek fields (not a map) so each carries its own doc/default and the registry's BACKWARD check can catch a typo in a field name at schema-review time rather than at read time. */
+/** Priced, risk-bearing output of the pricer for one portfolio at one instant under one model version. See docs/domain-model.md#risksnapshot and ADR-0007. Discrete Greek fields (not a map) so each carries its own doc/default and the registry's BACKWARD check can catch a typo in a field name at schema-review time rather than at read time. Portfolio-level Greeks are cash Greeks (ADR-0017), Decimal(38,8) -- not the per-unit float64 Greeks quant_core.types.PricingResult carries -- because raw per-unit Greeks are not summable across a portfolio's different underlyings. */
 @org.apache.avro.specific.AvroGenerated
 public class RiskSnapshot extends org.apache.avro.specific.SpecificRecordBase implements org.apache.avro.specific.SpecificRecord {
-  private static final long serialVersionUID = -8023221765564462149L;
+  private static final long serialVersionUID = -2064968762443013410L;
 
 
-  public static final org.apache.avro.Schema SCHEMA$ = new org.apache.avro.Schema.Parser().parse("{\"type\":\"record\",\"name\":\"RiskSnapshot\",\"namespace\":\"com.meridian.contracts\",\"doc\":\"Priced, risk-bearing output of the pricer for one portfolio at one instant under one model version. See docs/domain-model.md#risksnapshot and ADR-0007. Discrete Greek fields (not a map) so each carries its own doc/default and the registry's BACKWARD check can catch a typo in a field name at schema-review time rather than at read time.\",\"fields\":[{\"name\":\"portfolio_id\",\"type\":{\"type\":\"string\",\"avro.java.string\":\"String\"},\"doc\":\"Part of the identity tuple (ADR-0007).\"},{\"name\":\"as_of\",\"type\":{\"type\":\"long\",\"logicalType\":\"timestamp-micros\"},\"doc\":\"Part of the identity tuple. Event time this snapshot values the portfolio as of -- distinct from ingest_time below, which is when the pricer produced this message.\"},{\"name\":\"pricer_version\",\"type\":{\"type\":\"string\",\"avro.java.string\":\"String\"},\"doc\":\"Part of the identity tuple. Exact pricing model/code version used (ADR-0007).\"},{\"name\":\"price\",\"type\":{\"type\":\"bytes\",\"logicalType\":\"decimal\",\"precision\":38,\"scale\":8},\"doc\":\"Total mark-to-market value of the portfolio, in the portfolio's base currency. Decimal (precision 38, scale 8) per ADR-0004/ADR-0013. Named to match quant_core.types.PricingResult.price (ADR-0014); this is a portfolio-level aggregate, not a single-instrument price.\"},{\"name\":\"delta\",\"type\":\"double\",\"doc\":\"Aggregated portfolio-level delta, per docs/conventions.md. float64 per ADR-0004.\"},{\"name\":\"gamma\",\"type\":\"double\",\"doc\":\"Aggregated portfolio-level gamma, per docs/conventions.md. float64 per ADR-0004.\"},{\"name\":\"vega\",\"type\":\"double\",\"doc\":\"Aggregated portfolio-level vega, per 1.00 absolute change in volatility -- not per 1% (docs/conventions.md). float64 per ADR-0004.\"},{\"name\":\"theta\",\"type\":\"double\",\"doc\":\"Aggregated portfolio-level theta, per calendar year -- not per day (docs/conventions.md). float64 per ADR-0004.\"},{\"name\":\"rho\",\"type\":\"double\",\"doc\":\"Aggregated portfolio-level rho, per 1.00 absolute change in the risk-free rate (docs/conventions.md). float64 per ADR-0004.\"},{\"name\":\"var_95\",\"type\":\"double\",\"doc\":\"1-day 95% Value at Risk, as a magnitude in the portfolio's base currency. float64 per ADR-0004 despite the currency unit -- this is a risk statistic, not a cash balance.\"},{\"name\":\"scenario_id\",\"type\":{\"type\":\"string\",\"avro.java.string\":\"String\"},\"doc\":\"Propagated from the Tick stream that produced the prices behind this snapshot (ADR-0011). End-to-end lineage: any risk number can be traced back to the exact reproducible tick stream that produced it -- what makes 'replay the same market day under two pricers and diff' actually work. Added after this schema's first version; empty string is the BACKWARD-compatible default.\",\"default\":\"\"},{\"name\":\"ingest_time\",\"type\":{\"type\":\"long\",\"logicalType\":\"timestamp-micros\"},\"doc\":\"UTC instant this snapshot was produced by the pricer.\"}]}");
+  public static final org.apache.avro.Schema SCHEMA$ = new org.apache.avro.Schema.Parser().parse("{\"type\":\"record\",\"name\":\"RiskSnapshot\",\"namespace\":\"com.meridian.contracts\",\"doc\":\"Priced, risk-bearing output of the pricer for one portfolio at one instant under one model version. See docs/domain-model.md#risksnapshot and ADR-0007. Discrete Greek fields (not a map) so each carries its own doc/default and the registry's BACKWARD check can catch a typo in a field name at schema-review time rather than at read time. Portfolio-level Greeks are cash Greeks (ADR-0017), Decimal(38,8) -- not the per-unit float64 Greeks quant_core.types.PricingResult carries -- because raw per-unit Greeks are not summable across a portfolio's different underlyings.\",\"fields\":[{\"name\":\"portfolio_id\",\"type\":{\"type\":\"string\",\"avro.java.string\":\"String\"},\"doc\":\"Part of the identity tuple (ADR-0007).\"},{\"name\":\"as_of\",\"type\":{\"type\":\"long\",\"logicalType\":\"timestamp-micros\"},\"doc\":\"Part of the identity tuple. Event time this snapshot values the portfolio as of -- distinct from ingest_time below, which is when the pricer produced this message.\"},{\"name\":\"pricer_version\",\"type\":{\"type\":\"string\",\"avro.java.string\":\"String\"},\"doc\":\"Part of the identity tuple. Exact pricing model/code version used (ADR-0007).\"},{\"name\":\"price\",\"type\":{\"type\":\"bytes\",\"logicalType\":\"decimal\",\"precision\":38,\"scale\":8},\"doc\":\"Total mark-to-market value of the portfolio, in the portfolio's base currency. Decimal (precision 38, scale 8) per ADR-0004/ADR-0013. Named to match quant_core.types.PricingResult.price (ADR-0014); this is a portfolio-level aggregate, not a single-instrument price.\"},{\"name\":\"cash_delta\",\"type\":{\"type\":\"bytes\",\"logicalType\":\"decimal\",\"precision\":38,\"scale\":8},\"doc\":\"Aggregated portfolio-level cash delta (ADR-0017): sum of delta * S * 0.01 * quantity * contract_size across positions -- currency change per 1% relative move in spot. Decimal, not float64: raw per-unit deltas across different underlyings are not in comparable units and cannot be summed meaningfully; a cash amount can be. Per docs/conventions.md.\"},{\"name\":\"cash_gamma\",\"type\":{\"type\":\"bytes\",\"logicalType\":\"decimal\",\"precision\":38,\"scale\":8},\"doc\":\"Aggregated portfolio-level cash gamma (ADR-0017): sum of gamma * S^2 * 0.0001 * quantity * contract_size across positions -- change in cash_delta per 1% move in spot. Per docs/conventions.md.\"},{\"name\":\"cash_vega\",\"type\":{\"type\":\"bytes\",\"logicalType\":\"decimal\",\"precision\":38,\"scale\":8},\"doc\":\"Aggregated portfolio-level cash vega (ADR-0017): sum of vega * quantity * contract_size across positions -- currency per 1.00 absolute change in volatility, not per 1% (docs/conventions.md).\"},{\"name\":\"cash_theta\",\"type\":{\"type\":\"bytes\",\"logicalType\":\"decimal\",\"precision\":38,\"scale\":8},\"doc\":\"Aggregated portfolio-level cash theta (ADR-0017): sum of theta * quantity * contract_size across positions -- currency per calendar year, not per day (docs/conventions.md).\"},{\"name\":\"cash_rho\",\"type\":{\"type\":\"bytes\",\"logicalType\":\"decimal\",\"precision\":38,\"scale\":8},\"doc\":\"Aggregated portfolio-level cash rho (ADR-0017): sum of rho * quantity * contract_size across positions -- currency per 1.00 absolute change in the risk-free rate (docs/conventions.md).\"},{\"name\":\"var_95\",\"type\":\"double\",\"doc\":\"1-day 95% Value at Risk, as a magnitude in the portfolio's base currency. float64 per ADR-0004 despite the currency unit -- this is a risk statistic, not a cash balance.\"},{\"name\":\"scenario_id\",\"type\":{\"type\":\"string\",\"avro.java.string\":\"String\"},\"doc\":\"Propagated from the Tick stream that produced the prices behind this snapshot (ADR-0011). End-to-end lineage: any risk number can be traced back to the exact reproducible tick stream that produced it -- what makes 'replay the same market day under two pricers and diff' actually work. Added after this schema's first version; empty string is the BACKWARD-compatible default.\",\"default\":\"\"},{\"name\":\"ingest_time\",\"type\":{\"type\":\"long\",\"logicalType\":\"timestamp-micros\"},\"doc\":\"UTC instant this snapshot was produced by the pricer.\"}]}");
   public static org.apache.avro.Schema getClassSchema() { return SCHEMA$; }
 
   private static final SpecificData MODEL$ = new SpecificData();
@@ -92,16 +92,16 @@ public class RiskSnapshot extends org.apache.avro.specific.SpecificRecordBase im
   private java.lang.String pricer_version;
   /** Total mark-to-market value of the portfolio, in the portfolio's base currency. Decimal (precision 38, scale 8) per ADR-0004/ADR-0013. Named to match quant_core.types.PricingResult.price (ADR-0014); this is a portfolio-level aggregate, not a single-instrument price. */
   private java.math.BigDecimal price;
-  /** Aggregated portfolio-level delta, per docs/conventions.md. float64 per ADR-0004. */
-  private double delta;
-  /** Aggregated portfolio-level gamma, per docs/conventions.md. float64 per ADR-0004. */
-  private double gamma;
-  /** Aggregated portfolio-level vega, per 1.00 absolute change in volatility -- not per 1% (docs/conventions.md). float64 per ADR-0004. */
-  private double vega;
-  /** Aggregated portfolio-level theta, per calendar year -- not per day (docs/conventions.md). float64 per ADR-0004. */
-  private double theta;
-  /** Aggregated portfolio-level rho, per 1.00 absolute change in the risk-free rate (docs/conventions.md). float64 per ADR-0004. */
-  private double rho;
+  /** Aggregated portfolio-level cash delta (ADR-0017): sum of delta * S * 0.01 * quantity * contract_size across positions -- currency change per 1% relative move in spot. Decimal, not float64: raw per-unit deltas across different underlyings are not in comparable units and cannot be summed meaningfully; a cash amount can be. Per docs/conventions.md. */
+  private java.math.BigDecimal cash_delta;
+  /** Aggregated portfolio-level cash gamma (ADR-0017): sum of gamma * S^2 * 0.0001 * quantity * contract_size across positions -- change in cash_delta per 1% move in spot. Per docs/conventions.md. */
+  private java.math.BigDecimal cash_gamma;
+  /** Aggregated portfolio-level cash vega (ADR-0017): sum of vega * quantity * contract_size across positions -- currency per 1.00 absolute change in volatility, not per 1% (docs/conventions.md). */
+  private java.math.BigDecimal cash_vega;
+  /** Aggregated portfolio-level cash theta (ADR-0017): sum of theta * quantity * contract_size across positions -- currency per calendar year, not per day (docs/conventions.md). */
+  private java.math.BigDecimal cash_theta;
+  /** Aggregated portfolio-level cash rho (ADR-0017): sum of rho * quantity * contract_size across positions -- currency per 1.00 absolute change in the risk-free rate (docs/conventions.md). */
+  private java.math.BigDecimal cash_rho;
   /** 1-day 95% Value at Risk, as a magnitude in the portfolio's base currency. float64 per ADR-0004 despite the currency unit -- this is a risk statistic, not a cash balance. */
   private double var_95;
   /** Propagated from the Tick stream that produced the prices behind this snapshot (ADR-0011). End-to-end lineage: any risk number can be traced back to the exact reproducible tick stream that produced it -- what makes 'replay the same market day under two pricers and diff' actually work. Added after this schema's first version; empty string is the BACKWARD-compatible default. */
@@ -122,25 +122,25 @@ public class RiskSnapshot extends org.apache.avro.specific.SpecificRecordBase im
    * @param as_of Part of the identity tuple. Event time this snapshot values the portfolio as of -- distinct from ingest_time below, which is when the pricer produced this message.
    * @param pricer_version Part of the identity tuple. Exact pricing model/code version used (ADR-0007).
    * @param price Total mark-to-market value of the portfolio, in the portfolio's base currency. Decimal (precision 38, scale 8) per ADR-0004/ADR-0013. Named to match quant_core.types.PricingResult.price (ADR-0014); this is a portfolio-level aggregate, not a single-instrument price.
-   * @param delta Aggregated portfolio-level delta, per docs/conventions.md. float64 per ADR-0004.
-   * @param gamma Aggregated portfolio-level gamma, per docs/conventions.md. float64 per ADR-0004.
-   * @param vega Aggregated portfolio-level vega, per 1.00 absolute change in volatility -- not per 1% (docs/conventions.md). float64 per ADR-0004.
-   * @param theta Aggregated portfolio-level theta, per calendar year -- not per day (docs/conventions.md). float64 per ADR-0004.
-   * @param rho Aggregated portfolio-level rho, per 1.00 absolute change in the risk-free rate (docs/conventions.md). float64 per ADR-0004.
+   * @param cash_delta Aggregated portfolio-level cash delta (ADR-0017): sum of delta * S * 0.01 * quantity * contract_size across positions -- currency change per 1% relative move in spot. Decimal, not float64: raw per-unit deltas across different underlyings are not in comparable units and cannot be summed meaningfully; a cash amount can be. Per docs/conventions.md.
+   * @param cash_gamma Aggregated portfolio-level cash gamma (ADR-0017): sum of gamma * S^2 * 0.0001 * quantity * contract_size across positions -- change in cash_delta per 1% move in spot. Per docs/conventions.md.
+   * @param cash_vega Aggregated portfolio-level cash vega (ADR-0017): sum of vega * quantity * contract_size across positions -- currency per 1.00 absolute change in volatility, not per 1% (docs/conventions.md).
+   * @param cash_theta Aggregated portfolio-level cash theta (ADR-0017): sum of theta * quantity * contract_size across positions -- currency per calendar year, not per day (docs/conventions.md).
+   * @param cash_rho Aggregated portfolio-level cash rho (ADR-0017): sum of rho * quantity * contract_size across positions -- currency per 1.00 absolute change in the risk-free rate (docs/conventions.md).
    * @param var_95 1-day 95% Value at Risk, as a magnitude in the portfolio's base currency. float64 per ADR-0004 despite the currency unit -- this is a risk statistic, not a cash balance.
    * @param scenario_id Propagated from the Tick stream that produced the prices behind this snapshot (ADR-0011). End-to-end lineage: any risk number can be traced back to the exact reproducible tick stream that produced it -- what makes 'replay the same market day under two pricers and diff' actually work. Added after this schema's first version; empty string is the BACKWARD-compatible default.
    * @param ingest_time UTC instant this snapshot was produced by the pricer.
    */
-  public RiskSnapshot(java.lang.String portfolio_id, java.time.Instant as_of, java.lang.String pricer_version, java.math.BigDecimal price, java.lang.Double delta, java.lang.Double gamma, java.lang.Double vega, java.lang.Double theta, java.lang.Double rho, java.lang.Double var_95, java.lang.String scenario_id, java.time.Instant ingest_time) {
+  public RiskSnapshot(java.lang.String portfolio_id, java.time.Instant as_of, java.lang.String pricer_version, java.math.BigDecimal price, java.math.BigDecimal cash_delta, java.math.BigDecimal cash_gamma, java.math.BigDecimal cash_vega, java.math.BigDecimal cash_theta, java.math.BigDecimal cash_rho, java.lang.Double var_95, java.lang.String scenario_id, java.time.Instant ingest_time) {
     this.portfolio_id = portfolio_id;
     this.as_of = as_of.truncatedTo(java.time.temporal.ChronoUnit.MICROS);
     this.pricer_version = pricer_version;
     this.price = price;
-    this.delta = delta;
-    this.gamma = gamma;
-    this.vega = vega;
-    this.theta = theta;
-    this.rho = rho;
+    this.cash_delta = cash_delta;
+    this.cash_gamma = cash_gamma;
+    this.cash_vega = cash_vega;
+    this.cash_theta = cash_theta;
+    this.cash_rho = cash_rho;
     this.var_95 = var_95;
     this.scenario_id = scenario_id;
     this.ingest_time = ingest_time.truncatedTo(java.time.temporal.ChronoUnit.MICROS);
@@ -160,11 +160,11 @@ public class RiskSnapshot extends org.apache.avro.specific.SpecificRecordBase im
     case 1: return as_of;
     case 2: return pricer_version;
     case 3: return price;
-    case 4: return delta;
-    case 5: return gamma;
-    case 6: return vega;
-    case 7: return theta;
-    case 8: return rho;
+    case 4: return cash_delta;
+    case 5: return cash_gamma;
+    case 6: return cash_vega;
+    case 7: return cash_theta;
+    case 8: return cash_rho;
     case 9: return var_95;
     case 10: return scenario_id;
     case 11: return ingest_time;
@@ -178,11 +178,11 @@ public class RiskSnapshot extends org.apache.avro.specific.SpecificRecordBase im
       new org.apache.avro.data.TimeConversions.TimestampMicrosConversion(),
       null,
       new org.apache.avro.Conversions.DecimalConversion(),
-      null,
-      null,
-      null,
-      null,
-      null,
+      new org.apache.avro.Conversions.DecimalConversion(),
+      new org.apache.avro.Conversions.DecimalConversion(),
+      new org.apache.avro.Conversions.DecimalConversion(),
+      new org.apache.avro.Conversions.DecimalConversion(),
+      new org.apache.avro.Conversions.DecimalConversion(),
       null,
       null,
       new org.apache.avro.data.TimeConversions.TimestampMicrosConversion(),
@@ -203,11 +203,11 @@ public class RiskSnapshot extends org.apache.avro.specific.SpecificRecordBase im
     case 1: as_of = (java.time.Instant)value$; break;
     case 2: pricer_version = value$ != null ? value$.toString() : null; break;
     case 3: price = (java.math.BigDecimal)value$; break;
-    case 4: delta = (java.lang.Double)value$; break;
-    case 5: gamma = (java.lang.Double)value$; break;
-    case 6: vega = (java.lang.Double)value$; break;
-    case 7: theta = (java.lang.Double)value$; break;
-    case 8: rho = (java.lang.Double)value$; break;
+    case 4: cash_delta = (java.math.BigDecimal)value$; break;
+    case 5: cash_gamma = (java.math.BigDecimal)value$; break;
+    case 6: cash_vega = (java.math.BigDecimal)value$; break;
+    case 7: cash_theta = (java.math.BigDecimal)value$; break;
+    case 8: cash_rho = (java.math.BigDecimal)value$; break;
     case 9: var_95 = (java.lang.Double)value$; break;
     case 10: scenario_id = value$ != null ? value$.toString() : null; break;
     case 11: ingest_time = (java.time.Instant)value$; break;
@@ -288,93 +288,93 @@ public class RiskSnapshot extends org.apache.avro.specific.SpecificRecordBase im
   }
 
   /**
-   * Gets the value of the 'delta' field.
-   * @return Aggregated portfolio-level delta, per docs/conventions.md. float64 per ADR-0004.
+   * Gets the value of the 'cash_delta' field.
+   * @return Aggregated portfolio-level cash delta (ADR-0017): sum of delta * S * 0.01 * quantity * contract_size across positions -- currency change per 1% relative move in spot. Decimal, not float64: raw per-unit deltas across different underlyings are not in comparable units and cannot be summed meaningfully; a cash amount can be. Per docs/conventions.md.
    */
-  public double getDelta() {
-    return delta;
+  public java.math.BigDecimal getCashDelta() {
+    return cash_delta;
   }
 
 
   /**
-   * Sets the value of the 'delta' field.
-   * Aggregated portfolio-level delta, per docs/conventions.md. float64 per ADR-0004.
+   * Sets the value of the 'cash_delta' field.
+   * Aggregated portfolio-level cash delta (ADR-0017): sum of delta * S * 0.01 * quantity * contract_size across positions -- currency change per 1% relative move in spot. Decimal, not float64: raw per-unit deltas across different underlyings are not in comparable units and cannot be summed meaningfully; a cash amount can be. Per docs/conventions.md.
    * @param value the value to set.
    */
-  public void setDelta(double value) {
-    this.delta = value;
+  public void setCashDelta(java.math.BigDecimal value) {
+    this.cash_delta = value;
   }
 
   /**
-   * Gets the value of the 'gamma' field.
-   * @return Aggregated portfolio-level gamma, per docs/conventions.md. float64 per ADR-0004.
+   * Gets the value of the 'cash_gamma' field.
+   * @return Aggregated portfolio-level cash gamma (ADR-0017): sum of gamma * S^2 * 0.0001 * quantity * contract_size across positions -- change in cash_delta per 1% move in spot. Per docs/conventions.md.
    */
-  public double getGamma() {
-    return gamma;
+  public java.math.BigDecimal getCashGamma() {
+    return cash_gamma;
   }
 
 
   /**
-   * Sets the value of the 'gamma' field.
-   * Aggregated portfolio-level gamma, per docs/conventions.md. float64 per ADR-0004.
+   * Sets the value of the 'cash_gamma' field.
+   * Aggregated portfolio-level cash gamma (ADR-0017): sum of gamma * S^2 * 0.0001 * quantity * contract_size across positions -- change in cash_delta per 1% move in spot. Per docs/conventions.md.
    * @param value the value to set.
    */
-  public void setGamma(double value) {
-    this.gamma = value;
+  public void setCashGamma(java.math.BigDecimal value) {
+    this.cash_gamma = value;
   }
 
   /**
-   * Gets the value of the 'vega' field.
-   * @return Aggregated portfolio-level vega, per 1.00 absolute change in volatility -- not per 1% (docs/conventions.md). float64 per ADR-0004.
+   * Gets the value of the 'cash_vega' field.
+   * @return Aggregated portfolio-level cash vega (ADR-0017): sum of vega * quantity * contract_size across positions -- currency per 1.00 absolute change in volatility, not per 1% (docs/conventions.md).
    */
-  public double getVega() {
-    return vega;
+  public java.math.BigDecimal getCashVega() {
+    return cash_vega;
   }
 
 
   /**
-   * Sets the value of the 'vega' field.
-   * Aggregated portfolio-level vega, per 1.00 absolute change in volatility -- not per 1% (docs/conventions.md). float64 per ADR-0004.
+   * Sets the value of the 'cash_vega' field.
+   * Aggregated portfolio-level cash vega (ADR-0017): sum of vega * quantity * contract_size across positions -- currency per 1.00 absolute change in volatility, not per 1% (docs/conventions.md).
    * @param value the value to set.
    */
-  public void setVega(double value) {
-    this.vega = value;
+  public void setCashVega(java.math.BigDecimal value) {
+    this.cash_vega = value;
   }
 
   /**
-   * Gets the value of the 'theta' field.
-   * @return Aggregated portfolio-level theta, per calendar year -- not per day (docs/conventions.md). float64 per ADR-0004.
+   * Gets the value of the 'cash_theta' field.
+   * @return Aggregated portfolio-level cash theta (ADR-0017): sum of theta * quantity * contract_size across positions -- currency per calendar year, not per day (docs/conventions.md).
    */
-  public double getTheta() {
-    return theta;
+  public java.math.BigDecimal getCashTheta() {
+    return cash_theta;
   }
 
 
   /**
-   * Sets the value of the 'theta' field.
-   * Aggregated portfolio-level theta, per calendar year -- not per day (docs/conventions.md). float64 per ADR-0004.
+   * Sets the value of the 'cash_theta' field.
+   * Aggregated portfolio-level cash theta (ADR-0017): sum of theta * quantity * contract_size across positions -- currency per calendar year, not per day (docs/conventions.md).
    * @param value the value to set.
    */
-  public void setTheta(double value) {
-    this.theta = value;
+  public void setCashTheta(java.math.BigDecimal value) {
+    this.cash_theta = value;
   }
 
   /**
-   * Gets the value of the 'rho' field.
-   * @return Aggregated portfolio-level rho, per 1.00 absolute change in the risk-free rate (docs/conventions.md). float64 per ADR-0004.
+   * Gets the value of the 'cash_rho' field.
+   * @return Aggregated portfolio-level cash rho (ADR-0017): sum of rho * quantity * contract_size across positions -- currency per 1.00 absolute change in the risk-free rate (docs/conventions.md).
    */
-  public double getRho() {
-    return rho;
+  public java.math.BigDecimal getCashRho() {
+    return cash_rho;
   }
 
 
   /**
-   * Sets the value of the 'rho' field.
-   * Aggregated portfolio-level rho, per 1.00 absolute change in the risk-free rate (docs/conventions.md). float64 per ADR-0004.
+   * Sets the value of the 'cash_rho' field.
+   * Aggregated portfolio-level cash rho (ADR-0017): sum of rho * quantity * contract_size across positions -- currency per 1.00 absolute change in the risk-free rate (docs/conventions.md).
    * @param value the value to set.
    */
-  public void setRho(double value) {
-    this.rho = value;
+  public void setCashRho(java.math.BigDecimal value) {
+    this.cash_rho = value;
   }
 
   /**
@@ -480,16 +480,16 @@ public class RiskSnapshot extends org.apache.avro.specific.SpecificRecordBase im
     private java.lang.String pricer_version;
     /** Total mark-to-market value of the portfolio, in the portfolio's base currency. Decimal (precision 38, scale 8) per ADR-0004/ADR-0013. Named to match quant_core.types.PricingResult.price (ADR-0014); this is a portfolio-level aggregate, not a single-instrument price. */
     private java.math.BigDecimal price;
-    /** Aggregated portfolio-level delta, per docs/conventions.md. float64 per ADR-0004. */
-    private double delta;
-    /** Aggregated portfolio-level gamma, per docs/conventions.md. float64 per ADR-0004. */
-    private double gamma;
-    /** Aggregated portfolio-level vega, per 1.00 absolute change in volatility -- not per 1% (docs/conventions.md). float64 per ADR-0004. */
-    private double vega;
-    /** Aggregated portfolio-level theta, per calendar year -- not per day (docs/conventions.md). float64 per ADR-0004. */
-    private double theta;
-    /** Aggregated portfolio-level rho, per 1.00 absolute change in the risk-free rate (docs/conventions.md). float64 per ADR-0004. */
-    private double rho;
+    /** Aggregated portfolio-level cash delta (ADR-0017): sum of delta * S * 0.01 * quantity * contract_size across positions -- currency change per 1% relative move in spot. Decimal, not float64: raw per-unit deltas across different underlyings are not in comparable units and cannot be summed meaningfully; a cash amount can be. Per docs/conventions.md. */
+    private java.math.BigDecimal cash_delta;
+    /** Aggregated portfolio-level cash gamma (ADR-0017): sum of gamma * S^2 * 0.0001 * quantity * contract_size across positions -- change in cash_delta per 1% move in spot. Per docs/conventions.md. */
+    private java.math.BigDecimal cash_gamma;
+    /** Aggregated portfolio-level cash vega (ADR-0017): sum of vega * quantity * contract_size across positions -- currency per 1.00 absolute change in volatility, not per 1% (docs/conventions.md). */
+    private java.math.BigDecimal cash_vega;
+    /** Aggregated portfolio-level cash theta (ADR-0017): sum of theta * quantity * contract_size across positions -- currency per calendar year, not per day (docs/conventions.md). */
+    private java.math.BigDecimal cash_theta;
+    /** Aggregated portfolio-level cash rho (ADR-0017): sum of rho * quantity * contract_size across positions -- currency per 1.00 absolute change in the risk-free rate (docs/conventions.md). */
+    private java.math.BigDecimal cash_rho;
     /** 1-day 95% Value at Risk, as a magnitude in the portfolio's base currency. float64 per ADR-0004 despite the currency unit -- this is a risk statistic, not a cash balance. */
     private double var_95;
     /** Propagated from the Tick stream that produced the prices behind this snapshot (ADR-0011). End-to-end lineage: any risk number can be traced back to the exact reproducible tick stream that produced it -- what makes 'replay the same market day under two pricers and diff' actually work. Added after this schema's first version; empty string is the BACKWARD-compatible default. */
@@ -524,24 +524,24 @@ public class RiskSnapshot extends org.apache.avro.specific.SpecificRecordBase im
         this.price = data().deepCopy(fields()[3].schema(), other.price);
         fieldSetFlags()[3] = other.fieldSetFlags()[3];
       }
-      if (isValidValue(fields()[4], other.delta)) {
-        this.delta = data().deepCopy(fields()[4].schema(), other.delta);
+      if (isValidValue(fields()[4], other.cash_delta)) {
+        this.cash_delta = data().deepCopy(fields()[4].schema(), other.cash_delta);
         fieldSetFlags()[4] = other.fieldSetFlags()[4];
       }
-      if (isValidValue(fields()[5], other.gamma)) {
-        this.gamma = data().deepCopy(fields()[5].schema(), other.gamma);
+      if (isValidValue(fields()[5], other.cash_gamma)) {
+        this.cash_gamma = data().deepCopy(fields()[5].schema(), other.cash_gamma);
         fieldSetFlags()[5] = other.fieldSetFlags()[5];
       }
-      if (isValidValue(fields()[6], other.vega)) {
-        this.vega = data().deepCopy(fields()[6].schema(), other.vega);
+      if (isValidValue(fields()[6], other.cash_vega)) {
+        this.cash_vega = data().deepCopy(fields()[6].schema(), other.cash_vega);
         fieldSetFlags()[6] = other.fieldSetFlags()[6];
       }
-      if (isValidValue(fields()[7], other.theta)) {
-        this.theta = data().deepCopy(fields()[7].schema(), other.theta);
+      if (isValidValue(fields()[7], other.cash_theta)) {
+        this.cash_theta = data().deepCopy(fields()[7].schema(), other.cash_theta);
         fieldSetFlags()[7] = other.fieldSetFlags()[7];
       }
-      if (isValidValue(fields()[8], other.rho)) {
-        this.rho = data().deepCopy(fields()[8].schema(), other.rho);
+      if (isValidValue(fields()[8], other.cash_rho)) {
+        this.cash_rho = data().deepCopy(fields()[8].schema(), other.cash_rho);
         fieldSetFlags()[8] = other.fieldSetFlags()[8];
       }
       if (isValidValue(fields()[9], other.var_95)) {
@@ -580,24 +580,24 @@ public class RiskSnapshot extends org.apache.avro.specific.SpecificRecordBase im
         this.price = data().deepCopy(fields()[3].schema(), other.price);
         fieldSetFlags()[3] = true;
       }
-      if (isValidValue(fields()[4], other.delta)) {
-        this.delta = data().deepCopy(fields()[4].schema(), other.delta);
+      if (isValidValue(fields()[4], other.cash_delta)) {
+        this.cash_delta = data().deepCopy(fields()[4].schema(), other.cash_delta);
         fieldSetFlags()[4] = true;
       }
-      if (isValidValue(fields()[5], other.gamma)) {
-        this.gamma = data().deepCopy(fields()[5].schema(), other.gamma);
+      if (isValidValue(fields()[5], other.cash_gamma)) {
+        this.cash_gamma = data().deepCopy(fields()[5].schema(), other.cash_gamma);
         fieldSetFlags()[5] = true;
       }
-      if (isValidValue(fields()[6], other.vega)) {
-        this.vega = data().deepCopy(fields()[6].schema(), other.vega);
+      if (isValidValue(fields()[6], other.cash_vega)) {
+        this.cash_vega = data().deepCopy(fields()[6].schema(), other.cash_vega);
         fieldSetFlags()[6] = true;
       }
-      if (isValidValue(fields()[7], other.theta)) {
-        this.theta = data().deepCopy(fields()[7].schema(), other.theta);
+      if (isValidValue(fields()[7], other.cash_theta)) {
+        this.cash_theta = data().deepCopy(fields()[7].schema(), other.cash_theta);
         fieldSetFlags()[7] = true;
       }
-      if (isValidValue(fields()[8], other.rho)) {
-        this.rho = data().deepCopy(fields()[8].schema(), other.rho);
+      if (isValidValue(fields()[8], other.cash_rho)) {
+        this.cash_rho = data().deepCopy(fields()[8].schema(), other.cash_rho);
         fieldSetFlags()[8] = true;
       }
       if (isValidValue(fields()[9], other.var_95)) {
@@ -790,216 +790,221 @@ public class RiskSnapshot extends org.apache.avro.specific.SpecificRecordBase im
     }
 
     /**
-      * Gets the value of the 'delta' field.
-      * Aggregated portfolio-level delta, per docs/conventions.md. float64 per ADR-0004.
+      * Gets the value of the 'cash_delta' field.
+      * Aggregated portfolio-level cash delta (ADR-0017): sum of delta * S * 0.01 * quantity * contract_size across positions -- currency change per 1% relative move in spot. Decimal, not float64: raw per-unit deltas across different underlyings are not in comparable units and cannot be summed meaningfully; a cash amount can be. Per docs/conventions.md.
       * @return The value.
       */
-    public double getDelta() {
-      return delta;
+    public java.math.BigDecimal getCashDelta() {
+      return cash_delta;
     }
 
 
     /**
-      * Sets the value of the 'delta' field.
-      * Aggregated portfolio-level delta, per docs/conventions.md. float64 per ADR-0004.
-      * @param value The value of 'delta'.
+      * Sets the value of the 'cash_delta' field.
+      * Aggregated portfolio-level cash delta (ADR-0017): sum of delta * S * 0.01 * quantity * contract_size across positions -- currency change per 1% relative move in spot. Decimal, not float64: raw per-unit deltas across different underlyings are not in comparable units and cannot be summed meaningfully; a cash amount can be. Per docs/conventions.md.
+      * @param value The value of 'cash_delta'.
       * @return This builder.
       */
-    public com.meridian.contracts.RiskSnapshot.Builder setDelta(double value) {
+    public com.meridian.contracts.RiskSnapshot.Builder setCashDelta(java.math.BigDecimal value) {
       validate(fields()[4], value);
-      this.delta = value;
+      this.cash_delta = value;
       fieldSetFlags()[4] = true;
       return this;
     }
 
     /**
-      * Checks whether the 'delta' field has been set.
-      * Aggregated portfolio-level delta, per docs/conventions.md. float64 per ADR-0004.
-      * @return True if the 'delta' field has been set, false otherwise.
+      * Checks whether the 'cash_delta' field has been set.
+      * Aggregated portfolio-level cash delta (ADR-0017): sum of delta * S * 0.01 * quantity * contract_size across positions -- currency change per 1% relative move in spot. Decimal, not float64: raw per-unit deltas across different underlyings are not in comparable units and cannot be summed meaningfully; a cash amount can be. Per docs/conventions.md.
+      * @return True if the 'cash_delta' field has been set, false otherwise.
       */
-    public boolean hasDelta() {
+    public boolean hasCashDelta() {
       return fieldSetFlags()[4];
     }
 
 
     /**
-      * Clears the value of the 'delta' field.
-      * Aggregated portfolio-level delta, per docs/conventions.md. float64 per ADR-0004.
+      * Clears the value of the 'cash_delta' field.
+      * Aggregated portfolio-level cash delta (ADR-0017): sum of delta * S * 0.01 * quantity * contract_size across positions -- currency change per 1% relative move in spot. Decimal, not float64: raw per-unit deltas across different underlyings are not in comparable units and cannot be summed meaningfully; a cash amount can be. Per docs/conventions.md.
       * @return This builder.
       */
-    public com.meridian.contracts.RiskSnapshot.Builder clearDelta() {
+    public com.meridian.contracts.RiskSnapshot.Builder clearCashDelta() {
+      cash_delta = null;
       fieldSetFlags()[4] = false;
       return this;
     }
 
     /**
-      * Gets the value of the 'gamma' field.
-      * Aggregated portfolio-level gamma, per docs/conventions.md. float64 per ADR-0004.
+      * Gets the value of the 'cash_gamma' field.
+      * Aggregated portfolio-level cash gamma (ADR-0017): sum of gamma * S^2 * 0.0001 * quantity * contract_size across positions -- change in cash_delta per 1% move in spot. Per docs/conventions.md.
       * @return The value.
       */
-    public double getGamma() {
-      return gamma;
+    public java.math.BigDecimal getCashGamma() {
+      return cash_gamma;
     }
 
 
     /**
-      * Sets the value of the 'gamma' field.
-      * Aggregated portfolio-level gamma, per docs/conventions.md. float64 per ADR-0004.
-      * @param value The value of 'gamma'.
+      * Sets the value of the 'cash_gamma' field.
+      * Aggregated portfolio-level cash gamma (ADR-0017): sum of gamma * S^2 * 0.0001 * quantity * contract_size across positions -- change in cash_delta per 1% move in spot. Per docs/conventions.md.
+      * @param value The value of 'cash_gamma'.
       * @return This builder.
       */
-    public com.meridian.contracts.RiskSnapshot.Builder setGamma(double value) {
+    public com.meridian.contracts.RiskSnapshot.Builder setCashGamma(java.math.BigDecimal value) {
       validate(fields()[5], value);
-      this.gamma = value;
+      this.cash_gamma = value;
       fieldSetFlags()[5] = true;
       return this;
     }
 
     /**
-      * Checks whether the 'gamma' field has been set.
-      * Aggregated portfolio-level gamma, per docs/conventions.md. float64 per ADR-0004.
-      * @return True if the 'gamma' field has been set, false otherwise.
+      * Checks whether the 'cash_gamma' field has been set.
+      * Aggregated portfolio-level cash gamma (ADR-0017): sum of gamma * S^2 * 0.0001 * quantity * contract_size across positions -- change in cash_delta per 1% move in spot. Per docs/conventions.md.
+      * @return True if the 'cash_gamma' field has been set, false otherwise.
       */
-    public boolean hasGamma() {
+    public boolean hasCashGamma() {
       return fieldSetFlags()[5];
     }
 
 
     /**
-      * Clears the value of the 'gamma' field.
-      * Aggregated portfolio-level gamma, per docs/conventions.md. float64 per ADR-0004.
+      * Clears the value of the 'cash_gamma' field.
+      * Aggregated portfolio-level cash gamma (ADR-0017): sum of gamma * S^2 * 0.0001 * quantity * contract_size across positions -- change in cash_delta per 1% move in spot. Per docs/conventions.md.
       * @return This builder.
       */
-    public com.meridian.contracts.RiskSnapshot.Builder clearGamma() {
+    public com.meridian.contracts.RiskSnapshot.Builder clearCashGamma() {
+      cash_gamma = null;
       fieldSetFlags()[5] = false;
       return this;
     }
 
     /**
-      * Gets the value of the 'vega' field.
-      * Aggregated portfolio-level vega, per 1.00 absolute change in volatility -- not per 1% (docs/conventions.md). float64 per ADR-0004.
+      * Gets the value of the 'cash_vega' field.
+      * Aggregated portfolio-level cash vega (ADR-0017): sum of vega * quantity * contract_size across positions -- currency per 1.00 absolute change in volatility, not per 1% (docs/conventions.md).
       * @return The value.
       */
-    public double getVega() {
-      return vega;
+    public java.math.BigDecimal getCashVega() {
+      return cash_vega;
     }
 
 
     /**
-      * Sets the value of the 'vega' field.
-      * Aggregated portfolio-level vega, per 1.00 absolute change in volatility -- not per 1% (docs/conventions.md). float64 per ADR-0004.
-      * @param value The value of 'vega'.
+      * Sets the value of the 'cash_vega' field.
+      * Aggregated portfolio-level cash vega (ADR-0017): sum of vega * quantity * contract_size across positions -- currency per 1.00 absolute change in volatility, not per 1% (docs/conventions.md).
+      * @param value The value of 'cash_vega'.
       * @return This builder.
       */
-    public com.meridian.contracts.RiskSnapshot.Builder setVega(double value) {
+    public com.meridian.contracts.RiskSnapshot.Builder setCashVega(java.math.BigDecimal value) {
       validate(fields()[6], value);
-      this.vega = value;
+      this.cash_vega = value;
       fieldSetFlags()[6] = true;
       return this;
     }
 
     /**
-      * Checks whether the 'vega' field has been set.
-      * Aggregated portfolio-level vega, per 1.00 absolute change in volatility -- not per 1% (docs/conventions.md). float64 per ADR-0004.
-      * @return True if the 'vega' field has been set, false otherwise.
+      * Checks whether the 'cash_vega' field has been set.
+      * Aggregated portfolio-level cash vega (ADR-0017): sum of vega * quantity * contract_size across positions -- currency per 1.00 absolute change in volatility, not per 1% (docs/conventions.md).
+      * @return True if the 'cash_vega' field has been set, false otherwise.
       */
-    public boolean hasVega() {
+    public boolean hasCashVega() {
       return fieldSetFlags()[6];
     }
 
 
     /**
-      * Clears the value of the 'vega' field.
-      * Aggregated portfolio-level vega, per 1.00 absolute change in volatility -- not per 1% (docs/conventions.md). float64 per ADR-0004.
+      * Clears the value of the 'cash_vega' field.
+      * Aggregated portfolio-level cash vega (ADR-0017): sum of vega * quantity * contract_size across positions -- currency per 1.00 absolute change in volatility, not per 1% (docs/conventions.md).
       * @return This builder.
       */
-    public com.meridian.contracts.RiskSnapshot.Builder clearVega() {
+    public com.meridian.contracts.RiskSnapshot.Builder clearCashVega() {
+      cash_vega = null;
       fieldSetFlags()[6] = false;
       return this;
     }
 
     /**
-      * Gets the value of the 'theta' field.
-      * Aggregated portfolio-level theta, per calendar year -- not per day (docs/conventions.md). float64 per ADR-0004.
+      * Gets the value of the 'cash_theta' field.
+      * Aggregated portfolio-level cash theta (ADR-0017): sum of theta * quantity * contract_size across positions -- currency per calendar year, not per day (docs/conventions.md).
       * @return The value.
       */
-    public double getTheta() {
-      return theta;
+    public java.math.BigDecimal getCashTheta() {
+      return cash_theta;
     }
 
 
     /**
-      * Sets the value of the 'theta' field.
-      * Aggregated portfolio-level theta, per calendar year -- not per day (docs/conventions.md). float64 per ADR-0004.
-      * @param value The value of 'theta'.
+      * Sets the value of the 'cash_theta' field.
+      * Aggregated portfolio-level cash theta (ADR-0017): sum of theta * quantity * contract_size across positions -- currency per calendar year, not per day (docs/conventions.md).
+      * @param value The value of 'cash_theta'.
       * @return This builder.
       */
-    public com.meridian.contracts.RiskSnapshot.Builder setTheta(double value) {
+    public com.meridian.contracts.RiskSnapshot.Builder setCashTheta(java.math.BigDecimal value) {
       validate(fields()[7], value);
-      this.theta = value;
+      this.cash_theta = value;
       fieldSetFlags()[7] = true;
       return this;
     }
 
     /**
-      * Checks whether the 'theta' field has been set.
-      * Aggregated portfolio-level theta, per calendar year -- not per day (docs/conventions.md). float64 per ADR-0004.
-      * @return True if the 'theta' field has been set, false otherwise.
+      * Checks whether the 'cash_theta' field has been set.
+      * Aggregated portfolio-level cash theta (ADR-0017): sum of theta * quantity * contract_size across positions -- currency per calendar year, not per day (docs/conventions.md).
+      * @return True if the 'cash_theta' field has been set, false otherwise.
       */
-    public boolean hasTheta() {
+    public boolean hasCashTheta() {
       return fieldSetFlags()[7];
     }
 
 
     /**
-      * Clears the value of the 'theta' field.
-      * Aggregated portfolio-level theta, per calendar year -- not per day (docs/conventions.md). float64 per ADR-0004.
+      * Clears the value of the 'cash_theta' field.
+      * Aggregated portfolio-level cash theta (ADR-0017): sum of theta * quantity * contract_size across positions -- currency per calendar year, not per day (docs/conventions.md).
       * @return This builder.
       */
-    public com.meridian.contracts.RiskSnapshot.Builder clearTheta() {
+    public com.meridian.contracts.RiskSnapshot.Builder clearCashTheta() {
+      cash_theta = null;
       fieldSetFlags()[7] = false;
       return this;
     }
 
     /**
-      * Gets the value of the 'rho' field.
-      * Aggregated portfolio-level rho, per 1.00 absolute change in the risk-free rate (docs/conventions.md). float64 per ADR-0004.
+      * Gets the value of the 'cash_rho' field.
+      * Aggregated portfolio-level cash rho (ADR-0017): sum of rho * quantity * contract_size across positions -- currency per 1.00 absolute change in the risk-free rate (docs/conventions.md).
       * @return The value.
       */
-    public double getRho() {
-      return rho;
+    public java.math.BigDecimal getCashRho() {
+      return cash_rho;
     }
 
 
     /**
-      * Sets the value of the 'rho' field.
-      * Aggregated portfolio-level rho, per 1.00 absolute change in the risk-free rate (docs/conventions.md). float64 per ADR-0004.
-      * @param value The value of 'rho'.
+      * Sets the value of the 'cash_rho' field.
+      * Aggregated portfolio-level cash rho (ADR-0017): sum of rho * quantity * contract_size across positions -- currency per 1.00 absolute change in the risk-free rate (docs/conventions.md).
+      * @param value The value of 'cash_rho'.
       * @return This builder.
       */
-    public com.meridian.contracts.RiskSnapshot.Builder setRho(double value) {
+    public com.meridian.contracts.RiskSnapshot.Builder setCashRho(java.math.BigDecimal value) {
       validate(fields()[8], value);
-      this.rho = value;
+      this.cash_rho = value;
       fieldSetFlags()[8] = true;
       return this;
     }
 
     /**
-      * Checks whether the 'rho' field has been set.
-      * Aggregated portfolio-level rho, per 1.00 absolute change in the risk-free rate (docs/conventions.md). float64 per ADR-0004.
-      * @return True if the 'rho' field has been set, false otherwise.
+      * Checks whether the 'cash_rho' field has been set.
+      * Aggregated portfolio-level cash rho (ADR-0017): sum of rho * quantity * contract_size across positions -- currency per 1.00 absolute change in the risk-free rate (docs/conventions.md).
+      * @return True if the 'cash_rho' field has been set, false otherwise.
       */
-    public boolean hasRho() {
+    public boolean hasCashRho() {
       return fieldSetFlags()[8];
     }
 
 
     /**
-      * Clears the value of the 'rho' field.
-      * Aggregated portfolio-level rho, per 1.00 absolute change in the risk-free rate (docs/conventions.md). float64 per ADR-0004.
+      * Clears the value of the 'cash_rho' field.
+      * Aggregated portfolio-level cash rho (ADR-0017): sum of rho * quantity * contract_size across positions -- currency per 1.00 absolute change in the risk-free rate (docs/conventions.md).
       * @return This builder.
       */
-    public com.meridian.contracts.RiskSnapshot.Builder clearRho() {
+    public com.meridian.contracts.RiskSnapshot.Builder clearCashRho() {
+      cash_rho = null;
       fieldSetFlags()[8] = false;
       return this;
     }
@@ -1143,11 +1148,11 @@ public class RiskSnapshot extends org.apache.avro.specific.SpecificRecordBase im
         record.as_of = fieldSetFlags()[1] ? this.as_of : (java.time.Instant) defaultValue(fields()[1]);
         record.pricer_version = fieldSetFlags()[2] ? this.pricer_version : (java.lang.String) defaultValue(fields()[2]);
         record.price = fieldSetFlags()[3] ? this.price : (java.math.BigDecimal) defaultValue(fields()[3]);
-        record.delta = fieldSetFlags()[4] ? this.delta : (java.lang.Double) defaultValue(fields()[4]);
-        record.gamma = fieldSetFlags()[5] ? this.gamma : (java.lang.Double) defaultValue(fields()[5]);
-        record.vega = fieldSetFlags()[6] ? this.vega : (java.lang.Double) defaultValue(fields()[6]);
-        record.theta = fieldSetFlags()[7] ? this.theta : (java.lang.Double) defaultValue(fields()[7]);
-        record.rho = fieldSetFlags()[8] ? this.rho : (java.lang.Double) defaultValue(fields()[8]);
+        record.cash_delta = fieldSetFlags()[4] ? this.cash_delta : (java.math.BigDecimal) defaultValue(fields()[4]);
+        record.cash_gamma = fieldSetFlags()[5] ? this.cash_gamma : (java.math.BigDecimal) defaultValue(fields()[5]);
+        record.cash_vega = fieldSetFlags()[6] ? this.cash_vega : (java.math.BigDecimal) defaultValue(fields()[6]);
+        record.cash_theta = fieldSetFlags()[7] ? this.cash_theta : (java.math.BigDecimal) defaultValue(fields()[7]);
+        record.cash_rho = fieldSetFlags()[8] ? this.cash_rho : (java.math.BigDecimal) defaultValue(fields()[8]);
         record.var_95 = fieldSetFlags()[9] ? this.var_95 : (java.lang.Double) defaultValue(fields()[9]);
         record.scenario_id = fieldSetFlags()[10] ? this.scenario_id : (java.lang.String) defaultValue(fields()[10]);
         record.ingest_time = fieldSetFlags()[11] ? this.ingest_time : (java.time.Instant) defaultValue(fields()[11]);

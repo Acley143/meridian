@@ -45,7 +45,12 @@ to pass.
   `libs/quant-core` prices each instrument in that instrument's own
   currency and has no visibility into a portfolio's `base_currency`
   (`docs/domain-model.md#Portfolio`) — it cannot detect or prevent a
-  currency mismatch by construction. Q2's portfolio VaR is the first
+  currency mismatch by construction. ADR-0017 (cash Greeks) makes this
+  concrete: cash Greeks are summable across a portfolio's different
+  underlyings *within one currency*, not across currencies — aggregating a
+  EUR-denominated position into a USD portfolio total without conversion
+  is silently wrong, and nothing in ADR-0017 solves it (deliberately —
+  see that ADR's Consequences). Q2's portfolio VaR is the first
   deliverable that aggregates positions across a portfolio; if any two
   positions in a book are quoted in different currencies, summing them
   without conversion is silently wrong and no existing component catches

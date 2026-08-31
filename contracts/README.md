@@ -78,12 +78,12 @@ above; it only compiles what's already checked in under
   failure mode ADR-0013 exists to prevent; this is what actually verifies
   it, rather than just asserting it in an ADR.
 - `test_schema_evolution.py` + `backward_compat.py` — verifies the
-  BACKWARD-compatibility enforcement mechanism itself (no live registry is
-  deployed in CI; this approximates the registry's check via Avro's own
-  schema resolution rules — see the module docstring). Same principle as
-  `libs/quant-core`'s purity fixture: a check that has never been observed
-  to fail proves nothing, so this asserts both that adding a field WITH a
-  default is accepted and that adding one WITHOUT a default is rejected.
+  BACKWARD-compatibility enforcement mechanism itself, without a live
+  registry deployed in CI (see "Registry stand-in" below for exactly what
+  that does and doesn't cover). Same principle as `libs/quant-core`'s
+  purity fixture: a check that has never been observed to fail proves
+  nothing, so this asserts both that adding a field WITH a default is
+  accepted and that adding one WITHOUT a default is rejected.
 
 `contracts/generated/java/src/test/java/com/meridian/contracts/` (JUnit,
 run via `mvn -pl contracts/generated/java test`):
@@ -91,6 +91,32 @@ run via `mvn -pl contracts/generated/java test`):
   Python one, for every record type including nested `Position`.
 - `CrossLanguageDecimalTool.java` — not a test; the CLI the Python
   cross-language test shells out to.
+
+## Registry stand-in
+
+`backward_compat.py` (used by `test_schema_evolution.py`) is not an
+approximation of the Confluent Schema Registry's `BACKWARD` compatibility
+check — it drives the same Avro schema resolution rules the registry
+itself uses (decode data written with the old schema using the new schema
+as reader; a missing required field fails resolution exactly as it would
+against the registry). It has two real gaps against the actual registry,
+worth knowing rather than over-trusting:
+
+- It compares the current schema against exactly one hypothetical next
+  version — `BACKWARD`, not `BACKWARD_TRANSITIVE`. The real registry (in
+  `BACKWARD_TRANSITIVE` mode) checks a new version against *every* prior
+  registered version, not just the latest; this local check has no
+  registered history to check against, so it can't catch a field that's
+  compatible with v3 but not with v1.
+- It can't catch a subject-naming-strategy error (e.g. a schema registered
+  under the wrong subject, or a topic/schema subject mismatch), because
+  there are no subjects — no registry connection exists to register
+  against.
+
+Acceptable through Q2. A Q3 `infra/PLAN.md` deliverable adds a real
+Confluent Schema Registry as a CI service container once the local stack
+(`docker-compose.yml`) is proven, at which point this local check stops
+being the only signal and becomes a fast pre-check ahead of the real one.
 
 ## Rules
 

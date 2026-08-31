@@ -213,7 +213,7 @@ jobs:
           python-version: "3.12"
       - name: Install avro + pytest
         run: pip install "avro>=1.11" pytest
-      - name: Schema evolution test (approximates the registry's BACKWARD check via Avro's own schema resolution; no live registry deployed in CI -- see contracts/tests/python/backward_compat.py)
+      - name: Schema evolution test (BACKWARD via Avro's own resolution rules -- no live registry in CI yet; see contracts/README.md "Registry stand-in")
         run: |
           cd contracts/tests/python
           pytest -q test_schema_evolution.py

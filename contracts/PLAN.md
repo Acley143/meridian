@@ -37,15 +37,34 @@ number three components downstream, not a compile error here.
       that verifies the BACKWARD-compatibility check itself accepts a
       field-with-default and rejects a field-without (same principle as
       `libs/quant-core`'s purity fixture).
+- [x] `docs/adr/0016-partition-key-semantics.md`: the key and the ordering
+      guarantee it buys for each of the three Q1 topics, named explicitly
+      rather than left implicit in the `*-key.avsc` schemas. Flags the
+      actual trap (increasing partition count on a keyed topic silently
+      breaks per-key ordering across the boundary) and updates
+      `infra/PLAN.md` to say partition counts are set once at creation.
+- [x] `docs/adr/0017-cash-greeks.md`: `RiskSnapshot`'s portfolio-level
+      Greeks are cash Greeks (`Decimal(38,8)`, 1% basis for delta/gamma),
+      not raw per-unit float64 Greeks — those aren't summable across a
+      portfolio's different underlyings. Schema, domain model, OpenAPI,
+      and `docs/conventions.md` all updated; bindings regenerated.
+      Resolves the aggregation open question this file raised in the prior
+      session — see `services/pricer/PLAN.md`.
+- [x] "Registry stand-in" documented in `contracts/README.md`: the local
+      BACKWARD check runs the same Avro resolution rules the real registry
+      uses (not an approximation), with two named gaps (no
+      `BACKWARD_TRANSITIVE` history check, no subject-naming coverage) and
+      a Q3 `infra/PLAN.md` deliverable to close both with a real registry
+      CI service container.
 
 ## Explicitly out of scope
 - TypeScript Avro bindings — `apps/dashboard` consumes the OpenAPI surface,
   not Avro directly; revisit if that changes.
 - A live Confluent Schema Registry in CI — none is deployed yet (see
   `.github/workflows/ci.yml`'s `schema-registry-compatibility` job and
-  `tools/schema-lint/README.md`). The schema-evolution contract test
-  approximates the registry's `BACKWARD` check via Avro's own schema
-  resolution rather than waiting on that infrastructure.
+  `contracts/README.md`'s "Registry stand-in" section for exactly what the
+  local check does and doesn't cover in the meantime). Q3 per
+  `infra/PLAN.md`.
 - Implementing the endpoints in `service-api.yaml` — that's
   `services/core-service`'s `PLAN.md`. This workstream owns the contract,
   not the server.
@@ -59,9 +78,10 @@ number three components downstream, not a compile error here.
   affecting a workstream's deliverables are coordinated with that
   workstream's owner, not made unilaterally.
 - **Depends on:** `docs/domain-model.md` (source of truth for every type),
-  ADR-0002 (Avro + registry), ADR-0004/ADR-0013 (numeric types), ADR-0005
-  (time policy), ADR-0007 (risk snapshot identity), ADR-0009/ADR-0012 (REST
-  + SSE), ADR-0011 (scenario_id).
+  ADR-0002 (Avro + registry), ADR-0003 (portfolio.state compaction),
+  ADR-0004/ADR-0013 (numeric types), ADR-0005 (time policy), ADR-0007 (risk
+  snapshot identity), ADR-0009/ADR-0012 (REST + SSE), ADR-0011
+  (scenario_id), ADR-0014/ADR-0017 (per-unit vs. cash Greeks).
 
 ## Interfaces
 `contracts/avro/*.avsc` and `contracts/openapi/service-api.yaml` are the
@@ -82,16 +102,16 @@ interface, not a second one. Every other Q1 workstream imports
       target of its own; it's exercised via the services that use it
 
 ## Open questions
-- `RiskSnapshot`'s discrete Greek fields (replacing the original
-  `greeks: map<string, float64>` sketch) are portfolio-level aggregates.
-  How the pricer aggregates per-position Greeks (weighted sum? something
-  scenario-dependent for non-linear portfolios?) into those fields is a
-  `services/pricer` question, not a schema question — flagging so it isn't
-  assumed to already be decided here. Owner: Eng-B (pricer), by-when:
-  before `services/pricer`'s Q1 DoD.
+- ~~`RiskSnapshot`'s discrete Greek fields... how the pricer aggregates
+  per-position Greeks into those fields~~ **Resolved:
+  `docs/adr/0017-cash-greeks.md`.** Cash Greeks, with the exact aggregation
+  formula per position — not left to `services/pricer` to design.
 - `POST /trades` as synchronous REST vs. an inbound Kafka topic remains
   open (see `services/core-service/PLAN.md`) — the OpenAPI contract
   reflects the Q1 REST decision but isn't load-bearing if that changes.
+- Currency: cash Greeks (ADR-0017) are summable across underlyings, not
+  across currencies. Deliberately not solved here or in ADR-0017 — owned
+  at root `PLAN.md` for Q2, ahead of portfolio VaR.
 
 ## Session log
 - 2026-08-31 (Eng-A session): Q1 contracts work — ADR-0015 (build
@@ -108,3 +128,14 @@ interface, not a second one. Every other Q1 workstream imports
   discrete typed fields when it became clear the map shape couldn't carry
   per-field docs/defaults as a wire type; `docs/domain-model.md` updated to
   match, not left to disagree with the schema.
+- 2026-08-31 (later same session, Eng-A): ADR-0016 (partition key
+  semantics — named the guarantee, flagged the actual trap: partition
+  count changes on a keyed topic silently break ordering) and ADR-0017
+  (cash Greeks — `RiskSnapshot`'s Greek fields retyped `float64 ->
+  decimal(38,8)` and renamed `cash_*`, since the previous session's
+  discrete-field fix was still raw per-unit Greeks, not summable across
+  underlyings). Regenerated bindings, updated every Java/Python test that
+  constructs a `RiskSnapshot`; all pass, including the reactor build.
+  Documented the registry stand-in's real gaps in `contracts/README.md`
+  rather than changing it — it already runs the registry's own resolution
+  algorithm, it just lacks transitive history and subject-naming coverage.

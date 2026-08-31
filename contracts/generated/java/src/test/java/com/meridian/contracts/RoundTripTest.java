@@ -70,11 +70,11 @@ class RoundTripTest {
             Instant.parse("2026-01-01T00:00:00.123456Z"),
             "0.1.0",
             new BigDecimal("1234567.87654321"),
-            0.63,
-            0.018,
-            37.5,
-            -6.4,
-            53.2,
+            new BigDecimal("63000.12345678"),
+            new BigDecimal("1800.00000001"),
+            new BigDecimal("37500.00000000"),
+            new BigDecimal("-6400.00000000"),
+            new BigDecimal("53200.00000000"),
             125000.0,
             "scenario-1",
             Instant.parse("2026-01-01T00:00:00.654321Z"));
@@ -85,11 +85,11 @@ class RoundTripTest {
     assertEquals(snap.getAsOf(), back.getAsOf());
     assertEquals(snap.getPricerVersion(), back.getPricerVersion());
     assertEquals(snap.getPrice(), back.getPrice());
-    assertEquals(snap.getDelta(), back.getDelta());
-    assertEquals(snap.getGamma(), back.getGamma());
-    assertEquals(snap.getVega(), back.getVega());
-    assertEquals(snap.getTheta(), back.getTheta());
-    assertEquals(snap.getRho(), back.getRho());
+    assertEquals(snap.getCashDelta(), back.getCashDelta());
+    assertEquals(snap.getCashGamma(), back.getCashGamma());
+    assertEquals(snap.getCashVega(), back.getCashVega());
+    assertEquals(snap.getCashTheta(), back.getCashTheta());
+    assertEquals(snap.getCashRho(), back.getCashRho());
     assertEquals(snap.getVar95(), back.getVar95());
     assertEquals(snap.getScenarioId(), back.getScenarioId());
     assertEquals(snap.getIngestTime(), back.getIngestTime());

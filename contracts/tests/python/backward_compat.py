@@ -1,18 +1,22 @@
-"""Approximates the Confluent Schema Registry's BACKWARD compatibility
-check without a live registry (none is deployed in CI -- see
-.github/workflows/ci.yml's schema-registry-compatibility job and
-tools/schema-lint/README.md).
+"""Drives the same Avro schema resolution rules the Confluent Schema
+Registry's BACKWARD compatibility check itself uses, without a live
+registry (none is deployed in CI -- see .github/workflows/ci.yml's
+schema-registry-compatibility job and tools/schema-lint/README.md). This
+is not an approximation of that algorithm; it IS that algorithm, run
+locally: BACKWARD compatibility means a consumer using the NEW schema can
+read data written with the OLD schema, and that is exactly what decoding
+with a DatumReader constructed from (writer_schema=old, reader_schema=new)
+tests. A field present in `new` but not in `old`'s encoded bytes resolves
+successfully only if it has a default; otherwise Avro raises during
+decode, exactly matching what BACKWARD is supposed to reject.
 
-BACKWARD compatibility means: a consumer using the NEW schema can read
-data written with the OLD schema. Avro's own schema resolution rules
-implement exactly this when you decode with a DatumReader constructed from
-(writer_schema=old, reader_schema=new) -- so this module doesn't need to
-reimplement the registry's compatibility algorithm, only drive Avro's
-existing one: encode a sample instance with the old schema, and see
-whether the new schema can decode it. A field present in `new` but not in
-`old`'s encoded bytes resolves successfully only if it has a default;
-otherwise Avro raises during decode, exactly matching what BACKWARD is
-supposed to reject.
+Two real gaps against the actual registry (see contracts/README.md's
+"Registry stand-in" section for the full explanation):
+  1. This checks exactly one hypothetical next version against the
+     current schema -- BACKWARD, not BACKWARD_TRANSITIVE. It has no
+     registered history to check a new version against every prior one.
+  2. It cannot catch a subject-naming-strategy error, since no subjects
+     exist without an actual registry connection to register against.
 """
 import io
 from datetime import datetime, timezone

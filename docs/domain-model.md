@@ -147,17 +147,26 @@ sign/unit conventions exactly the way `quant_core.types.PricingResult`
 already does. `portfolio_value` is renamed `price` to match the field name
 used throughout `libs/quant-core` for the same concept (ADR-0014).
 
+**Revised again (ADR-0017):** those discrete fields were still raw
+per-unit Greeks, which do not aggregate meaningfully across a portfolio's
+different underlyings (`∂²V₁/∂S₁²` and `∂²V₂/∂S₂²` are not in the same
+units). Renamed `cash_delta`/`cash_gamma`/`cash_vega`/`cash_theta`/
+`cash_rho` and retyped `float64 -> decimal(38,8)` — cash Greeks are
+currency amounts and genuinely summable, which is the entire point of
+reporting them at the portfolio level at all. See ADR-0017 for the
+aggregation formulas.
+
 | name | type | unit | nullable | precision | meaning |
 |---|---|---|---|---|---|
 | portfolio_id | string | — | no | — | Part of the identity tuple (ADR-0007). |
 | as_of | timestamp | — | no | microsecond | Part of the identity tuple. The event time this snapshot values the portfolio as of — not the time the computation ran, and not `ingest_time` below. Renamed from `as_of_event_time` for brevity; same field. |
 | pricer_version | string | — | no | — | Part of the identity tuple. Identifies the exact pricing model/code version used, enabling re-pricing history and diffing (ADR-0007). Not a build number of the whole service — scoped specifically to the pricing logic. |
 | price | decimal | `Portfolio.base_currency` | no | precision 38, scale 8 | Total mark-to-market value of the portfolio. A cash amount — decimal per ADR-0004/ADR-0013. Named to match `quant_core`'s `PricingResult.price` (ADR-0014); this is a portfolio-level aggregate, not a per-instrument price. |
-| delta | float64 | `Portfolio.base_currency` per 1.00 absolute change in spot | no | — | Aggregated portfolio-level delta. Per `docs/conventions.md`. |
-| gamma | float64 | `Portfolio.base_currency` per 1.00 absolute change in spot | no | — | Aggregated portfolio-level gamma. Per `docs/conventions.md`. |
-| vega | float64 | `Portfolio.base_currency` per 1.00 absolute change in volatility | no | — | Aggregated portfolio-level vega. Per `docs/conventions.md` — per 1.00 vol, not per 1%. |
-| theta | float64 | `Portfolio.base_currency` per calendar year | no | — | Aggregated portfolio-level theta. Per `docs/conventions.md` — per year, not per day. |
-| rho | float64 | `Portfolio.base_currency` per 1.00 absolute change in rate | no | — | Aggregated portfolio-level rho. Per `docs/conventions.md`. |
+| cash_delta | decimal | `Portfolio.base_currency` per 1% relative move in spot | no | precision 38, scale 8 | Aggregated portfolio-level **cash delta** (ADR-0017): `Δ × S × 0.01 × quantity × contract_size`, summed across positions. Decimal, not float64 — raw per-unit deltas across different underlyings are not in comparable units and cannot be summed meaningfully; cash delta is a currency amount and can be. Per `docs/conventions.md`. |
+| cash_gamma | decimal | `Portfolio.base_currency` per 1% move in spot | no | precision 38, scale 8 | Aggregated portfolio-level **cash gamma** (ADR-0017): `Γ × S² × 0.0001 × quantity × contract_size`, summed across positions. Change in `cash_delta` per 1% move. Same cross-underlying summability reasoning as `cash_delta`. |
+| cash_vega | decimal | `Portfolio.base_currency` per 1.00 absolute change in volatility | no | precision 38, scale 8 | Aggregated portfolio-level **cash vega** (ADR-0017): `ν × quantity × contract_size`, summed across positions. Per `docs/conventions.md` — per 1.00 vol, not per 1%. |
+| cash_theta | decimal | `Portfolio.base_currency` per calendar year | no | precision 38, scale 8 | Aggregated portfolio-level **cash theta** (ADR-0017): `Θ × quantity × contract_size`, summed across positions. Per `docs/conventions.md` — per year, not per day. |
+| cash_rho | decimal | `Portfolio.base_currency` per 1.00 absolute change in rate | no | precision 38, scale 8 | Aggregated portfolio-level **cash rho** (ADR-0017): `ρ × quantity × contract_size`, summed across positions. Per `docs/conventions.md`. |
 | var_95 | float64 | `Portfolio.base_currency`, expressed as a magnitude | no | — | 1-day 95% Value at Risk. A risk statistic, not a cash balance — float64 per ADR-0004, even though its unit is currency. |
 | scenario_id | string | — | no (empty string default) | — | Propagated from the `Tick` stream that produced the positions/prices this snapshot is derived from (ADR-0011). End-to-end lineage: any risk number can be traced back to the exact reproducible tick stream that produced it, which is what makes "replay the same market day under two pricers and diff" work. Empty string is the wire default. |
 | ingest_time | timestamp | — | no | microsecond | UTC instant this snapshot was produced by the pricer. This, not `as_of`, is what `dashboard_render_time` is compared against downstream of the pricer for latency accounting at that stage. |

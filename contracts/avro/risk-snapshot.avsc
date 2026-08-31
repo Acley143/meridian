@@ -2,7 +2,7 @@
   "type": "record",
   "name": "RiskSnapshot",
   "namespace": "com.meridian.contracts",
-  "doc": "Priced, risk-bearing output of the pricer for one portfolio at one instant under one model version. See docs/domain-model.md#risksnapshot and ADR-0007. Discrete Greek fields (not a map) so each carries its own doc/default and the registry's BACKWARD check can catch a typo in a field name at schema-review time rather than at read time.",
+  "doc": "Priced, risk-bearing output of the pricer for one portfolio at one instant under one model version. See docs/domain-model.md#risksnapshot and ADR-0007. Discrete Greek fields (not a map) so each carries its own doc/default and the registry's BACKWARD check can catch a typo in a field name at schema-review time rather than at read time. Portfolio-level Greeks are cash Greeks (ADR-0017), Decimal(38,8) -- not the per-unit float64 Greeks quant_core.types.PricingResult carries -- because raw per-unit Greeks are not summable across a portfolio's different underlyings.",
   "fields": [
     { "name": "portfolio_id", "type": "string", "doc": "Part of the identity tuple (ADR-0007)." },
     {
@@ -21,29 +21,29 @@
       "doc": "Total mark-to-market value of the portfolio, in the portfolio's base currency. Decimal (precision 38, scale 8) per ADR-0004/ADR-0013. Named to match quant_core.types.PricingResult.price (ADR-0014); this is a portfolio-level aggregate, not a single-instrument price."
     },
     {
-      "name": "delta",
-      "type": "double",
-      "doc": "Aggregated portfolio-level delta, per docs/conventions.md. float64 per ADR-0004."
+      "name": "cash_delta",
+      "type": { "type": "bytes", "logicalType": "decimal", "precision": 38, "scale": 8 },
+      "doc": "Aggregated portfolio-level cash delta (ADR-0017): sum of delta * S * 0.01 * quantity * contract_size across positions -- currency change per 1% relative move in spot. Decimal, not float64: raw per-unit deltas across different underlyings are not in comparable units and cannot be summed meaningfully; a cash amount can be. Per docs/conventions.md."
     },
     {
-      "name": "gamma",
-      "type": "double",
-      "doc": "Aggregated portfolio-level gamma, per docs/conventions.md. float64 per ADR-0004."
+      "name": "cash_gamma",
+      "type": { "type": "bytes", "logicalType": "decimal", "precision": 38, "scale": 8 },
+      "doc": "Aggregated portfolio-level cash gamma (ADR-0017): sum of gamma * S^2 * 0.0001 * quantity * contract_size across positions -- change in cash_delta per 1% move in spot. Per docs/conventions.md."
     },
     {
-      "name": "vega",
-      "type": "double",
-      "doc": "Aggregated portfolio-level vega, per 1.00 absolute change in volatility -- not per 1% (docs/conventions.md). float64 per ADR-0004."
+      "name": "cash_vega",
+      "type": { "type": "bytes", "logicalType": "decimal", "precision": 38, "scale": 8 },
+      "doc": "Aggregated portfolio-level cash vega (ADR-0017): sum of vega * quantity * contract_size across positions -- currency per 1.00 absolute change in volatility, not per 1% (docs/conventions.md)."
     },
     {
-      "name": "theta",
-      "type": "double",
-      "doc": "Aggregated portfolio-level theta, per calendar year -- not per day (docs/conventions.md). float64 per ADR-0004."
+      "name": "cash_theta",
+      "type": { "type": "bytes", "logicalType": "decimal", "precision": 38, "scale": 8 },
+      "doc": "Aggregated portfolio-level cash theta (ADR-0017): sum of theta * quantity * contract_size across positions -- currency per calendar year, not per day (docs/conventions.md)."
     },
     {
-      "name": "rho",
-      "type": "double",
-      "doc": "Aggregated portfolio-level rho, per 1.00 absolute change in the risk-free rate (docs/conventions.md). float64 per ADR-0004."
+      "name": "cash_rho",
+      "type": { "type": "bytes", "logicalType": "decimal", "precision": 38, "scale": 8 },
+      "doc": "Aggregated portfolio-level cash rho (ADR-0017): sum of rho * quantity * contract_size across positions -- currency per 1.00 absolute change in the risk-free rate (docs/conventions.md)."
     },
     {
       "name": "var_95",

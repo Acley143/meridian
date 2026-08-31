@@ -259,7 +259,7 @@ components:
     RiskSnapshot:
       type: object
       description: See docs/domain-model.md#risksnapshot, ADR-0007, and contracts/avro/risk-snapshot.avsc (this is the same shape as the wire schema).
-      required: [portfolio_id, as_of, pricer_version, price, delta, gamma, vega, theta, rho, var_95, scenario_id, ingest_time]
+      required: [portfolio_id, as_of, pricer_version, price, cash_delta, cash_gamma, cash_vega, cash_theta, cash_rho, var_95, scenario_id, ingest_time]
       properties:
         portfolio_id:
           type: string
@@ -272,26 +272,21 @@ components:
         price:
           type: string
           description: Decimal (precision 38, scale 8) encoded as a string, per ADR-0004/ADR-0013. Portfolio-level mark-to-market value.
-        delta:
-          type: number
-          format: double
-          description: Per docs/conventions.md.
-        gamma:
-          type: number
-          format: double
-          description: Per docs/conventions.md.
-        vega:
-          type: number
-          format: double
-          description: Per 1.00 absolute change in volatility, not per 1% (docs/conventions.md).
-        theta:
-          type: number
-          format: double
-          description: Per calendar year, not per day (docs/conventions.md).
-        rho:
-          type: number
-          format: double
-          description: Per 1.00 absolute change in rate (docs/conventions.md).
+        cash_delta:
+          type: string
+          description: Decimal (precision 38, scale 8) encoded as a string, per ADR-0004/ADR-0013. Cash delta (ADR-0017) -- currency change per 1% relative move in spot, summed across positions. Not the per-unit float64 delta docs/conventions.md defines for quant_core; raw per-unit Greeks aren't summable across a portfolio's different underlyings.
+        cash_gamma:
+          type: string
+          description: Decimal (precision 38, scale 8) encoded as a string, per ADR-0004/ADR-0013. Cash gamma (ADR-0017) -- change in cash_delta per 1% move in spot, summed across positions.
+        cash_vega:
+          type: string
+          description: Decimal (precision 38, scale 8) encoded as a string, per ADR-0004/ADR-0013. Cash vega (ADR-0017) -- currency per 1.00 absolute change in volatility, not per 1% (docs/conventions.md), summed across positions.
+        cash_theta:
+          type: string
+          description: Decimal (precision 38, scale 8) encoded as a string, per ADR-0004/ADR-0013. Cash theta (ADR-0017) -- currency per calendar year, not per day (docs/conventions.md), summed across positions.
+        cash_rho:
+          type: string
+          description: Decimal (precision 38, scale 8) encoded as a string, per ADR-0004/ADR-0013. Cash rho (ADR-0017) -- currency per 1.00 absolute change in rate (docs/conventions.md), summed across positions.
         var_95:
           type: number
           format: double

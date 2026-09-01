@@ -57,6 +57,13 @@ public class RiskSnapshotConsumerHealthIndicator implements HealthIndicator {
     // underlying metric isn't registered at all -- see RiskSnapshotConsumerService
     // #lastHeartbeatSecondsAgo. The signal that actually reflects broker/coordinator reachability.
     builder.withDetail("lastHeartbeatSecondsAgo", lastHeartbeatSecondsAgo);
+    // Disambiguates a null lastHeartbeatSecondsAgo: true means the metric is registered and this
+    // consumer just hasn't heartbeated yet (startup, briefly, before the first group join) --
+    // false means the signal itself is broken and will report null forever (see
+    // RiskSnapshotConsumerRunner#checkHeartbeatMetricIsRegisteredOnce, which also logs this
+    // loudly). Null means the one-time startup check hasn't run yet (before the first poll loop
+    // iteration completes).
+    builder.withDetail("heartbeatMetricRegistered", runner.heartbeatMetricRegistered());
     return builder.build();
   }
 

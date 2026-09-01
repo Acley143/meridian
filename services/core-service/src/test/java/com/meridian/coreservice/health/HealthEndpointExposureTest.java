@@ -56,7 +56,10 @@ class HealthEndpointExposureTest extends AbstractRestIntegrationTest {
         // KafkaOutageReadinessExclusionFixtureTest, which proves lastHeartbeatSecondsAgo is the
         // field that actually moves during a real broker outage.
         .body("components.riskSnapshotConsumer.details.pollLoopIterationCount", notNullValue())
-        .body("components.riskSnapshotConsumer.details.lastHeartbeatSecondsAgo", notNullValue());
+        .body("components.riskSnapshotConsumer.details.lastHeartbeatSecondsAgo", notNullValue())
+        // Disambiguates a null lastHeartbeatSecondsAgo ("hasn't heartbeated yet" vs "the signal
+        // is broken") -- true here since the metric is genuinely registered on a healthy run.
+        .body("components.riskSnapshotConsumer.details.heartbeatMetricRegistered", equalTo(true));
   }
 
   @Test

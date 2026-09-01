@@ -158,7 +158,20 @@ loop iteration, that a metric named `last-heartbeat-seconds-ago` is actually
 registered on the running Kafka client (`heartbeatMetricIsRegistered()`),
 and logs an `ERROR` if it isn't — a future `kafka-clients` upgrade that
 renames the metric would otherwise silently degrade `lastHeartbeatSecondsAgo`
-to always-`null` with nothing failing loudly on its own.
+to always-`null` with nothing failing loudly on its own. That check's result
+is also published as a fourth field, `heartbeatMetricRegistered`
+(`null` before the check has run once; `true`/`false` after). Without it, a
+`null` `lastHeartbeatSecondsAgo` is ambiguous between two very different
+states that collapsing them into one `null` would otherwise hide: "the
+metric is registered and this consumer just hasn't heartbeated yet" (the
+ordinary case for the first few seconds after startup, before the first
+group join) and "the signal itself is broken and will report `null`
+forever" (the metric-rename case above). The first is a transient,
+expected null; the second means nothing will ever move again and the
+same-shaped incident this ADR exists to prevent could recur invisibly.
+`heartbeatMetricRegistered` is what lets a reader — or, eventually, an
+alert — tell them apart without polling for how long the null has
+persisted.
 
 None of these fields carry a baked-in status threshold (no
 `lastHeartbeatSecondsAgo > N ⇒ DOWN`): a threshold there is a readiness gate

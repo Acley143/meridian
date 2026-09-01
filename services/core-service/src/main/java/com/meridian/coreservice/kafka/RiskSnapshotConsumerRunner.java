@@ -67,6 +67,12 @@ public class RiskSnapshotConsumerRunner implements ApplicationRunner {
       new AtomicReference<>(Set.of());
   private final AtomicReference<Double> lastHeartbeatSecondsAgo = new AtomicReference<>(null);
   private final AtomicLong pollLoopIterationCount = new AtomicLong(0);
+  // null = not checked yet (before the first poll loop iteration completes); true/false = whether
+  // HEARTBEAT_METRIC_NAME was found at that one-time check. Lets a reader of the health detail
+  // tell "hasn't heartbeated yet" (registered, still null) apart from "the signal itself is
+  // broken" (not registered, will stay null forever) -- both otherwise collapse to the same null
+  // lastHeartbeatSecondsAgo.
+  private final AtomicReference<Boolean> heartbeatMetricRegistered = new AtomicReference<>(null);
   private volatile boolean heartbeatMetricCheckedAtStartup = false;
 
   public RiskSnapshotConsumerRunner(RiskSnapshotConsumerService consumerService) {
@@ -111,7 +117,9 @@ public class RiskSnapshotConsumerRunner implements ApplicationRunner {
       return;
     }
     heartbeatMetricCheckedAtStartup = true;
-    if (consumerService.heartbeatMetricIsRegistered()) {
+    boolean registered = consumerService.heartbeatMetricIsRegistered();
+    heartbeatMetricRegistered.set(registered);
+    if (registered) {
       log.info(
           "risk.snapshots consumer: '{}' metric is registered -- Kafka broker/coordinator"
               + " reachability will be reported via lastHeartbeatSecondsAgo",
@@ -153,6 +161,17 @@ public class RiskSnapshotConsumerRunner implements ApplicationRunner {
    */
   public Double lastHeartbeatSecondsAgo() {
     return lastHeartbeatSecondsAgo.get();
+  }
+
+  /**
+   * Safe to call from any thread -- reads only the published {@link AtomicReference}. {@code null}
+   * before the one-time startup check has run; {@code true}/{@code false} after, for whether {@link
+   * RiskSnapshotConsumerService#HEARTBEAT_METRIC_NAME} was found. Lets a caller distinguish a
+   * {@code null} {@link #lastHeartbeatSecondsAgo} that means "hasn't heartbeated yet" (registered)
+   * from one that means "this signal is broken" (not registered) -- see field doc.
+   */
+  public Boolean heartbeatMetricRegistered() {
+    return heartbeatMetricRegistered.get();
   }
 
   @PreDestroy

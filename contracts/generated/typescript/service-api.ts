@@ -10,7 +10,7 @@
  */
 
 export interface paths {
-    "/portfolios/{portfolioId}": {
+    "/api/v1/portfolios/{portfolioId}": {
         parameters: {
             query?: never;
             header?: never;
@@ -27,7 +27,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/portfolios/{portfolioId}/positions": {
+    "/api/v1/portfolios/{portfolioId}/positions": {
         parameters: {
             query?: never;
             header?: never;
@@ -44,7 +44,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/portfolios/{portfolioId}/risk": {
+    "/api/v1/portfolios/{portfolioId}/risk": {
         parameters: {
             query?: never;
             header?: never;
@@ -61,7 +61,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/portfolios/{portfolioId}/risk/history": {
+    "/api/v1/portfolios/{portfolioId}/risk/history": {
         parameters: {
             query?: never;
             header?: never;
@@ -70,7 +70,7 @@ export interface paths {
         };
         /**
          * Bounded range query over a portfolio's risk snapshot history.
-         * @description Returns snapshots with `as_of` in `[from, to]`, most recent first, capped at `limit`. This is a REST alternative to `/risk/stream` for a client that wants a fixed window of history rather than a live feed -- e.g. to render a chart on page load before subscribing to the stream for updates.
+         * @description Returns snapshots with `as_of` in `[from, to]`, most recent first, capped at `limit`. This is a REST alternative to `/api/v1/.../risk/stream` for a client that wants a fixed window of history rather than a live feed -- e.g. to render a chart on page load before subscribing to the stream for updates.
          */
         get: operations["getRiskHistory"];
         put?: never;
@@ -81,7 +81,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/portfolios/{portfolioId}/risk/stream": {
+    "/api/v1/portfolios/{portfolioId}/risk/stream": {
         parameters: {
             query?: never;
             header?: never;
@@ -90,7 +90,7 @@ export interface paths {
         };
         /**
          * Server-Sent Events stream of RiskSnapshot updates for a portfolio.
-         * @description Resume semantics per ADR-0012. Each event's `id:` field is `{portfolio_id}:{as_of_micros}:{pricer_version}` -- the ADR-0007 identity tuple. On reconnect the browser's EventSource automatically sends `Last-Event-ID` with the id of the last event it received; the service parses it and replays persisted snapshots for this portfolio with a later `as_of` than the one in the header. Replay is bounded at 500 snapshots or 15 minutes, whichever is smaller -- beyond that bound the service emits a `resync` event instead of replaying, and the client must refetch full state via `GET /portfolios/{id}/positions` and `GET /portfolios/{id}/risk`.
+         * @description Resume semantics per ADR-0012. Each event's `id:` field is `{portfolio_id}:{as_of_micros}:{pricer_version}` -- the ADR-0007 identity tuple. On reconnect the browser's EventSource automatically sends `Last-Event-ID` with the id of the last event it received; the service parses it and replays persisted snapshots for this portfolio with a later `as_of` than the one in the header. Replay is bounded at 500 snapshots or 15 minutes, whichever is smaller -- beyond that bound the service emits a `resync` event instead of replaying, and the client must refetch full state via `GET /api/v1/portfolios/{id}/positions` and `GET /api/v1/portfolios/{id}/risk`.
          */
         get: operations["streamRisk"];
         put?: never;
@@ -101,7 +101,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/trades": {
+    "/api/v1/trades": {
         parameters: {
             query?: never;
             header?: never;
@@ -121,7 +121,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/portfolios/{portfolioId}/audit": {
+    "/api/v1/portfolios/{portfolioId}/audit": {
         parameters: {
             query?: never;
             header?: never;
@@ -200,7 +200,7 @@ export interface components {
             /** Format: date-time */
             ingest_time: string;
         };
-        /** @description Body of POST /trades. See docs/domain-model.md#trade -- trade_id and ingest_time are server-assigned, not client-supplied. */
+        /** @description Body of POST /api/v1/trades. See docs/domain-model.md#trade -- trade_id and ingest_time are server-assigned, not client-supplied. */
         TradeRequest: {
             portfolio_id: string;
             instrument_id: string;

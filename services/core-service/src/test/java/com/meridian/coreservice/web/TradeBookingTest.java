@@ -10,7 +10,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 
-/** {@code POST /trades} -- the first real caller of PortfolioMutationService.applyTrade. */
+/** {@code POST /api/v1/trades} -- the first real caller of PortfolioMutationService.applyTrade. */
 class TradeBookingTest extends AbstractRestIntegrationTest {
 
   @Autowired private JdbcTemplate jdbcTemplate;
@@ -46,7 +46,7 @@ class TradeBookingTest extends AbstractRestIntegrationTest {
         .contentType("application/json")
         .body(requestBody)
         .when()
-        .post("/trades")
+        .post("/api/v1/trades")
         .then()
         .statusCode(201)
         .body("portfolio_id", equalTo("PF-TRADE-TEST"))
@@ -78,7 +78,7 @@ class TradeBookingTest extends AbstractRestIntegrationTest {
         .contentType("application/json")
         .body(requestBody)
         .when()
-        .post("/trades")
+        .post("/api/v1/trades")
         .then()
         .statusCode(400);
   }
@@ -109,7 +109,7 @@ class TradeBookingTest extends AbstractRestIntegrationTest {
         .contentType("application/json")
         .body(requestBody)
         .when()
-        .post("/trades")
+        .post("/api/v1/trades")
         .then()
         .statusCode(201);
 
@@ -117,7 +117,7 @@ class TradeBookingTest extends AbstractRestIntegrationTest {
         .filter(OPENAPI_FILTER)
         .baseUri(baseUrl())
         .when()
-        .get("/portfolios/PF-AUDIT-TEST/audit")
+        .get("/api/v1/portfolios/PF-AUDIT-TEST/audit")
         .then()
         .statusCode(200)
         .body("[0].entry_type", equalTo("trade_booked"));

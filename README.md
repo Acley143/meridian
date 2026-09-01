@@ -77,7 +77,7 @@ mvn -pl services/core-service spring-boot:run
 # endpoint yet (Q1 open item), so this is a direct insert for local dev:
 #   INSERT INTO portfolios (portfolio_id, name, base_currency, owner) ...
 #   INSERT INTO instruments (instrument_id, underlying_id, instrument_type, ...) ...
-# then book a position via POST /trades (snake_case body -- portfolio_id,
+# then book a position via POST /api/v1/trades (snake_case body -- portfolio_id,
 # instrument_id, quantity, price, event_time -- per contracts/openapi/service-api.yaml)
 
 # pricer: consumes ticks + portfolio state, produces RiskSnapshots
@@ -93,8 +93,8 @@ cd apps/dashboard && npm run dev
 **The dashboard is same-origin, by design (ADR-0020).** `core-service` has
 no CORS configuration and none is added. Instead, `apps/dashboard` never
 issues a cross-origin request: every `fetch` and `EventSource` call uses a
-relative `/portfolios/...` path, and `vite.config.ts`'s dev proxy forwards
-those to `core-service` on `:8080`. This is deliberate — a permissive dev
+relative `/api/v1/...` path (ADR-0021), and `vite.config.ts`'s dev proxy
+forwards `/api` to `core-service` on `:8080`. This is deliberate — a permissive dev
 CORS policy is the kind of thing that leaks into production by accident,
 and it would decide Q3's production origin topology by default. Any
 production deployment must instead serve the dashboard and the API behind

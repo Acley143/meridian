@@ -49,7 +49,7 @@ class MoneyAsStringTest extends AbstractRestIntegrationTest {
             .filter(OPENAPI_FILTER)
             .baseUri(baseUrl())
             .when()
-            .get("/portfolios/PF-MONEY/positions")
+            .get("/api/v1/portfolios/PF-MONEY/positions")
             .then()
             .statusCode(200)
             .extract()
@@ -66,7 +66,7 @@ class MoneyAsStringTest extends AbstractRestIntegrationTest {
     // and assert exact BigDecimal equality with the value that would have lost precision as a
     // double.
     io.restassured.response.Response response =
-        given().baseUri(baseUrl()).when().get("/portfolios/PF-MONEY/positions");
+        given().baseUri(baseUrl()).when().get("/api/v1/portfolios/PF-MONEY/positions");
     String quantityField = response.jsonPath().getString("[0].quantity");
     assertThat(new BigDecimal(quantityField))
         .isEqualByComparingTo(new BigDecimal(DOUBLE_LOSSY_VALUE));
@@ -83,7 +83,7 @@ class MoneyAsStringTest extends AbstractRestIntegrationTest {
         .filter(OPENAPI_FILTER)
         .baseUri(baseUrl())
         .when()
-        .get("/portfolios/PF-CONFORMANCE")
+        .get("/api/v1/portfolios/PF-CONFORMANCE")
         .then()
         .statusCode(200)
         .body("portfolio_id", equalTo("PF-CONFORMANCE"));
@@ -95,7 +95,7 @@ class MoneyAsStringTest extends AbstractRestIntegrationTest {
         .filter(OPENAPI_FILTER)
         .baseUri(baseUrl())
         .when()
-        .get("/portfolios/PF-DOES-NOT-EXIST")
+        .get("/api/v1/portfolios/PF-DOES-NOT-EXIST")
         .then()
         .statusCode(404);
   }

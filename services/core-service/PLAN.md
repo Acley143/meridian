@@ -85,6 +85,15 @@ booking.
 - Trade booking: synchronous REST endpoint vs. its own inbound Kafka topic?
   Q1 assumes REST for simplicity; revisit if a trade-source integration
   needs otherwise. Owner: Eng-D, by-when: before Q2 planning.
+- REST compatibility policy: ADR-0021 gives the REST surface a version
+  segment (`/api/v1`) but no equivalent to ADR-0002's `BACKWARD`
+  compatibility policy for Avro — no definition of what counts as a
+  breaking REST change, who decides, or whether `/api/v1` keeps serving
+  once `/api/v2` exists. `/api/v1` is a container, not a policy; don't read
+  one into it from the version number alone. Needs its own ADR in Q2 — not
+  pre-numbered here, since cross-currency aggregation (root `PLAN.md`) is
+  also pending an ADR and whichever gets drafted first should take the next
+  number. Owner: unassigned, by-when: Q2 planning.
 
 ## Session log
 - 2026-08-31 (contracts session, Eng-A): `contracts/openapi/service-api.yaml`

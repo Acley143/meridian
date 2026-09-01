@@ -7,7 +7,11 @@ import re
 import sys
 from pathlib import Path
 
-FORBIDDEN = re.compile(r"http://localhost:8080|127\.0\.0\.1:8080|(?<![\w.]):8080")
+# A trailing word boundary keeps this from matching inside a longer digit
+# run (":80800"); no leading lookbehind, since a real hostname almost always
+# ends in a word character ("localhost:8080", "core-service:8080") and a
+# lookbehind excluding word characters would exclude exactly those cases.
+FORBIDDEN = re.compile(r":8080\b")
 
 
 def main(argv):

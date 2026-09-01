@@ -66,3 +66,14 @@ end to end.
   (`Makefile` and the CI `typescript` job updated to match); non-substantive
   to the Decision or Enforcement invariant itself, only to where the
   checking script lives.
+- 2026-08-31 (dashboard): The enforcement script's original bare-port
+  pattern (`(?<![\w.]):8080`) never fired for the case it existed to catch.
+  Its negative lookbehind excluded any `:8080` preceded by a word character
+  -- but a real hostname almost always ends in one (`localhost:8080`,
+  `core-service:8080`), so a literal `"localhost:8080"` with no `http://`
+  prefix passed the check silently. Only the `http://localhost:8080` and
+  `127.0.0.1:8080` alternatives had ever been exercised against a failing
+  fixture; the third had not. Fixed to a single `:8080\b` pattern with no
+  leading lookbehind (trailing `\b` still keeps it from matching inside a
+  longer digit run, e.g. `:80800`). Substantive to the Enforcement
+  guarantee -- the invariant was weaker than stated until this fix.

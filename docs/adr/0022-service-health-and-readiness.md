@@ -93,28 +93,47 @@ by a manual poll loop (`RiskSnapshotConsumerRunner`/
 indicator runs on an HTTP request thread, not the poll loop's thread — so
 `RiskSnapshotConsumerHealthIndicator` never touches the consumer directly.
 `RiskSnapshotConsumerRunner` publishes an `AtomicReference` (partition
-assignment) and a `volatile long` (last-poll-completed timestamp) from
-inside its own poll loop, immediately after each `pollOnce()` returns; the
-indicator only reads those. A poll that returns zero records still
-completed successfully — the published timestamp proves the loop is alive,
-it is **not** a data-freshness signal, and is not conflated with
-`oldest_input_event_time`. The indicator reports the raw timestamp and its
-derived age and lets a human (or a future alert) judge what's too old; it
-does not bake a staleness threshold into itself, since a threshold there is
-a readiness gate wearing a different hat — precisely what this ADR rejects.
+assignment), a second `AtomicReference` (a heartbeat-age reading, below),
+and a `volatile long` (last-poll-loop-iteration timestamp) from inside its
+own poll loop, immediately after each `pollOnce()` returns; the indicator
+only reads those.
 
-**A verified limitation, not silently assumed:** hand-testing against a
-real broker outage (stopping the `kafka` container in `docker-compose.yml`
-while `core-service` ran locally) showed that `KafkaConsumer.poll()` does
-not throw when the broker is unreachable — it logs `Connection to node N
-could not be established` and returns an empty batch. The poll loop
-correctly treats that as a successful poll by the definition above, so
-`lastPollAgeMillis` does **not** grow during a real single-broker outage;
-the detail cannot currently distinguish "broker down" from "broker up, idle."
-Detecting broker reachability specifically (versus loop liveness) would need
-a different signal — e.g. consumer metrics or a separate admin-client probe
-— and is left for the same Q2 observability work as consumer-death
-detection, rather than folded into this session as an unplanned addition.
+**A field that reported "fine" during a real failure was caught and
+replaced, not shipped.** The first version of this indicator treated a
+poll-loop-iteration timestamp (`pollThreadAlive`, `lastPollLoopIterationAt`)
+as the Kafka detail's headline signal. Hand-testing against a real broker
+outage (stopping the `kafka` container in `docker-compose.yml` while
+`core-service` ran locally, then repeating it as an automated fixture —
+`KafkaOutageReadinessExclusionFixtureTest`) showed that `KafkaConsumer.poll()`
+does not throw when the broker is unreachable — it logs `Connection to node
+N could not be established` and returns an empty batch, which the poll loop
+correctly treats as a successful iteration. The timestamp kept advancing
+through a *total* broker outage. That is worse than an absent field: it is
+this system's characteristic failure mode (an absent signal rendering as a
+normal one — the same shape `oldest_input_event_time` exists to prevent on
+the dashboard) reproduced inside the very health check meant to catch it,
+and it is exactly the kind of thing an on-call engineer checks first during
+an incident.
+
+The fix ships in this same change, not as a follow-up: `pollThreadAlive`
+and `lastPollLoopIterationAt`/`*AgeMillis` remain in the body (loop-liveness
+is still a real, useful signal — a genuinely wedged loop, as opposed to a
+broker outage, does stop advancing them), but the health body now also
+carries a literal `pollLoopIterationCaveat` string stating plainly that
+these fields do not indicate broker reachability, and a fourth field,
+`lastHeartbeatSecondsAgo`, sourced directly from `KafkaConsumer`'s own
+`consumer-coordinator-metrics` group (`last-heartbeat-seconds-ago`, read
+from inside the poll loop via `RiskSnapshotConsumerService
+.lastHeartbeatSecondsAgo()` — same single-thread-access constraint as
+`currentAssignment()`). The group heartbeat genuinely stops succeeding when
+the coordinator is unreachable, so this field is the one that actually
+moves during an outage — confirmed by re-running the same fixture with the
+requirement inverted (the field **must** grow during the outage) rather
+than trusting the mechanism by inspection. None of these fields carry a
+baked-in status threshold (no `lastHeartbeatSecondsAgo > N ⇒ DOWN`): a
+threshold there is a readiness gate wearing a different hat, precisely what
+this ADR rejects — the raw value and its age are reported, and a human (or
+a future alert) judges what's too old.
 
 ### Exposure
 Only `health` is exposed
@@ -152,11 +171,13 @@ added — stays at the root, unversioned and unprefixed, by construction").
   with Q3's deploy work or its own session, not folded into this one as a
   side effect of adding probes. Recorded as an open question in
   `services/core-service/PLAN.md`.
-- Kafka consumer death (a genuinely wedged poll loop that still returns
-  successfully, or a broker outage the loop can't distinguish from idle, per
-  the verified limitation above) remains invisible to any automated system
-  — a human has to read the `riskSnapshotConsumer` detail to notice. This is
-  named, tracked Q2 work, not a silent gap.
+- Kafka consumer death (a genuinely wedged poll loop, which does still stop
+  advancing `lastPollLoopIterationAt`/`pollThreadAlive`, or a broker outage,
+  which `lastHeartbeatSecondsAgo` now reflects) remains invisible to any
+  *automated* system — nothing pages on it, a human has to read the
+  `riskSnapshotConsumer` detail to notice. This is named, tracked Q2 work
+  (alerting on these fields), not a silent gap; the fields themselves are no
+  longer silently wrong.
 - Any future addition to `management.endpoint.health.group.readiness.include`
   in `application.yml` that reintroduces Kafka is a readiness-gating
   decision this ADR explicitly rejected;
@@ -174,11 +195,14 @@ Rejected: collapses the restart-storm-vs-remove-from-load-balancer
 distinction that is the entire point of this ADR; an orchestrator needs the
 two questions asked separately.
 
-**Bake a staleness threshold (e.g. `lastPollAgeMillis > 60000` ⇒ DOWN) into
-the Kafka detail.** Rejected: a threshold there is a readiness gate in
+**Bake a staleness threshold (e.g. `lastHeartbeatSecondsAgo > 60` ⇒ DOWN)
+into the Kafka detail.** Rejected: a threshold there is a readiness gate in
 different clothing — the exact pattern under "Kafka as a detail, not a
-gate" above — and, per the verified limitation, would not even reliably
-detect the failure mode (broker outage) it would be aimed at.
+gate" above. (An earlier draft of this ADR proposed thresholding
+`lastPollLoopIterationAt` instead; that field doesn't move during a broker
+outage at all — see the finding above — so a threshold on it wouldn't even
+have detected the failure it would have been aimed at, on top of being the
+wrong kind of gate.)
 
 **`server.servlet.context-path` to relocate actuator.** Already rejected by
 ADR-0021 for reasons that apply unchanged here; not revisited.

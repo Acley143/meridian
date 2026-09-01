@@ -51,7 +51,12 @@ class HealthEndpointExposureTest extends AbstractRestIntegrationTest {
         .then()
         .statusCode(200)
         .body("components.riskSnapshotConsumer.details.pollThreadAlive", equalTo(true))
-        .body("components.riskSnapshotConsumer.details.partitionAssignment", notNullValue());
+        .body("components.riskSnapshotConsumer.details.partitionAssignment", notNullValue())
+        // The caveat text this ADR calls for: pollThreadAlive/lastPollLoopIterationAt* do not
+        // indicate broker reachability -- see KafkaOutageReadinessExclusionFixtureTest, which
+        // proves lastHeartbeatSecondsAgo is the field that actually moves during a real outage.
+        .body("components.riskSnapshotConsumer.details.pollLoopIterationCaveat", notNullValue())
+        .body("components.riskSnapshotConsumer.details.lastHeartbeatSecondsAgo", notNullValue());
   }
 
   @Test

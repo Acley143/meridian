@@ -203,9 +203,19 @@ booking.
   while liveness stayed 200/UP throughout, and recovered to UP within ~1s
   of Postgres restarting with no core-service restart; readiness and
   `GET /api/v1/portfolios/{id}/risk` were both unaffected by a stopped
-  Kafka container. That same fixture surfaced a real design finding:
-  `KafkaConsumer.poll()` doesn't throw on an unreachable broker, so the
-  Kafka health detail's freshness signal doesn't actually move during a
-  real outage — written up in ADR-0022 and the "Open questions" entry
-  above rather than silently left in the automated test as an assertion
-  that would have passed for the wrong reason.
+  Kafka container. That same fixture surfaced a real design finding, caught
+  and fixed before merge rather than shipped and amended a week later:
+  `KafkaConsumer.poll()` doesn't throw on an unreachable broker, so
+  `pollThreadAlive`/`lastPollLoopIterationAt` keep looking healthy through a
+  total broker outage — a field reporting "fine" during a real failure,
+  worse than no field at all, since it's the first thing an on-call
+  engineer checks. The fix, in this same session: those fields stay (loop
+  liveness is still real information) but now carry an explicit
+  `pollLoopIterationCaveat` string saying they don't indicate broker
+  reachability, and a new `lastHeartbeatSecondsAgo` field (from
+  `KafkaConsumer`'s own `consumer-coordinator-metrics`, published the same
+  cross-thread-safe way) is the signal that actually reflects it. Re-ran the
+  Kafka-outage fixture with the assertion inverted — the new field must grow
+  during the outage — and confirmed by hand: it climbed from ~0s to 61s over
+  a 60s outage and dropped back to ~1s within 6s of Kafka restarting. See
+  ADR-0022 for the full writeup.

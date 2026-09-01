@@ -135,11 +135,18 @@ exposed):
   one. A `DOWN` here means stop routing traffic to this instance; it does
   not mean restart it.
 - **`GET /actuator/health`** — the aggregate view. Includes both of the
-  above plus a `riskSnapshotConsumer` detail (poll-loop liveness and
-  current partition assignment) that is visible here but never affects the
-  readiness verdict — a wedged or lagging consumer is an observability
-  concern, tracked as open Q2 work in `services/core-service/PLAN.md`, not
-  a readiness signal.
+  above plus a `riskSnapshotConsumer` detail — poll-loop liveness, current
+  partition assignment, and `lastHeartbeatSecondsAgo` — that is visible here
+  but never affects the readiness verdict. **Read `lastHeartbeatSecondsAgo`
+  for broker reachability, not `pollThreadAlive`/`lastPollLoopIterationAt`:**
+  `KafkaConsumer.poll()` doesn't throw when the broker is unreachable, so
+  those two fields keep looking healthy through a real broker outage (the
+  body's own `pollLoopIterationCaveat` field says so); the consumer group
+  heartbeat genuinely does stop, so `lastHeartbeatSecondsAgo` is the field
+  that actually moves. None of this affects the readiness verdict either
+  way — a wedged or lagging consumer is an observability concern, tracked
+  as open Q2 work in `services/core-service/PLAN.md`, not a readiness
+  signal.
 
 These paths are intentionally unprefixed (not under `/api/v1`) — see
 ADR-0021's Consequences section and ADR-0022.

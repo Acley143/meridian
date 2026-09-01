@@ -8,6 +8,7 @@ import io.confluent.kafka.serializers.KafkaAvroDeserializerConfig;
 import jakarta.annotation.PreDestroy;
 import java.time.Duration;
 import java.util.Collections;
+import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
@@ -15,6 +16,8 @@ import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
+import org.apache.kafka.common.Metric;
+import org.apache.kafka.common.MetricName;
 import org.apache.kafka.common.TopicPartition;
 import org.springframework.stereotype.Component;
 
@@ -136,6 +139,28 @@ public class RiskSnapshotConsumerService {
    */
   Set<TopicPartition> currentAssignment() {
     return consumer.assignment();
+  }
+
+  /**
+   * Returns the consumer's own {@code last-heartbeat-seconds-ago} metric (group {@code
+   * consumer-coordinator-metrics}), or {@code null} if the metric isn't present yet (e.g. before
+   * the first successful group join). Unlike {@link #pollOnce}, which does not throw when the
+   * broker is unreachable (it logs a connection warning and returns an empty batch -- verified by
+   * hand against a real broker outage, see ADR-0022), the group heartbeat genuinely stops
+   * succeeding when the coordinator can't be reached, so this is the signal that actually reflects
+   * broker/coordinator reachability rather than merely "the poll loop is iterating." Safe to call
+   * ONLY from the poll-loop thread -- same constraint as {@link #currentAssignment}.
+   */
+  Double lastHeartbeatSecondsAgo() {
+    for (Map.Entry<MetricName, ? extends Metric> entry : consumer.metrics().entrySet()) {
+      if ("last-heartbeat-seconds-ago".equals(entry.getKey().name())) {
+        Object value = entry.getValue().metricValue();
+        if (value instanceof Number number) {
+          return number.doubleValue();
+        }
+      }
+    }
+    return null;
   }
 
   /**

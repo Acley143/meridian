@@ -45,6 +45,18 @@ import org.testcontainers.containers.PostgreSQLContainer;
  * down its own private Postgres, reusing the shared Kafka/schema-registry singleton directly (this
  * fixture never touches those, so isolating them would buy nothing) -- no other test's `DataSource`
  * can be affected by what this one does to its own database, structurally.
+ *
+ * <p><b>Simulates the outage with {@code docker pause}/{@code unpause}, not {@code stop}/{@code
+ * start}.</b> A stopped Postgres has to run its own startup sequence (including WAL recovery) on
+ * restart -- an uncontrolled cost that has already blown through a 30s and then a 90s recovery
+ * budget in CI, the identical failure shape documented on the Kafka fixture above. {@code pause}
+ * freezes the Postgres process via the cgroup freezer instead of killing it, so {@code unpause}
+ * resumes it mid-state with no startup sequence at all. Existing connections held by Hikari during
+ * a pause simply hang rather than being refused, which is exactly what the {@code
+ * connection-timeout}/{@code validation-timeout} overrides below already exist to bound -- no new
+ * tuning needed. Requires freezer cgroup support in the CI runner; if a runner lacks it, {@code
+ * pauseContainerCmd}/{@code unpauseContainerCmd} fail immediately with a clear Docker API error
+ * rather than hanging, which is a legible failure mode.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ExtendWith(SpringExtension.class)
@@ -96,7 +108,7 @@ class PostgresOutageReadinessFixtureTest {
 
     getReadiness().then().statusCode(200).body("status", org.hamcrest.Matchers.equalTo("UP"));
 
-    docker.stopContainerCmd(containerId).withTimeout(10).exec();
+    docker.pauseContainerCmd(containerId).exec();
     try {
       Response readinessDown = awaitReadinessStatus("DOWN", Duration.ofSeconds(30));
       assertThat(readinessDown.statusCode()).isEqualTo(503);
@@ -110,15 +122,16 @@ class PostgresOutageReadinessFixtureTest {
           .statusCode(200)
           .body("status", org.hamcrest.Matchers.equalTo("UP"));
     } finally {
-      docker.startContainerCmd(containerId).exec();
+      docker.unpauseContainerCmd(containerId).exec();
     }
 
     // Two separate signals, two separate failure messages, on purpose -- same reasoning as
     // KafkaOutageReadinessExclusionFixtureTest: conflating "Postgres itself is back" with "the
     // app's readiness recovered through it" would make a slow-but-healthy cold restart and a
-    // genuinely broken reconnect path indistinguishable from the failure message alone. A raw
-    // JDBC connection attempt against the container directly, independent of core-service's own
-    // pool/state, gets the generous window a cold restart needs.
+    // genuinely broken reconnect path indistinguishable from the failure message alone. Unpausing
+    // resumes Postgres mid-state (no startup sequence, no WAL recovery), so this window is
+    // generous only as a safety margin -- a raw JDBC connection attempt against the container
+    // directly, independent of core-service's own pool/state.
     awaitPostgresReachable(Duration.ofSeconds(90));
     // No core-service restart between the outage and this recovery check. Once Postgres itself is
     // confirmed up, Hikari's next connection attempt is due almost immediately -- 30s is still

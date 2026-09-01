@@ -47,6 +47,17 @@ import org.testcontainers.utility.DockerImageName;
  * container. Reuses the suite's shared Postgres singleton ({@link
  * AbstractKafkaIntegrationTest#postgresContainer()}) directly, since Postgres is never touched by
  * this fixture and isolating it would buy nothing.
+ *
+ * <p><b>Simulates the outage with {@code docker pause}/{@code unpause}, not {@code stop}/{@code
+ * start}.</b> A stopped KRaft broker has to re-run controller election and log recovery on restart
+ * -- an uncontrolled cost that had already blown through a 30s and then a 90s recovery budget in CI
+ * (see the sibling {@code PostgresOutageReadinessFixtureTest}'s doc for the same failure shape
+ * against Postgres). {@code pause} freezes the broker process via the cgroup freezer instead of
+ * killing it, so {@code unpause} resumes it mid-state with no boot sequence at all -- the thing we
+ * actually want to simulate ("the broker is unreachable") without paying for a cold restart to
+ * prove it. This requires freezer cgroup support in the CI runner; if a runner lacks it, {@code
+ * pauseContainerCmd}/{@code unpauseContainerCmd} fail immediately with a clear Docker API error
+ * rather than hanging, which is a legible failure mode.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ExtendWith(SpringExtension.class)
@@ -135,7 +146,7 @@ class KafkaOutageReadinessExclusionFixtureTest {
 
     DockerClient docker = DockerClientFactory.instance().client();
     String kafkaContainerId = PRIVATE_KAFKA.getContainerId();
-    docker.stopContainerCmd(kafkaContainerId).withTimeout(10).exec();
+    docker.pauseContainerCmd(kafkaContainerId).exec();
     try {
       // Readiness must never move for a Kafka outage -- checked repeatedly across the outage
       // window, not just once, since a transient flip would be exactly the bug this ADR forbids.
@@ -167,16 +178,16 @@ class KafkaOutageReadinessExclusionFixtureTest {
           .as("heartbeat age should have grown well past the pre-outage baseline")
           .isGreaterThan(baselineHeartbeatSecondsAgo + 10.0);
     } finally {
-      docker.startContainerCmd(kafkaContainerId).exec();
+      docker.unpauseContainerCmd(kafkaContainerId).exec();
     }
 
     // Two separate signals, two separate failure messages, on purpose -- conflating "the broker
     // is back" with "this consumer's heartbeat has recovered" would make a slow-but-healthy
     // broker restart and a genuinely broken reconnect indistinguishable from the failure message
-    // alone. A cold restart of a KRaft broker re-runs its full boot sequence, which is what
-    // actually took longer than expected in CI (see class doc) -- so the broker gets a generous
-    // window, checked directly via an admin client against ITS bootstrap servers, independent of
-    // this consumer's own state.
+    // alone. Unpausing resumes the broker mid-state (no controller election, no log recovery), so
+    // this window is generous only as a safety margin, not because a boot sequence is expected --
+    // checked directly via an admin client against ITS bootstrap servers, independent of this
+    // consumer's own state.
     awaitBrokerReachable(Duration.ofSeconds(90));
     // Once the broker itself is confirmed up, the consumer's next heartbeat is due within
     // heartbeat.interval.ms (3s default) plus reconnect backoff -- 30s is still generous, but a

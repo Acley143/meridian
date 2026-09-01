@@ -1,8 +1,6 @@
 import { useEffect, useState } from "react";
 import { getLatestRisk, type RiskSnapshot } from "./riskSnapshot";
 
-const BASE_URL = import.meta.env.VITE_CORE_SERVICE_URL ?? "";
-
 /**
  * The whole reason ADR-0012 exists is that a dropped connection otherwise
  * looks exactly like a quiet market -- so every one of these must be
@@ -77,7 +75,7 @@ export function useRiskStream(portfolioId: string): RiskStreamState {
 
     fetchLatest();
 
-    const source = new EventSource(`${BASE_URL}/portfolios/${encodeURIComponent(portfolioId)}/risk/stream`);
+    const source = new EventSource(`/portfolios/${encodeURIComponent(portfolioId)}/risk/stream`);
 
     // After a resync refetch settles, the status should reflect the
     // connection's actual state right now (which may have changed while the

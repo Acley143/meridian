@@ -207,10 +207,12 @@ class KafkaOutageReadinessExclusionFixtureTest {
   }
 
   private io.restassured.path.json.JsonPath currentKafkaDetail() {
-    Response response = given().baseUri(baseUrl()).when().get("/actuator/health");
-    // TEMPORARY DIAGNOSTIC -- Session P follow-up investigation only. Remove before merge.
-    logRawResponse(response);
-    return response.jsonPath().setRoot("components.riskSnapshotConsumer.details");
+    return given()
+        .baseUri(baseUrl())
+        .when()
+        .get("/actuator/health")
+        .jsonPath()
+        .setRoot("components.riskSnapshotConsumer.details");
   }
 
   private static Double heartbeatSecondsAgo(io.restassured.path.json.JsonPath details) {
@@ -224,39 +226,12 @@ class KafkaOutageReadinessExclusionFixtureTest {
     Instant deadline = Instant.now().plus(timeout);
     while (Instant.now().isBefore(deadline)) {
       Response health = given().baseUri(baseUrl()).when().get("/actuator/health");
-      // TEMPORARY DIAGNOSTIC -- investigating the JsonPathException on this call (Session P
-      // follow-up). Remove before merge.
-      logRawResponse(health);
       if (condition.test(health.jsonPath().setRoot("components.riskSnapshotConsumer.details"))) {
         return;
       }
       sleep(500);
     }
     throw new AssertionError(failureDescription + " (waited " + timeout + ")");
-  }
-
-  // TEMPORARY DIAGNOSTIC -- Session P follow-up investigation only. Remove before merge.
-  private static void logRawResponse(Response response) {
-    byte[] body = response.getBody().asByteArray();
-    StringBuilder hex = new StringBuilder();
-    StringBuilder escaped = new StringBuilder();
-    for (byte b : body) {
-      int c = b & 0xff;
-      hex.append(String.format("%02x ", c));
-      if (c >= 0x20 && c < 0x7f) {
-        escaped.append((char) c);
-      } else {
-        escaped.append(String.format("\\x%02x", c));
-      }
-    }
-    System.out.println("=== DIAG /actuator/health ===");
-    System.out.println("DIAG status=" + response.statusCode());
-    System.out.println("DIAG headers=" + response.getHeaders());
-    System.out.println("DIAG content-type=" + response.getContentType());
-    System.out.println("DIAG body-length-bytes=" + body.length);
-    System.out.println("DIAG body-escaped=[" + escaped + "]");
-    System.out.println("DIAG body-hex=[" + hex + "]");
-    System.out.println("=== END DIAG ===");
   }
 
   private static void sleep(long millis) {

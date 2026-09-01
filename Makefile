@@ -1,4 +1,4 @@
-.PHONY: setup up test lint gen
+.PHONY: setup up test lint gen check-dashboard-same-origin
 
 setup:
 	pip install -e libs/quant-core -e libs/quant-io -e contracts/generated/python
@@ -21,6 +21,10 @@ lint:
 	PYTHONPATH=libs/quant-core:libs/quant-io lint-imports --config libs/.importlinter
 	mvn -pl services/core-service com.diffplug.spotless:spotless-maven-plugin:check
 	cd apps/dashboard && npx tsc --noEmit && npx eslint .
+	$(MAKE) check-dashboard-same-origin
 
 gen:
 	python3 tools/codegen/generate.py contracts/
+
+check-dashboard-same-origin:
+	python3 scripts/check_dashboard_same_origin.py apps/dashboard/src

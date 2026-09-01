@@ -188,6 +188,10 @@ jobs:
           npx tsc --noEmit
           npx eslint .
           npx vitest run
+      - name: No absolute core-service URL under src (ADR-0020)
+        if: steps.probe.outputs.ready == 'true'
+        working-directory: .
+        run: python3 scripts/check_dashboard_same_origin.py apps/dashboard/src
       - name: skip
         if: steps.probe.outputs.ready != 'true'
         run: |

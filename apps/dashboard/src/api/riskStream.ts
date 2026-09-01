@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { getLatestRisk, type RiskSnapshot } from "./riskSnapshot";
 
-const BASE_URL = import.meta.env.VITE_CORE_SERVICE_URL ?? "http://localhost:8080";
+const BASE_URL = import.meta.env.VITE_CORE_SERVICE_URL ?? "";
 
 /**
  * The whole reason ADR-0012 exists is that a dropped connection otherwise

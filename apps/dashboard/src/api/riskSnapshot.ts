@@ -2,7 +2,7 @@ import type { components } from "../../../../contracts/generated/typescript/serv
 
 export type RiskSnapshot = components["schemas"]["RiskSnapshot"];
 
-const BASE_URL = import.meta.env.VITE_CORE_SERVICE_URL ?? "http://localhost:8080";
+const BASE_URL = import.meta.env.VITE_CORE_SERVICE_URL ?? "";
 
 export async function getLatestRisk(portfolioId: string): Promise<RiskSnapshot | null> {
   const response = await fetch(`${BASE_URL}/portfolios/${encodeURIComponent(portfolioId)}/risk`);

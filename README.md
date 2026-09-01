@@ -90,15 +90,15 @@ cd services/ingest && python3 -m ingest.cli scenarios/small-deterministic.yaml -
 cd apps/dashboard && npm run dev
 ```
 
-**Known local-only gap:** `core-service` has no CORS configuration, so
-`apps/dashboard`'s dev server (`localhost:5173`) fetching/subscribing
-against `core-service` (`localhost:8080`) is rejected by the browser
-(`Invalid CORS request` on preflight) — confirmed while verifying this
-end to end. No ADR covers local dev CORS policy; flagged as a Q2 open
-item in `PLAN.md` rather than patched ad hoc. The rest of the pipeline
-(ingest → Kafka → pricer → core-service → SSE) was verified directly
-against the stream (`curl -N .../risk/stream`), which is unaffected since
-it isn't a browser client.
+**The dashboard is same-origin, by design (ADR-0020).** `core-service` has
+no CORS configuration and none is added. Instead, `apps/dashboard` never
+issues a cross-origin request: every `fetch` and `EventSource` call uses a
+relative `/portfolios/...` path, and `vite.config.ts`'s dev proxy forwards
+those to `core-service` on `:8080`. This is deliberate — a permissive dev
+CORS policy is the kind of thing that leaks into production by accident,
+and it would decide Q3's production origin topology by default. Any
+production deployment must instead serve the dashboard and the API behind
+a single origin (reverse proxy or ingress); see ADR-0020.
 
 ### A local Postgres can shadow the container
 

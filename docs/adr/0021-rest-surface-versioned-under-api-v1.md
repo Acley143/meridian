@@ -39,9 +39,14 @@ Alternatives) in favor of this explicit-prefix approach.
 ## Rationale
 - The dashboard's dev proxy collapses to a single `/api` entry
   (`apps/dashboard/vite.config.ts`) instead of an enumerated per-prefix
-  list. A new endpoint root under `/api/v1` is routed automatically — the
-  gap that let `/trades` fall through to the SPA handler is structurally
-  impossible now, not just something to remember to update.
+  list. A new endpoint root under `/api/v1` is routed automatically. The
+  proxy alone only makes `/api/v1` paths safe — nothing stops a future path
+  from being added at a different root, where Vite's SPA fallback would
+  repeat the original `/trades` bug exactly. `tools/schema-lint/check_api_v1_prefix.py`
+  closes that: it fails CI's `Contracts` job if any path in
+  `service-api.yaml` isn't under `/api/v1`. That check, not the proxy shape
+  alone, is what makes the gap structurally impossible rather than merely
+  conventional.
 - The REST surface gains a version boundary comparable to the Avro
   compatibility policy in ADR-0002, before there is more than one client to
   break.

@@ -25,11 +25,13 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install validators
-        run: pip install openapi-spec-validator
+        run: pip install openapi-spec-validator pyyaml
       - name: Avro schemas parse, decimal fields declare precision+scale (ADR-0013)
         run: python3 tools/schema-lint/check_avro.py contracts/avro
       - name: service-api.yaml validates against the OpenAPI 3 schema
         run: python3 tools/schema-lint/check_openapi.py contracts/openapi/service-api.yaml
+      - name: Every REST path is under /api/v1 (ADR-0021)
+        run: python3 tools/schema-lint/check_api_v1_prefix.py contracts/openapi/service-api.yaml
 
   docs:
     name: Docs (ADR numbering, markdown links)

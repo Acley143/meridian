@@ -27,4 +27,4 @@ gen:
 	python3 tools/codegen/generate.py contracts/
 
 check-dashboard-same-origin:
-	python3 scripts/check_dashboard_same_origin.py apps/dashboard/src
+	python3 tools/check-dashboard-origin/check_dashboard_same_origin.py apps/dashboard/src

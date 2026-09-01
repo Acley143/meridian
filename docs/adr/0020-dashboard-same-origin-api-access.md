@@ -56,3 +56,13 @@ forwards `/portfolios` to `http://localhost:8080` with `changeOrigin: true`.
 See ADR-0009 (REST + SSE between service and dashboard) and ADR-0012 (SSE
 resume semantics), both of which this ADR's proxy must preserve unchanged
 end to end.
+
+## Editorial amendments
+- 2026-08-31 (dashboard): The enforcement script initially landed at
+  `scripts/check_dashboard_same_origin.py`. `scripts/` isn't this repo's
+  convention for a check like this — `tools/schema-lint/` is, per the
+  existing `check_no_attribution.py`, `check_adr_numbering.py`, etc. Moved
+  to `tools/check-dashboard-origin/check_dashboard_same_origin.py`
+  (`Makefile` and the CI `typescript` job updated to match); non-substantive
+  to the Decision or Enforcement invariant itself, only to where the
+  checking script lives.

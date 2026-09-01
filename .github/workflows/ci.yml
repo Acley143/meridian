@@ -191,7 +191,7 @@ jobs:
       - name: No absolute core-service URL under src (ADR-0020)
         if: steps.probe.outputs.ready == 'true'
         working-directory: .
-        run: python3 scripts/check_dashboard_same_origin.py apps/dashboard/src
+        run: python3 tools/check-dashboard-origin/check_dashboard_same_origin.py apps/dashboard/src
       - name: skip
         if: steps.probe.outputs.ready != 'true'
         run: |

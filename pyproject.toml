@@ -13,6 +13,9 @@
 # that; this is the first code (libs/quant-io) to actually import the
 # generated bindings, which is why the gap wasn't visible before now.
 mypy_path = "contracts/generated/python"
+# Deliberately-broken fixture that violates the quant-core purity contract
+# on purpose (see libs/quant-core PLAN.md); it should never be type-checked.
+exclude = "^libs/quant-core/tests/fixtures/purity_violation/"
 
 [[tool.mypy.overrides]]
 # No type stubs published for confluent-kafka; this is the boundary

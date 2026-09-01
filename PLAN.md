@@ -59,6 +59,16 @@ to pass.
   VaR aggregation is implemented. Owner: TBD (spans `services/pricer` and
   `services/core-service`, not a single workstream), by-when: before Q2
   VaR work starts.
+- **Avro/OpenAPI field parity (Q2).** `oldest_input_event_time` existed in
+  `contracts/avro/risk-snapshot.avsc` since Session 04a but was missing from
+  `contracts/openapi/service-api.yaml`'s `RiskSnapshot` until the dashboard
+  live-risk session noticed it was needed for staleness rendering and added
+  it — no CI check would have caught the gap on its own, since `gen-check`
+  only diffs generated code against itself, not the two source contracts
+  against each other. Needs a check that every `docs/domain-model.md` field
+  appears in both the Avro and OpenAPI representations of a type, or a
+  stated reason a given field shouldn't (see `contracts/README.md`). Owner:
+  TBD, by-when: before Q2 contract work starts.
 
 ## Team & ownership
 

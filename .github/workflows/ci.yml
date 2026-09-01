@@ -206,11 +206,15 @@ jobs:
           distribution: temurin
           java-version: "21"
           cache: maven
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
       - name: Regenerate into a temp directory and diff against what's committed
         run: |
-          python3 tools/codegen/generate.py contracts/ --python-out /tmp/gen-python --java-out /tmp/gen-java
+          python3 tools/codegen/generate.py contracts/ --python-out /tmp/gen-python --java-out /tmp/gen-java --typescript-out /tmp/gen-typescript
           diff -r contracts/generated/python/meridian_contracts /tmp/gen-python
           diff -r contracts/generated/java/src/main/java /tmp/gen-java
+          diff -r contracts/generated/typescript /tmp/gen-typescript
           echo "OK: committed bindings match a fresh regeneration."
 
   schema-registry-compatibility:

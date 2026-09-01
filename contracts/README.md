@@ -8,8 +8,10 @@ in Meridian, derived mechanically from `docs/domain-model.md`.
   topic has a value schema and a key schema (e.g. `tick.avsc` /
   `tick-key.avsc`).
 - `openapi/` — the core service's REST API (ADR-0009).
-- `generated/` — checked-in Python and Java bindings (see below). Not
-  TypeScript yet — `apps/dashboard` doesn't consume Avro directly.
+- `generated/` — checked-in Python and Java bindings for the Avro schemas,
+  plus TypeScript types for the REST API (see below). `apps/dashboard`
+  doesn't consume Avro directly, so there are no TypeScript bindings for
+  `avro/` -- only for `openapi/service-api.yaml`.
 - `tests/` — contract tests: round-trip (each language), cross-language
   decimal fidelity, and schema-evolution tests. See "Testing" below.
 
@@ -35,37 +37,41 @@ constrain the system, not for style, so it stays uncluttered.
 
 **Generated code is never hand-edited.** Python and Java bindings for the
 Avro schemas live in `contracts/generated/python/` and
-`contracts/generated/java/`, produced by `tools/codegen/generate.py` and
-checked into git per ADR-0002, for reviewability — a schema change and its
-generated-code diff land in the same PR. Any manual edit to a file under
-`contracts/generated/` will be silently overwritten on the next
-regeneration and is never the place to fix a bug: fix the schema (or the
-generator) and regenerate.
+`contracts/generated/java/`; TypeScript types for the REST API live in
+`contracts/generated/typescript/`. All three are produced by
+`tools/codegen/generate.py` and checked into git per ADR-0002, for
+reviewability — a contract change and its generated-code diff land in the
+same PR. Any manual edit to a file under `contracts/generated/` will be
+silently overwritten on the next regeneration and is never the place to fix
+a bug: fix the schema/spec (or the generator) and regenerate.
 
-To regenerate after touching any `contracts/avro/*.avsc`:
+To regenerate after touching any `contracts/avro/*.avsc` or
+`contracts/openapi/service-api.yaml`:
 
 ```
 make gen
 ```
 
-This is one entry point, `tools/codegen/generate.py`, producing both
-language bindings from the same schema files in one deterministic step —
-same inputs, byte-identical outputs — so a schema change can't update one
-language's bindings and silently leave the other stale in the same commit.
+This is one entry point, `tools/codegen/generate.py`, producing all three
+language bindings from the same contract files in one deterministic step —
+same inputs, byte-identical outputs — so a contract change can't update one
+language's bindings and silently leave another stale in the same commit.
 Java codegen shells out to a pinned `avro-maven-plugin` (see
-`tools/codegen/avro-java-codegen/pom.xml` and ADR-0015) — an unpinned
-generator would make the drift check below flap on every plugin release,
-not just on a real schema change.
+`tools/codegen/avro-java-codegen/pom.xml` and ADR-0015); TypeScript codegen
+shells out to a pinned `openapi-typescript` (see
+`tools/codegen/openapi-ts-codegen/package.json`) — an unpinned generator
+would make the drift check below flap on every tool release, not just on a
+real contract change.
 
-After regenerating, `git diff` and commit the result alongside your schema
-change, in the same PR.
+After regenerating, `git diff` and commit the result alongside your
+contract change, in the same PR.
 
-**Drift check (CI):** the `gen-check` job regenerates both languages into a
-temp directory and fails the build if the result differs from what's
+**Drift check (CI):** the `gen-check` job regenerates all three languages
+into a temp directory and fails the build if the result differs from what's
 committed (`.github/workflows/ci.yml`). This is what makes "checked in and
-never hand-edited" an enforced rule instead of an honour system — a schema
-edited without a `make gen` follow-up, or generated code hand-patched
-directly, both go red here before they can merge.
+never hand-edited" an enforced rule instead of an honour system — a
+schema/spec edited without a `make gen` follow-up, or generated code
+hand-patched directly, both go red here before they can merge.
 
 ## Build topology (ADR-0015)
 
@@ -135,6 +141,21 @@ Acceptable through Q2. A Q3 `infra/PLAN.md` deliverable adds a real
 Confluent Schema Registry as a CI service container once the local stack
 (`docker-compose.yml`) is proven, at which point this local check stops
 being the only signal and becomes a fast pre-check ahead of the real one.
+
+## Avro/OpenAPI field parity has no check
+
+`oldest_input_event_time` was added to `avro/risk-snapshot.avsc` in Session
+04a but never carried into `openapi/service-api.yaml`'s `RiskSnapshot`
+schema, so the dashboard's REST/SSE view of a `RiskSnapshot` silently lacked
+the one field `docs/domain-model.md#risksnapshot` added specifically to let
+a consumer distinguish a live snapshot from a stale-but-not-wrong one. The
+gap wasn't caught by any CI check — `gen-check` diffs generated code against
+itself, and nothing compares the Avro and OpenAPI representations of the
+same domain-model type against each other. Fixed in the dashboard live-risk
+session (field added, required, no default, matching the other
+`RiskSnapshot` fields' style); see the root `PLAN.md` open questions for the
+Q2 follow-up (a check that every domain-model field appears in both
+representations, or a stated reason it shouldn't).
 
 ## Rules
 

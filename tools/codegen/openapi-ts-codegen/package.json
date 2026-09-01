@@ -1,0 +1,9 @@
+{
+  "name": "openapi-ts-codegen",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Standalone helper invoked by tools/codegen/generate.py to produce contracts/generated/typescript from contracts/openapi/service-api.yaml (ADR-0002, ADR-0015). Not a workspace member of apps/dashboard -- kept separate so the consuming build never needs network access to npm to compile what's already checked in.",
+  "devDependencies": {
+    "openapi-typescript": "7.13.0"
+  }
+}

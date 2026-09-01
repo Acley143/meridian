@@ -259,7 +259,7 @@ components:
     RiskSnapshot:
       type: object
       description: See docs/domain-model.md#risksnapshot, ADR-0007, and contracts/avro/risk-snapshot.avsc (this is the same shape as the wire schema).
-      required: [portfolio_id, as_of, pricer_version, price, cash_delta, cash_gamma, cash_vega, cash_theta, cash_rho, var_95, scenario_id, ingest_time]
+      required: [portfolio_id, as_of, pricer_version, price, cash_delta, cash_gamma, cash_vega, cash_theta, cash_rho, var_95, scenario_id, oldest_input_event_time, ingest_time]
       properties:
         portfolio_id:
           type: string
@@ -293,6 +293,20 @@ components:
         scenario_id:
           type: string
           description: Propagated from the Tick stream that produced this snapshot (ADR-0011), for end-to-end lineage.
+        oldest_input_event_time:
+          type: string
+          format: date-time
+          description: >
+            UTC, microsecond precision. The earliest event_time among the
+            prices actually used to price this snapshot's positions -- see
+            docs/domain-model.md#risksnapshot. Equal to as_of when every
+            input was priced off the triggering tick itself; earlier than
+            as_of means at least one position's price is resting on a tick
+            that hasn't updated since, i.e. this snapshot is live but
+            stale-but-not-wrong. The epoch value (1970-01-01T00:00:00Z) is a
+            sentinel meaning "unknown, produced by a pricer that predates
+            this field" -- not a real staleness value -- per the Avro
+            schema's BACKWARD-compatible default.
         ingest_time:
           type: string
           format: date-time

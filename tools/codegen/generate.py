@@ -2,16 +2,18 @@
 """Single entry point for contracts codegen (`make gen`, ADR-0015).
 
 Generates Python dataclass bindings and Java POJOs from every
-`contracts/avro/*.avsc`, deterministically: same schema files in,
-byte-identical files out (given the same pinned generator versions --
-`avro-java-codegen/pom.xml` pins `avro-maven-plugin`; this script's own
-Python codegen has no external version to pin).
+`contracts/avro/*.avsc`, plus TypeScript types from
+`contracts/openapi/service-api.yaml`, deterministically: same schema files
+in, byte-identical files out (given the same pinned generator versions --
+`avro-java-codegen/pom.xml` pins `avro-maven-plugin`, `openapi-ts-codegen`
+pins `openapi-typescript`; this script's own Python codegen has no external
+version to pin).
 
 Usage:
     python3 tools/codegen/generate.py contracts/
-    python3 tools/codegen/generate.py contracts/ --python-out DIR --java-out DIR
+    python3 tools/codegen/generate.py contracts/ --python-out DIR --java-out DIR --typescript-out DIR
 
-The two `--*-out` flags exist for the CI drift check (contracts/README.md):
+The three `--*-out` flags exist for the CI drift check (contracts/README.md):
 regenerate into a temp directory and diff against what's committed, rather
 than regenerating in place and hoping a reviewer notices an uncommitted
 diff. Default output locations are the real, checked-in ones.
@@ -31,10 +33,12 @@ from avro_to_python import generate_module  # noqa: E402
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 _DEFAULT_PYTHON_OUT = _REPO_ROOT / "contracts" / "generated" / "python" / "meridian_contracts"
 _DEFAULT_JAVA_OUT = _REPO_ROOT / "contracts" / "generated" / "java" / "src" / "main" / "java"
+_DEFAULT_TYPESCRIPT_OUT = _REPO_ROOT / "contracts" / "generated" / "typescript"
 _JAVA_CODEGEN_POM = _REPO_ROOT / "tools" / "codegen" / "avro-java-codegen" / "pom.xml"
 _JAVA_CODEGEN_TARGET = (
     _REPO_ROOT / "tools" / "codegen" / "avro-java-codegen" / "target" / "generated-sources" / "avro"
 )
+_OPENAPI_TS_CODEGEN_DIR = _REPO_ROOT / "tools" / "codegen" / "openapi-ts-codegen"
 
 _JAVA_BANNER = (
     "// GENERATED -- DO NOT EDIT.\n"
@@ -42,6 +46,15 @@ _JAVA_BANNER = (
     "// Regenerate via `make gen` (tools/codegen/generate.py). A hand-edit here\n"
     "// is silently overwritten on the next regeneration and will be flagged by\n"
     "// the CI drift check before that (contracts/README.md).\n\n"
+)
+
+_TYPESCRIPT_BANNER = (
+    "// GENERATED -- DO NOT EDIT.\n"
+    "// Source: {source}\n"
+    "// Regenerate via `make gen` (tools/codegen/generate.py), which shells out to\n"
+    "// the pinned openapi-typescript in tools/codegen/openapi-ts-codegen. A\n"
+    "// hand-edit here is silently overwritten on the next regeneration and will\n"
+    "// be flagged by the CI drift check before that (contracts/README.md).\n"
 )
 
 
@@ -122,15 +135,59 @@ def _avsc_name_for_class(class_name: str, avro_dir: Path) -> str:
     return "contracts/avro/ (unknown source)"
 
 
+def generate_typescript(openapi_path: Path, out_dir: Path) -> None:
+    """TypeScript types for the REST+SSE API (ADR-0009), generated from
+    contracts/openapi/service-api.yaml by the pinned openapi-typescript in
+    tools/codegen/openapi-ts-codegen -- a standalone npm project, not a
+    dependency of apps/dashboard, so regenerating never needs the consuming
+    app's build to reach npm for anything but what's already checked in."""
+    result = subprocess.run(
+        ["npm", "ci", "--no-audit", "--no-fund"],
+        cwd=_OPENAPI_TS_CODEGEN_DIR,
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        print(result.stdout, file=sys.stderr)
+        print(result.stderr, file=sys.stderr)
+        raise SystemExit("npm ci for openapi-ts-codegen failed (see output above)")
+
+    if out_dir.exists():
+        shutil.rmtree(out_dir)
+    out_dir.mkdir(parents=True)
+
+    out_file = out_dir / "service-api.ts"
+    openapi_ts_bin = _OPENAPI_TS_CODEGEN_DIR / "node_modules" / ".bin" / "openapi-typescript"
+    result = subprocess.run(
+        [str(openapi_ts_bin), str(openapi_path), "-o", str(out_file)],
+        cwd=_REPO_ROOT,
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        print(result.stdout, file=sys.stderr)
+        print(result.stderr, file=sys.stderr)
+        raise SystemExit("openapi-typescript codegen failed (see output above)")
+
+    source_ref = f"contracts/openapi/{openapi_path.name}"
+    banner = _TYPESCRIPT_BANNER.format(source=source_ref)
+    out_file.write_text(banner + out_file.read_text())
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("contracts_dir", type=Path)
     parser.add_argument("--python-out", type=Path, default=_DEFAULT_PYTHON_OUT)
     parser.add_argument("--java-out", type=Path, default=_DEFAULT_JAVA_OUT)
+    parser.add_argument("--typescript-out", type=Path, default=_DEFAULT_TYPESCRIPT_OUT)
     parser.add_argument("--skip-java", action="store_true", help="Python only (faster local iteration).")
+    parser.add_argument(
+        "--skip-typescript", action="store_true", help="Skip TypeScript (faster local iteration; needs npm)."
+    )
     args = parser.parse_args()
 
     avro_dir = args.contracts_dir / "avro"
+    openapi_path = args.contracts_dir / "openapi" / "service-api.yaml"
 
     generate_python(avro_dir, args.python_out)
     print(f"OK  Python bindings -> {args.python_out}")
@@ -138,6 +195,10 @@ def main() -> int:
     if not args.skip_java:
         generate_java(avro_dir, args.java_out)
         print(f"OK  Java bindings -> {args.java_out}")
+
+    if not args.skip_typescript:
+        generate_typescript(openapi_path, args.typescript_out)
+        print(f"OK  TypeScript types -> {args.typescript_out}")
 
     return 0
 

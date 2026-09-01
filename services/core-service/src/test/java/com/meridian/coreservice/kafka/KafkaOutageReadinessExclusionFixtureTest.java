@@ -87,10 +87,6 @@ class KafkaOutageReadinessExclusionFixtureTest {
 
   @DynamicPropertySource
   static void properties(DynamicPropertyRegistry registry) {
-    // TEMPORARY DIAGNOSTIC -- Session P follow-up, discriminating experiment for the boot-race
-    // hypothesis (eager DispatcherServlet init instead of lazy-on-first-request). Remove after
-    // the experiment, whichever way it comes out.
-    registry.add("spring.mvc.servlet.load-on-startup", () -> "1");
     registry.add(
         "spring.datasource.url", AbstractKafkaIntegrationTest.postgresContainer()::getJdbcUrl);
     registry.add(

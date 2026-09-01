@@ -109,8 +109,12 @@ class SseResumeTest extends AbstractRestIntegrationTest {
             + " Resync Test', 'USD', 'desk-1') ON CONFLICT DO NOTHING",
         portfolioId);
 
-    // A handful of snapshots, all newer than a Last-Event-ID from > 15 minutes ago.
-    Instant base = Instant.now().minus(Duration.ofMinutes(10));
+    // A handful of recent snapshots. The age bound is measured against the newest persisted
+    // as_of for the portfolio (ADR-0012's editorial amendment), not against wall-clock now() --
+    // so the gap that must exceed 15 minutes is (newest as_of) - (Last-Event-ID's as_of), not
+    // now() - (Last-Event-ID's as_of). Keeping these snapshots close to now ensures that gap is
+    // ~20 minutes (below), well past the bound.
+    Instant base = Instant.now().minus(Duration.ofSeconds(30));
     for (int i = 0; i < 5; i++) {
       riskSnapshotRepository.upsert(snap(portfolioId, base.plusSeconds(i)));
     }

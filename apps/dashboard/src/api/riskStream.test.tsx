@@ -4,10 +4,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useRiskStream } from "./riskStream";
 import type { RiskSnapshot } from "./riskSnapshot";
 
+const READY_STATE_CONNECTING = 0;
+const READY_STATE_OPEN = 1;
+const READY_STATE_CLOSED = 2;
+
 class MockEventSource extends EventTarget {
   static instances: MockEventSource[] = [];
   readonly url: string;
   closed = false;
+  readyState = READY_STATE_CONNECTING;
 
   constructor(url: string) {
     super();
@@ -17,14 +22,25 @@ class MockEventSource extends EventTarget {
 
   close(): void {
     this.closed = true;
+    this.readyState = READY_STATE_CLOSED;
   }
 }
 
 function emitOpen(source: MockEventSource): void {
+  source.readyState = READY_STATE_OPEN;
   source.dispatchEvent(new Event("open"));
 }
 
-function emitError(source: MockEventSource): void {
+/** A browser-retried error: the browser keeps readyState at CONNECTING and
+ * will attempt to reconnect on its own. */
+function emitTransientError(source: MockEventSource): void {
+  source.readyState = READY_STATE_CONNECTING;
+  source.dispatchEvent(new Event("error"));
+}
+
+/** A terminal error: the browser has given up, readyState is CLOSED. */
+function emitFatalError(source: MockEventSource): void {
+  source.readyState = READY_STATE_CLOSED;
   source.dispatchEvent(new Event("error"));
 }
 
@@ -111,7 +127,13 @@ describe("useRiskStream", () => {
     const callsBeforeResync = fetchMock.mock.calls.length;
 
     const source = MockEventSource.instances[0]!;
+    emitOpen(source);
     act(() => emitResync(source));
+
+    // A resync must be visible as its own status, not silently folded into
+    // "live" -- otherwise a dropped-and-resynced connection looks identical
+    // to one that never had a gap.
+    expect(screen.getByTestId("status").textContent).toBe("resyncing");
 
     // The point of this test is that the network call itself happened, not
     // just that the "resync" handler ran -- a handler that no-ops silently
@@ -123,6 +145,10 @@ describe("useRiskStream", () => {
 
     await waitFor(() => {
       expect(screen.getByTestId("latest-price").textContent).toBe("9.00000000");
+    });
+    // Once the refetch settles, status reflects the still-open connection.
+    await waitFor(() => {
+      expect(screen.getByTestId("status").textContent).toBe("live");
     });
   });
 
@@ -140,20 +166,32 @@ describe("useRiskStream", () => {
     expect(screen.getByTestId("count").textContent).toBe("0");
   });
 
-  it("transitions connection state through open, error, and reopen", () => {
+  it("transitions connection state through connecting, live, and reconnecting", () => {
     render(<Harness portfolioId="p1" />);
     const source = MockEventSource.instances[0]!;
 
     expect(screen.getByTestId("status").textContent).toBe("connecting");
 
     act(() => emitOpen(source));
-    expect(screen.getByTestId("status").textContent).toBe("open");
+    expect(screen.getByTestId("status").textContent).toBe("live");
 
-    act(() => emitError(source));
-    expect(screen.getByTestId("status").textContent).toBe("error");
+    // A CONNECTING readyState on error means the browser is retrying on its
+    // own -- distinct from a terminal failure.
+    act(() => emitTransientError(source));
+    expect(screen.getByTestId("status").textContent).toBe("reconnecting");
 
     act(() => emitOpen(source));
-    expect(screen.getByTestId("status").textContent).toBe("reopen");
+    expect(screen.getByTestId("status").textContent).toBe("live");
+  });
+
+  it("shows a terminal failure distinctly from a browser-retried reconnect", () => {
+    render(<Harness portfolioId="p1" />);
+    const source = MockEventSource.instances[0]!;
+
+    act(() => emitOpen(source));
+    act(() => emitFatalError(source));
+
+    expect(screen.getByTestId("status").textContent).toBe("failed");
   });
 
   it("closes the EventSource on unmount", () => {

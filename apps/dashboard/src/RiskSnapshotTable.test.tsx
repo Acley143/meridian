@@ -53,4 +53,33 @@ describe("RiskSnapshotTable", () => {
     const html = renderToStaticMarkup(<RiskSnapshotTable snapshot={SNAPSHOT} stale />);
     expect(html).toMatch(/stale/i);
   });
+
+  it("renders the age of the oldest input, not just a boolean stale flag", () => {
+    const html = renderToStaticMarkup(
+      <RiskSnapshotTable
+        snapshot={{
+          ...SNAPSHOT,
+          as_of: "2026-08-31T00:05:00.000Z",
+          oldest_input_event_time: "2026-08-31T00:04:15.000Z", // 45s behind, under threshold
+        }}
+      />,
+    );
+    expect(html).toContain("Oldest input age");
+    expect(html).toContain("45s");
+  });
+
+  it("marks the age row itself (not just the table caption) when stale", () => {
+    const html = renderToStaticMarkup(
+      <RiskSnapshotTable
+        snapshot={{
+          ...SNAPSHOT,
+          as_of: "2026-08-31T00:05:00.000Z",
+          oldest_input_event_time: "2026-08-31T00:00:00.000Z", // 5m behind, over threshold
+        }}
+        stale
+      />,
+    );
+    expect(html).toContain("5m 0s");
+    expect(html).toContain('class="stale"');
+  });
 });

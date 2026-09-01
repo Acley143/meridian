@@ -5,9 +5,10 @@ import { isStale } from "./format/staleness";
 
 const STATUS_LABEL: Record<ConnectionStatus, string> = {
   connecting: "Connecting…",
-  open: "Live",
-  error: "Connection lost, retrying…",
-  reopen: "Reconnected",
+  live: "Live",
+  reconnecting: "Reconnecting…",
+  resyncing: "Resyncing…",
+  failed: "Connection failed",
 };
 
 export function LiveRiskPanel({ portfolioId }: { portfolioId: string }) {
@@ -16,7 +17,9 @@ export function LiveRiskPanel({ portfolioId }: { portfolioId: string }) {
 
   return (
     <section>
-      <p>{STATUS_LABEL[status]}</p>
+      <p data-testid="connection-status" aria-live="polite">
+        {STATUS_LABEL[status]}
+      </p>
 
       {fetchError && <p role="alert">Failed to load risk data: {fetchError}</p>}
 

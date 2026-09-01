@@ -11,17 +11,19 @@ const STATUS_LABEL: Record<ConnectionStatus, string> = {
 };
 
 export function LiveRiskPanel({ portfolioId }: { portfolioId: string }) {
-  const { status, snapshots } = useRiskStream(portfolioId);
+  const { status, snapshots, fetchError } = useRiskStream(portfolioId);
   const latest = snapshots.at(-1) ?? null;
 
   return (
     <section>
       <p>{STATUS_LABEL[status]}</p>
 
+      {fetchError && <p role="alert">Failed to load risk data: {fetchError}</p>}
+
       {latest ? (
         <RiskSnapshotTable snapshot={latest} stale={isStale(latest)} />
       ) : (
-        <p>Waiting for a snapshot…</p>
+        !fetchError && <p>Waiting for a snapshot…</p>
       )}
 
       <h2>History</h2>

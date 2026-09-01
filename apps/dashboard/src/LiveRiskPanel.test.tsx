@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, cleanup, render, screen } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { LiveRiskPanel } from "./LiveRiskPanel";
 import type { RiskSnapshot } from "./api/riskSnapshot";
@@ -39,6 +39,12 @@ function snapshot(overrides: Partial<RiskSnapshot> = {}): RiskSnapshot {
 beforeEach(() => {
   MockEventSource.instances = [];
   vi.stubGlobal("EventSource", MockEventSource);
+  // LiveRiskPanel does an initial REST fetch on mount (Task 6); default it
+  // to a harmless 404 for tests that aren't exercising that path.
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (_url: string) => new Response(null, { status: 404 })),
+  );
 });
 
 afterEach(() => {
@@ -71,5 +77,20 @@ describe("LiveRiskPanel staleness", () => {
     );
 
     expect(screen.getByRole("status").textContent).toMatch(/stale/i);
+  });
+});
+
+describe("LiveRiskPanel fetch failure", () => {
+  it("renders an error state rather than a blank panel when the fetch fails", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (_url: string) => new Response(null, { status: 500, statusText: "Internal Server Error" })),
+    );
+
+    render(<LiveRiskPanel portfolioId="p1" />);
+
+    const alert = await waitFor(() => screen.getByRole("alert"));
+    expect(alert.textContent).toMatch(/failed/i);
+    expect(screen.queryByText(/waiting for a snapshot/i)).toBeNull();
   });
 });

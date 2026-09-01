@@ -14,23 +14,56 @@ export interface RiskStreamState {
   status: ConnectionStatus;
   /** Oldest first, i.e. arrival order -- the most recently arrived is last. */
   snapshots: RiskSnapshot[];
+  /**
+   * Set when the initial REST fetch or a resync-triggered refetch fails.
+   * Cleared on the next successful fetch. A rendering consumer must show
+   * this rather than leaving a blank/loading panel on failure.
+   */
+  fetchError: string | null;
+}
+
+function messageFromError(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
 }
 
 /**
- * Subscribes to a portfolio's SSE risk stream (ADR-0009). Resume-on-reconnect
- * is handled by the browser's native EventSource (ADR-0012) -- no client
- * code needed for that part. A `resync` event means the requested replay
- * exceeded the server's bound, so this refetches full state via REST
- * instead of trusting a resumed stream to have covered the gap.
+ * Subscribes to a portfolio's SSE risk stream (ADR-0009), after an initial
+ * REST fetch of the latest snapshot so the panel has something to render
+ * before the first stream message arrives. Resume-on-reconnect is handled
+ * by the browser's native EventSource (ADR-0012) -- no client code needed
+ * for that part. A `resync` event means the requested replay exceeded the
+ * server's bound, so this refetches full state via REST instead of
+ * trusting a resumed stream to have covered the gap.
  */
 export function useRiskStream(portfolioId: string): RiskStreamState {
   const [status, setStatus] = useState<ConnectionStatus>("connecting");
   const [snapshots, setSnapshots] = useState<RiskSnapshot[]>([]);
+  const [fetchError, setFetchError] = useState<string | null>(null);
 
   useEffect(() => {
     setStatus("connecting");
     setSnapshots([]);
+    setFetchError(null);
     let hasErrored = false;
+    let cancelled = false;
+
+    const fetchLatest = () => {
+      getLatestRisk(portfolioId)
+        .then((snapshot) => {
+          if (cancelled) return;
+          if (snapshot) {
+            setFetchError(null);
+            setSnapshots((prev) => [...prev, snapshot]);
+          }
+        })
+        .catch((err: unknown) => {
+          if (!cancelled) {
+            setFetchError(messageFromError(err));
+          }
+        });
+    };
+
+    fetchLatest();
 
     const source = new EventSource(`${BASE_URL}/portfolios/${encodeURIComponent(portfolioId)}/risk/stream`);
 
@@ -49,11 +82,7 @@ export function useRiskStream(portfolioId: string): RiskStreamState {
     };
 
     const handleResync = () => {
-      void getLatestRisk(portfolioId).then((snapshot) => {
-        if (snapshot) {
-          setSnapshots((prev) => [...prev, snapshot]);
-        }
-      });
+      fetchLatest();
     };
 
     source.addEventListener("message", handleMessage);
@@ -62,6 +91,7 @@ export function useRiskStream(portfolioId: string): RiskStreamState {
     source.addEventListener("resync", handleResync);
 
     return () => {
+      cancelled = true;
       source.removeEventListener("message", handleMessage);
       source.removeEventListener("open", handleOpen);
       source.removeEventListener("error", handleError);
@@ -70,5 +100,5 @@ export function useRiskStream(portfolioId: string): RiskStreamState {
     };
   }, [portfolioId]);
 
-  return { status, snapshots };
+  return { status, snapshots, fetchError };
 }

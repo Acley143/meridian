@@ -31,6 +31,19 @@ describe("RiskSnapshotTable", () => {
     expect(html).toContain("5.00000000");
   });
 
+  it("renders a money string exactly, where parsing as a double would round it", () => {
+    // 9007199254740993 = 2^53 + 1, the canonical integer a JS double cannot
+    // represent -- Number() rounds it to 9007199254740994. Confirm the
+    // premise, then confirm the render never took that path.
+    const EXACT_PRICE = "9007199254740993.12345678";
+    expect(Number(EXACT_PRICE).toString()).not.toBe(EXACT_PRICE);
+
+    const html = renderToStaticMarkup(<RiskSnapshotTable snapshot={{ ...SNAPSHOT, price: EXACT_PRICE }} />);
+
+    expect(html).toContain(EXACT_PRICE);
+    expect(html).not.toContain("9007199254740994");
+  });
+
   it("shows no stale marker by default", () => {
     const html = renderToStaticMarkup(<RiskSnapshotTable snapshot={SNAPSHOT} />);
     expect(html).not.toMatch(/stale/i);

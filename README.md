@@ -135,15 +135,19 @@ exposed):
   one. A `DOWN` here means stop routing traffic to this instance; it does
   not mean restart it.
 - **`GET /actuator/health`** — the aggregate view. Includes both of the
-  above plus a `riskSnapshotConsumer` detail — poll-loop liveness, current
-  partition assignment, and `lastHeartbeatSecondsAgo` — that is visible here
-  but never affects the readiness verdict. **Read `lastHeartbeatSecondsAgo`
-  for broker reachability, not `pollThreadAlive`/`lastPollLoopIterationAt`:**
+  above plus a `riskSnapshotConsumer` detail — `pollThreadAlive`,
+  `pollLoopIterationCount`, current partition assignment, and
+  `lastHeartbeatSecondsAgo` — that is visible here but never affects the
+  readiness verdict. **Read `lastHeartbeatSecondsAgo` for broker
+  reachability, not `pollThreadAlive`/`pollLoopIterationCount`:**
   `KafkaConsumer.poll()` doesn't throw when the broker is unreachable, so
-  those two fields keep looking healthy through a real broker outage (the
-  body's own `pollLoopIterationCaveat` field says so); the consumer group
-  heartbeat genuinely does stop, so `lastHeartbeatSecondsAgo` is the field
-  that actually moves. None of this affects the readiness verdict either
+  those two fields keep looking healthy through a real broker outage;
+  `lastHeartbeatSecondsAgo`, sourced from the consumer's own Kafka group
+  heartbeat, is the one that actually moves (verified by hand — see
+  ADR-0022). It reports `null`, never a number, when unavailable or
+  unmeasured — including `kafka-clients`' own `-1.0` "never heartbeated"
+  sentinel, a real value this session caught in a live response before
+  guarding against it. None of this affects the readiness verdict either
   way — a wedged or lagging consumer is an observability concern, tracked
   as open Q2 work in `services/core-service/PLAN.md`, not a readiness
   signal.

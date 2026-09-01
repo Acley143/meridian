@@ -141,23 +141,66 @@ public class RiskSnapshotConsumerService {
     return consumer.assignment();
   }
 
+  static final String HEARTBEAT_METRIC_NAME = "last-heartbeat-seconds-ago";
+
   /**
    * Returns the consumer's own {@code last-heartbeat-seconds-ago} metric (group {@code
-   * consumer-coordinator-metrics}), or {@code null} if the metric isn't present yet (e.g. before
-   * the first successful group join). Unlike {@link #pollOnce}, which does not throw when the
-   * broker is unreachable (it logs a connection warning and returns an empty batch -- verified by
-   * hand against a real broker outage, see ADR-0022), the group heartbeat genuinely stops
-   * succeeding when the coordinator can't be reached, so this is the signal that actually reflects
-   * broker/coordinator reachability rather than merely "the poll loop is iterating." Safe to call
-   * ONLY from the poll-loop thread -- same constraint as {@link #currentAssignment}.
+   * consumer-coordinator-metrics}), or {@code null} if the metric isn't present or hasn't reported
+   * a meaningful reading yet. This includes a real, confirmed case, not a hypothetical one: {@code
+   * kafka-clients} 3.7.0's own {@code AbstractCoordinator} returns the literal sentinel {@code
+   * -1.0} for this metric when no heartbeat has ever been sent (decompiled and confirmed by
+   * inspection -- {@code Heartbeat.lastHeartbeatSend() == 0 ⇒ -1.0}, not {@code NaN} as first
+   * assumed and caught only by actually reading this method's own output against a running
+   * consumer: {@code -1.0} showed up in a real {@code /actuator/health} response at startup, before
+   * this guard existed). A valid reading is never negative, so any negative value, {@code NaN},
+   * {@code Infinite}, a non-numeric value, or a lookup miss (the metric isn't present under this
+   * name at all -- {@link #heartbeatMetricIsRegistered} lets a caller check that specific case) all
+   * surface as {@code null} -- deliberately never as a number a reader could mistake for "just
+   * heartbeated," which would reproduce this exact class's own bug (a signal that reads as healthy
+   * when it isn't) in the signal meant to replace it.
+   *
+   * <p>Unlike {@link #pollOnce}, which does not throw when the broker is unreachable (it logs a
+   * connection warning and returns an empty batch -- verified by hand against a real broker outage,
+   * see ADR-0022), the group heartbeat genuinely stops succeeding when the coordinator can't be
+   * reached, so this is the signal that actually reflects broker/coordinator reachability rather
+   * than merely "the poll loop is iterating." Safe to call ONLY from the poll-loop thread -- same
+   * constraint as {@link #currentAssignment}.
    */
   Double lastHeartbeatSecondsAgo() {
-    for (Map.Entry<MetricName, ? extends Metric> entry : consumer.metrics().entrySet()) {
-      if ("last-heartbeat-seconds-ago".equals(entry.getKey().name())) {
+    return extractHeartbeatSecondsAgo(consumer.metrics());
+  }
+
+  /**
+   * {@code true} iff a metric named {@link #HEARTBEAT_METRIC_NAME} is registered at all, regardless
+   * of its current value. {@link RiskSnapshotConsumerRunner} checks this once at startup and logs
+   * loudly if it's ever {@code false} -- that would mean the underlying Kafka client no longer
+   * exposes this metric under this name (e.g. a version upgrade renamed it), which would silently
+   * degrade {@link #lastHeartbeatSecondsAgo} to always-null without anything failing loudly on its
+   * own. Safe to call ONLY from the poll-loop thread -- same constraint as {@link
+   * #currentAssignment}.
+   */
+  boolean heartbeatMetricIsRegistered() {
+    return consumer.metrics().keySet().stream()
+        .anyMatch(name -> HEARTBEAT_METRIC_NAME.equals(name.name()));
+  }
+
+  /**
+   * Pure parsing logic, extracted so it's unit-testable without a real {@code KafkaConsumer} (see
+   * {@code RiskSnapshotConsumerHeartbeatMetricParsingTest}). See {@link #lastHeartbeatSecondsAgo}
+   * for the null-on-anything-uncertain contract.
+   */
+  static Double extractHeartbeatSecondsAgo(Map<MetricName, ? extends Metric> metrics) {
+    for (Map.Entry<MetricName, ? extends Metric> entry : metrics.entrySet()) {
+      if (HEARTBEAT_METRIC_NAME.equals(entry.getKey().name())) {
         Object value = entry.getValue().metricValue();
         if (value instanceof Number number) {
-          return number.doubleValue();
+          double d = number.doubleValue();
+          // A real "seconds ago" reading is never negative. kafka-clients' own -1.0
+          // never-heartbeated sentinel (see this method's doc) is caught by d < 0 here, along
+          // with any other implementation's negative sentinel -- not just the one observed.
+          return Double.isNaN(d) || Double.isInfinite(d) || d < 0 ? null : d;
         }
+        return null;
       }
     }
     return null;

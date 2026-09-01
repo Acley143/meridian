@@ -81,7 +81,7 @@ class KafkaOutageReadinessExclusionFixtureTest extends AbstractRestIntegrationTe
 
       // The inverted assertion this fixture exists for: the heartbeat-based signal must have
       // actually moved -- proving the detail CAN report something other than healthy, unlike
-      // pollThreadAlive/lastPollLoopIterationAt (see class doc).
+      // pollThreadAlive/pollLoopIterationCount (see class doc).
       double heartbeatSecondsAgoDuringOutage = heartbeatSecondsAgo(currentKafkaDetail());
       assertThat(heartbeatSecondsAgoDuringOutage)
           .as("heartbeat age should have grown well past the pre-outage baseline")

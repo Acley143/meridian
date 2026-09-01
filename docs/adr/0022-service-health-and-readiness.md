@@ -94,9 +94,9 @@ indicator runs on an HTTP request thread, not the poll loop's thread — so
 `RiskSnapshotConsumerHealthIndicator` never touches the consumer directly.
 `RiskSnapshotConsumerRunner` publishes an `AtomicReference` (partition
 assignment), a second `AtomicReference` (a heartbeat-age reading, below),
-and a `volatile long` (last-poll-loop-iteration timestamp) from inside its
-own poll loop, immediately after each `pollOnce()` returns; the indicator
-only reads those.
+and an `AtomicLong` (a poll-loop iteration counter) from inside its own
+poll loop, immediately after each `pollOnce()` returns; the indicator only
+reads those.
 
 **A field that reported "fine" during a real failure was caught and
 replaced, not shipped.** The first version of this indicator treated a
@@ -115,25 +115,56 @@ the dashboard) reproduced inside the very health check meant to catch it,
 and it is exactly the kind of thing an on-call engineer checks first during
 an incident.
 
-The fix ships in this same change, not as a follow-up: `pollThreadAlive`
-and `lastPollLoopIterationAt`/`*AgeMillis` remain in the body (loop-liveness
-is still a real, useful signal — a genuinely wedged loop, as opposed to a
-broker outage, does stop advancing them), but the health body now also
-carries a literal `pollLoopIterationCaveat` string stating plainly that
-these fields do not indicate broker reachability, and a fourth field,
-`lastHeartbeatSecondsAgo`, sourced directly from `KafkaConsumer`'s own
-`consumer-coordinator-metrics` group (`last-heartbeat-seconds-ago`, read
-from inside the poll loop via `RiskSnapshotConsumerService
-.lastHeartbeatSecondsAgo()` — same single-thread-access constraint as
-`currentAssignment()`). The group heartbeat genuinely stops succeeding when
-the coordinator is unreachable, so this field is the one that actually
-moves during an outage — confirmed by re-running the same fixture with the
-requirement inverted (the field **must** grow during the outage) rather
-than trusting the mechanism by inspection. None of these fields carry a
-baked-in status threshold (no `lastHeartbeatSecondsAgo > N ⇒ DOWN`): a
-threshold there is a readiness gate wearing a different hat, precisely what
-this ADR rejects — the raw value and its age are reported, and a human (or
-a future alert) judges what's too old.
+The fix ships in this same change, not as a follow-up, and went through two
+rounds of catching itself:
+
+1. `pollThreadAlive` stays (Java thread liveness is unambiguous), but the
+   timestamp/age pair is replaced with a bare `pollLoopIterationCount` —
+   nobody reads "how many times has this loop run" as a claim about a
+   remote broker, so the field name itself carries the meaning and no
+   in-payload explanation is needed. An earlier draft of this fix kept the
+   timestamp fields
+   and added a literal `pollLoopIterationCaveat` string to the health body
+   explaining what they didn't mean — rejected on review: prose in a health
+   payload can't be asserted on by a test and will drift from the field it
+   describes the moment either one changes without the other. The
+   explanation now lives only in this ADR, `RiskSnapshotConsumerRunner`'s
+   class doc, and the README's health section — the field name itself
+   carries the meaning in the payload.
+2. The new field, `lastHeartbeatSecondsAgo`, is sourced directly from
+   `KafkaConsumer`'s own `consumer-coordinator-metrics` group
+   (`last-heartbeat-seconds-ago`, read from inside the poll loop via
+   `RiskSnapshotConsumerService.lastHeartbeatSecondsAgo()` — same
+   single-thread-access constraint as `currentAssignment()`), because the
+   group heartbeat genuinely stops succeeding when the coordinator is
+   unreachable. Confirmed by re-running the outage fixture with the
+   requirement inverted (the field **must** grow during the outage), not
+   trusted by inspection — but that same hand-verification run caught a
+   *second* instance of the identical failure shape inside the fix itself:
+   `kafka-clients` 3.7.0's own metric implementation returns the literal
+   sentinel `-1.0` — not `NaN` — when no heartbeat has ever been sent
+   (`Heartbeat.lastHeartbeatSend() == 0`, decompiled and confirmed). A real
+   `/actuator/health` response showed `"lastHeartbeatSecondsAgo": -1.0` at
+   consumer startup before this was caught, which is exactly the same
+   "plausible number reads as healthy" bug this field exists to eliminate,
+   one layer down. `RiskSnapshotConsumerService.extractHeartbeatSecondsAgo`
+   now treats any negative value the same as `NaN`/`Infinite`/non-numeric —
+   all surface as `null`, never a number — and
+   `RiskSnapshotConsumerHeartbeatMetricParsingTest` pins this with a
+   dedicated case for the `-1.0` sentinel, run without Docker.
+
+`RiskSnapshotConsumerRunner` also checks once, on its first successful poll
+loop iteration, that a metric named `last-heartbeat-seconds-ago` is actually
+registered on the running Kafka client (`heartbeatMetricIsRegistered()`),
+and logs an `ERROR` if it isn't — a future `kafka-clients` upgrade that
+renames the metric would otherwise silently degrade `lastHeartbeatSecondsAgo`
+to always-`null` with nothing failing loudly on its own.
+
+None of these fields carry a baked-in status threshold (no
+`lastHeartbeatSecondsAgo > N ⇒ DOWN`): a threshold there is a readiness gate
+wearing a different hat, precisely what this ADR rejects — the raw value
+and its age are reported, and a human (or a future alert) judges what's too
+old.
 
 ### Exposure
 Only `health` is exposed
@@ -172,7 +203,7 @@ added — stays at the root, unversioned and unprefixed, by construction").
   side effect of adding probes. Recorded as an open question in
   `services/core-service/PLAN.md`.
 - Kafka consumer death (a genuinely wedged poll loop, which does still stop
-  advancing `lastPollLoopIterationAt`/`pollThreadAlive`, or a broker outage,
+  advancing `pollLoopIterationCount`/`pollThreadAlive`, or a broker outage,
   which `lastHeartbeatSecondsAgo` now reflects) remains invisible to any
   *automated* system — nothing pages on it, a human has to read the
   `riskSnapshotConsumer` detail to notice. This is named, tracked Q2 work
@@ -198,11 +229,11 @@ two questions asked separately.
 **Bake a staleness threshold (e.g. `lastHeartbeatSecondsAgo > 60` ⇒ DOWN)
 into the Kafka detail.** Rejected: a threshold there is a readiness gate in
 different clothing — the exact pattern under "Kafka as a detail, not a
-gate" above. (An earlier draft of this ADR proposed thresholding
-`lastPollLoopIterationAt` instead; that field doesn't move during a broker
-outage at all — see the finding above — so a threshold on it wouldn't even
-have detected the failure it would have been aimed at, on top of being the
-wrong kind of gate.)
+gate" above. (An earlier draft of this ADR proposed thresholding the
+poll-loop-iteration timestamp instead; that field doesn't move during a
+broker outage at all — see the finding above — so a threshold on it
+wouldn't even have detected the failure it would have been aimed at, on top
+of being the wrong kind of gate.)
 
 **`server.servlet.context-path` to relocate actuator.** Already rejected by
 ADR-0021 for reasons that apply unchanged here; not revisited.

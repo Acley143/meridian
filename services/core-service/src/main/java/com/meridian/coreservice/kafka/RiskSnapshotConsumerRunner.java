@@ -3,6 +3,7 @@ package com.meridian.coreservice.kafka;
 import jakarta.annotation.PreDestroy;
 import java.time.Duration;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.kafka.common.TopicPartition;
 import org.slf4j.Logger;
@@ -35,18 +36,22 @@ import org.springframework.stereotype.Component;
  * RiskSnapshotConsumerService#lastHeartbeatSecondsAgo} itself; only this class's own poll-loop
  * thread does, immediately after each {@code pollOnce()} returns, publishing the results into
  * {@link #lastAssignment} and {@link #lastHeartbeatSecondsAgo} (both {@link AtomicReference}) and
- * {@link #lastPollLoopIterationAtEpochMilli} (a {@code volatile long}) for the indicator to read
- * safely from any thread.
+ * {@link #pollLoopIterationCount} (an {@link AtomicLong}) for the indicator to read safely from any
+ * thread.
  *
- * <p><b>{@code lastPollLoopIterationAtEpochMilli} proves the poll thread is iterating, nothing
- * more.</b> {@code KafkaConsumer.poll()} does not throw when the broker is unreachable -- verified
- * by hand against a real broker outage (ADR-0022's session log): it logs a connection warning and
- * returns an empty batch, which this loop correctly treats as a successful iteration. So this
- * timestamp keeps advancing through a total broker outage; it must never be read as a broker- or
- * data-reachability signal (nor conflated with {@code oldest_input_event_time}). {@link
- * #lastHeartbeatSecondsAgo} is the field that actually reflects broker/coordinator reachability,
- * because the consumer group heartbeat genuinely stops succeeding when the coordinator is
- * unreachable.
+ * <p><b>{@code pollLoopIterationCount} proves the loop is iterating, nothing more -- it is
+ * deliberately a bare counter, not a timestamp.</b> An earlier version of this field was a
+ * last-iteration timestamp/age, which read (and was misread, in review) as a plausible
+ * broker-reachability signal even though it wasn't one: {@code KafkaConsumer.poll()} does not throw
+ * when the broker is unreachable -- verified by hand against a real broker outage (ADR-0022's
+ * session log) -- it logs a connection warning and returns an empty batch, which this loop
+ * correctly treats as a successful iteration, so a timestamp kept advancing through a total broker
+ * outage. A monotonic count of loop iterations invites no such reading; nobody expects "how many
+ * times has this loop run" to imply anything about a remote broker. See ADR-0022 and the README's
+ * health section for the fuller writeup -- this class carries only the mechanism, not the
+ * explanation, so the two can't drift apart. {@link #lastHeartbeatSecondsAgo} is the field that
+ * actually reflects broker/coordinator reachability, because the consumer group heartbeat genuinely
+ * stops succeeding when the coordinator is unreachable.
  */
 @Component
 public class RiskSnapshotConsumerRunner implements ApplicationRunner {
@@ -61,8 +66,8 @@ public class RiskSnapshotConsumerRunner implements ApplicationRunner {
   private final AtomicReference<Set<TopicPartition>> lastAssignment =
       new AtomicReference<>(Set.of());
   private final AtomicReference<Double> lastHeartbeatSecondsAgo = new AtomicReference<>(null);
-  // 0 means "no poll loop iteration has completed yet" -- distinct from a genuinely old timestamp.
-  private volatile long lastPollLoopIterationAtEpochMilli = 0L;
+  private final AtomicLong pollLoopIterationCount = new AtomicLong(0);
+  private volatile boolean heartbeatMetricCheckedAtStartup = false;
 
   public RiskSnapshotConsumerRunner(RiskSnapshotConsumerService consumerService) {
     this.consumerService = consumerService;
@@ -82,13 +87,42 @@ public class RiskSnapshotConsumerRunner implements ApplicationRunner {
         // See class doc: this proves the LOOP is iterating, not that the broker is reachable.
         lastAssignment.set(consumerService.currentAssignment());
         lastHeartbeatSecondsAgo.set(consumerService.lastHeartbeatSecondsAgo());
-        lastPollLoopIterationAtEpochMilli = System.currentTimeMillis();
+        pollLoopIterationCount.incrementAndGet();
+        checkHeartbeatMetricIsRegisteredOnce();
       } catch (RuntimeException e) {
         log.error(
             "risk.snapshots poll failed; the failed record was seeked back and will be retried"
                 + " on the next poll",
             e);
       }
+    }
+  }
+
+  /**
+   * Runs once, after the first successful poll loop iteration. Confirms {@link
+   * RiskSnapshotConsumerService#HEARTBEAT_METRIC_NAME} is actually registered by name on this Kafka
+   * client, and logs loudly if it isn't -- a metric rename across a future kafka-clients upgrade
+   * would otherwise silently degrade {@code lastHeartbeatSecondsAgo} to always-null without
+   * anything failing loudly on its own, reproducing this exact ADR's "field reads as fine when it
+   * isn't" failure in a new form.
+   */
+  private void checkHeartbeatMetricIsRegisteredOnce() {
+    if (heartbeatMetricCheckedAtStartup) {
+      return;
+    }
+    heartbeatMetricCheckedAtStartup = true;
+    if (consumerService.heartbeatMetricIsRegistered()) {
+      log.info(
+          "risk.snapshots consumer: '{}' metric is registered -- Kafka broker/coordinator"
+              + " reachability will be reported via lastHeartbeatSecondsAgo",
+          RiskSnapshotConsumerService.HEARTBEAT_METRIC_NAME);
+    } else {
+      log.error(
+          "risk.snapshots consumer: expected Kafka metric '{}' was NOT found on this client --"
+              + " lastHeartbeatSecondsAgo will report null indefinitely instead of reflecting"
+              + " broker/coordinator reachability. This likely means the metric was renamed in the"
+              + " kafka-clients version in use; RiskSnapshotConsumerService needs updating.",
+          RiskSnapshotConsumerService.HEARTBEAT_METRIC_NAME);
     }
   }
 
@@ -103,18 +137,19 @@ public class RiskSnapshotConsumerRunner implements ApplicationRunner {
   }
 
   /**
-   * Safe to call from any thread -- reads only the published {@code volatile}. 0 = no poll loop
-   * iteration has completed yet. Proves the loop is alive; does NOT prove the broker is reachable
-   * (see class doc) -- use {@link #lastHeartbeatSecondsAgo} for that.
+   * Safe to call from any thread -- reads only the published {@link AtomicLong}. A bare count of
+   * completed poll loop iterations since this runner started; proves the loop is alive, does NOT
+   * prove the broker is reachable (see class doc) -- use {@link #lastHeartbeatSecondsAgo} for that.
    */
-  public long lastPollLoopIterationAtEpochMilli() {
-    return lastPollLoopIterationAtEpochMilli;
+  public long pollLoopIterationCount() {
+    return pollLoopIterationCount.get();
   }
 
   /**
    * Safe to call from any thread -- reads only the published {@link AtomicReference}. {@code null}
-   * if the underlying Kafka metric isn't available yet (e.g. before the first group join). The
-   * signal that actually reflects broker/coordinator reachability -- see class doc.
+   * if the underlying Kafka metric isn't registered, or hasn't reported a real number yet (e.g.
+   * before the first group join). The signal that actually reflects broker/coordinator reachability
+   * -- see class doc.
    */
   public Double lastHeartbeatSecondsAgo() {
     return lastHeartbeatSecondsAgo.get();

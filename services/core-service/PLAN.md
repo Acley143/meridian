@@ -107,14 +107,31 @@ booking.
   predate Session O and are noted here rather than fixed, since fixing them
   wasn't this session's scope. Owner: unassigned, by-when: Q3 deploy
   planning.
-- Kafka consumer death is invisible to any automated system: ADR-0022 made
+- Kafka consumer death is invisible to any *automated* system: ADR-0022 made
   this an explicit, deliberate readiness exclusion (a dead/rebalancing
-  consumer degrades reads to stale, not absent), but nothing pages on a
-  consumer that's actually wedged — a human has to read the
-  `riskSnapshotConsumer` health detail. Verified during Session O that a
-  real single-broker outage doesn't even move that detail's
-  `lastPollAgeMillis`, since `KafkaConsumer.poll()` doesn't throw when the
-  broker is unreachable. Owner: unassigned, by-when: Q2 planning.
+  consumer degrades reads to stale, not absent), and Session O's own fixture
+  testing caught and fixed a real bug in the health detail meant to surface
+  it — `pollThreadAlive`/the original poll-loop timestamp kept reading
+  "healthy" through a full broker outage, since `KafkaConsumer.poll()`
+  doesn't throw on one; a `lastHeartbeatSecondsAgo` field (sourced from the
+  consumer's own Kafka group heartbeat) now genuinely reflects it, verified
+  by hand against a real outage. But nothing *pages* on any of this yet — a
+  human still has to read the `riskSnapshotConsumer` health detail; alerting
+  on `lastHeartbeatSecondsAgo`/`pollLoopIterationCount` staying stuck is the
+  actual open item. Owner: unassigned, by-when: Q2 planning.
+- Testcontainers doesn't run in this local sandbox: two sessions in a row
+  (Session N-era per the 05d log, and Session O) have hand-verified Java
+  changes against the real `docker-compose.yml` stack instead, with CI as
+  the only place the real suite runs. Root-caused further in Session O: it
+  isn't a `DOCKER_HOST`/socket misconfiguration (tried pointing explicitly
+  at the Docker Desktop socket, same failure) — testcontainers 1.20.1's
+  bundled `docker-java` client fails Docker API version negotiation against
+  this Docker Desktop install (`docker compose`, the Go CLI, works fine
+  against the same daemon). Not urgent — CI is a working backstop — but it's
+  a compounding tax: every local Java change gets zero automated feedback
+  before push. Worth investigating whether a `testcontainers`/`docker-java`
+  version bump fixes it, as its own session (a dependency bump is a real
+  decision, not a drive-by). Owner: unassigned, by-when: Q2 planning.
 
 ## Session log
 - 2026-08-31 (contracts session, Eng-A): `contracts/openapi/service-api.yaml`
@@ -218,4 +235,30 @@ booking.
   Kafka-outage fixture with the assertion inverted — the new field must grow
   during the outage — and confirmed by hand: it climbed from ~0s to 61s over
   a 60s outage and dropped back to ~1s within 6s of Kafka restarting. See
-  ADR-0022 for the full writeup.
+  ADR-0022 for the full writeup. Pushing the branch alone did not run CI —
+  this repo's workflow triggers only on `push: [master]` or `pull_request`
+  — so a PR (#2) had to be opened to get a real run.
+- 2026-09-01 (Session O, continued — review feedback): the
+  `pollLoopIterationCaveat` string design above was itself replaced before
+  merge, on review. Prose in a health payload can't be asserted on by a
+  test and drifts from the field it describes; renamed the timestamp/age
+  pair to a bare `pollLoopIterationCount` instead, since nobody reads a raw
+  iteration counter as a broker-reachability claim, and dropped the caveat
+  string — the explanation now lives only in code comments, this file, and
+  ADR-0022. Also fixed a second, real instance of the identical failure
+  shape inside the fix itself: `kafka-clients` 3.7.0 returns the literal
+  sentinel `-1.0` (not `NaN`) for `last-heartbeat-seconds-ago` before any
+  heartbeat has ever been sent (decompiled and confirmed against
+  `AbstractCoordinator`) — a live `/actuator/health` response showed
+  `"lastHeartbeatSecondsAgo": -1.0` at startup before this was caught.
+  `extractHeartbeatSecondsAgo` now treats any negative value as `null`, the
+  same as `NaN`/non-numeric, pinned by a new Docker-free unit test
+  (`RiskSnapshotConsumerHeartbeatMetricParsingTest`). Also added a
+  startup-only check (`RiskSnapshotConsumerRunner
+  .checkHeartbeatMetricIsRegisteredOnce`) that logs an `ERROR` if the
+  `last-heartbeat-seconds-ago` metric name is ever missing from the running
+  Kafka client, so a future client upgrade that renames it fails loudly
+  instead of silently degrading the field to always-null. Re-verified the
+  full outage/recovery cycle by hand once more after these changes: no
+  `-1.0` observed, `lastHeartbeatSecondsAgo` still climbs during an outage
+  and recovers after.

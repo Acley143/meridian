@@ -94,6 +94,27 @@ booking.
   pre-numbered here, since cross-currency aggregation (root `PLAN.md`) is
   also pending an ADR and whichever gets drafted first should take the next
   number. Owner: unassigned, by-when: Q2 planning.
+- Health probes with nothing consuming them: ADR-0022 (Session O) added
+  `/actuator/health/liveness` and `/actuator/health/readiness`, but
+  `core-service` has no `Dockerfile` and no entry in `docker-compose.yml` —
+  it's a local process, not a compose service, so there is no compose
+  `healthcheck:`/`depends_on: condition:` to point at them yet, and Q3's
+  deploy work is the first real consumer. Containerizing the service (base
+  image, JVM flags, the in-network hostname/env-var contract) is its own
+  decision, deliberately not made in Session O. Neither `postgres`, `kafka`,
+  nor `schema-registry` has a compose healthcheck either, and
+  `schema-registry`'s `depends_on: kafka` has no `condition:` — both
+  predate Session O and are noted here rather than fixed, since fixing them
+  wasn't this session's scope. Owner: unassigned, by-when: Q3 deploy
+  planning.
+- Kafka consumer death is invisible to any automated system: ADR-0022 made
+  this an explicit, deliberate readiness exclusion (a dead/rebalancing
+  consumer degrades reads to stale, not absent), but nothing pages on a
+  consumer that's actually wedged — a human has to read the
+  `riskSnapshotConsumer` health detail. Verified during Session O that a
+  real single-broker outage doesn't even move that detail's
+  `lastPollAgeMillis`, since `KafkaConsumer.poll()` doesn't throw when the
+  broker is unreachable. Owner: unassigned, by-when: Q2 planning.
 
 ## Session log
 - 2026-08-31 (contracts session, Eng-A): `contracts/openapi/service-api.yaml`
@@ -165,3 +186,26 @@ booking.
   `-parameters` on the compiler, which `@PathVariable`/`@RequestParam`
   need without an explicit name and which a `spring-boot-starter-parent`
   would otherwise have set for free).
+- 2026-09-01 (Session O): ADR-0022 — `spring-boot-starter-actuator`,
+  liveness/readiness probes, `RiskSnapshotConsumerHealthIndicator` (Kafka
+  as a health-body detail, explicitly excluded from the readiness group).
+  Session prompt assumed `core-service` already had (or could readily get)
+  a `docker-compose.yml` healthcheck; it has no compose entry and no
+  `Dockerfile` at all, so that task was dropped rather than improvised —
+  see "Open questions" above. Testcontainers is broken in this sandbox
+  (docker-java's bundled client negotiates an API version the local Docker
+  daemon rejects — confirmed pre-existing by reverting this session's
+  changes and running an untouched existing Kafka test, which failed
+  identically), so the new tests were verified by hand against the real
+  `docker-compose.yml` stack instead, same fallback as 05d for the same
+  reason. Fixtures 5 and 6 (Postgres outage, Kafka outage) were run for
+  real: readiness correctly went 503/DOWN on a stopped Postgres container
+  while liveness stayed 200/UP throughout, and recovered to UP within ~1s
+  of Postgres restarting with no core-service restart; readiness and
+  `GET /api/v1/portfolios/{id}/risk` were both unaffected by a stopped
+  Kafka container. That same fixture surfaced a real design finding:
+  `KafkaConsumer.poll()` doesn't throw on an unreachable broker, so the
+  Kafka health detail's freshness signal doesn't actually move during a
+  real outage — written up in ADR-0022 and the "Open questions" entry
+  above rather than silently left in the automated test as an assertion
+  that would have passed for the wrong reason.

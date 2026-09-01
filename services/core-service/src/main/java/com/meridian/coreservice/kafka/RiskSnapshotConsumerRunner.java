@@ -2,6 +2,9 @@ package com.meridian.coreservice.kafka;
 
 import jakarta.annotation.PreDestroy;
 import java.time.Duration;
+import java.util.Set;
+import java.util.concurrent.atomic.AtomicReference;
+import org.apache.kafka.common.TopicPartition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.ApplicationArguments;
@@ -24,6 +27,14 @@ import org.springframework.stereotype.Component;
  * (05c's own fix), so the very next {@code pollOnce()} call redelivers it. A transient failure
  * (e.g. the database is briefly unavailable) is retried indefinitely by this loop rather than
  * crashing the application; nothing here silently drops a record.
+ *
+ * <p>Also the sole publisher of this consumer's health-detail state (ADR-0022). {@code
+ * KafkaConsumer} is not thread-safe, so {@link RiskSnapshotConsumerHealthIndicator} -- which runs
+ * on an HTTP request thread -- must never call {@link
+ * RiskSnapshotConsumerService#currentAssignment} itself; only this class's own poll-loop thread
+ * does, immediately after each {@code pollOnce()} returns, publishing the result into {@link
+ * #lastAssignment} (an {@link AtomicReference}) and {@link #lastPollCompletedAtEpochMilli} (a
+ * {@code volatile long}) for the indicator to read safely from any thread.
  */
 @Component
 public class RiskSnapshotConsumerRunner implements ApplicationRunner {
@@ -34,6 +45,11 @@ public class RiskSnapshotConsumerRunner implements ApplicationRunner {
   private final RiskSnapshotConsumerService consumerService;
   private volatile boolean running = true;
   private Thread pollThread;
+
+  private final AtomicReference<Set<TopicPartition>> lastAssignment =
+      new AtomicReference<>(Set.of());
+  // 0 means "no poll has completed yet" -- distinct from a genuinely old timestamp.
+  private volatile long lastPollCompletedAtEpochMilli = 0L;
 
   public RiskSnapshotConsumerRunner(RiskSnapshotConsumerService consumerService) {
     this.consumerService = consumerService;
@@ -50,6 +66,11 @@ public class RiskSnapshotConsumerRunner implements ApplicationRunner {
     while (running) {
       try {
         consumerService.pollOnce(POLL_TIMEOUT);
+        // A poll that returns zero records still completed successfully -- this timestamp proves
+        // the loop is alive, it is not a data-freshness signal (do not conflate it with
+        // oldest_input_event_time). Read from this same thread only; see class doc.
+        lastAssignment.set(consumerService.currentAssignment());
+        lastPollCompletedAtEpochMilli = System.currentTimeMillis();
       } catch (RuntimeException e) {
         log.error(
             "risk.snapshots poll failed; the failed record was seeked back and will be retried"
@@ -57,6 +78,23 @@ public class RiskSnapshotConsumerRunner implements ApplicationRunner {
             e);
       }
     }
+  }
+
+  /** Safe to call from any thread -- {@link Thread#isAlive()} makes no thread-affinity promise. */
+  public boolean isPollThreadAlive() {
+    return pollThread != null && pollThread.isAlive();
+  }
+
+  /** Safe to call from any thread -- reads only the published {@link AtomicReference}. */
+  public Set<TopicPartition> currentAssignment() {
+    return lastAssignment.get();
+  }
+
+  /**
+   * Safe to call from any thread -- reads only the published {@code volatile}. 0 = never polled.
+   */
+  public long lastPollCompletedAtEpochMilli() {
+    return lastPollCompletedAtEpochMilli;
   }
 
   @PreDestroy

@@ -119,6 +119,38 @@ stop it or remap the container port in an untracked `docker-compose.override.yml
 and point `SPRING_DATASOURCE_URL` at `15432`. That file is gitignored because
 the remap is machine-specific.
 
+### Health and readiness (ADR-0022)
+
+`core-service` exposes two Spring Boot Actuator probes and nothing else
+(`GET /actuator/env`, `/beans`, `/heapdump`, etc. all 404 — only `health` is
+exposed):
+
+- **`GET /actuator/health/liveness`** — is the process alive and not wedged?
+  Depends on nothing external. A `DOWN` here means restart the instance.
+- **`GET /actuator/health/readiness`** — can this instance serve correct
+  responses right now? Gates on Postgres (the REST read path needs it) but
+  deliberately *not* on Kafka — a dead or rebalancing `risk.snapshots`
+  consumer leaves reads working, only stale, and pulling the instance from
+  the load balancer over that would trade a degraded read for an absent
+  one. A `DOWN` here means stop routing traffic to this instance; it does
+  not mean restart it.
+- **`GET /actuator/health`** — the aggregate view. Includes both of the
+  above plus a `riskSnapshotConsumer` detail (poll-loop liveness and
+  current partition assignment) that is visible here but never affects the
+  readiness verdict — a wedged or lagging consumer is an observability
+  concern, tracked as open Q2 work in `services/core-service/PLAN.md`, not
+  a readiness signal.
+
+These paths are intentionally unprefixed (not under `/api/v1`) — see
+ADR-0021's Consequences section and ADR-0022.
+
+Nothing in this repository points a healthcheck at these endpoints yet:
+`core-service` has no `Dockerfile` and no entry in `docker-compose.yml` (see
+`services/core-service/PLAN.md`'s open questions). Hand-verify locally
+instead, e.g. `curl localhost:8080/actuator/health/readiness` after `docker
+compose stop postgres` should return `503`/`DOWN` while
+`.../health/liveness` stays `200`/`UP`.
+
 ## License
 
 Apache-2.0 — see `LICENSE`.

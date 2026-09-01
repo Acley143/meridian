@@ -18,3 +18,33 @@ meridian:
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9093}
     schema-registry-url: ${SCHEMA_REGISTRY_URL:http://localhost:8081}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        # Health only (ADR-0022). Do not add env, beans, heapdump, threaddump, configprops,
+        # loggers, etc. here -- this is an unauthenticated, publicly-reachable actuator surface.
+        include: health
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: always
+      group:
+        # Liveness stays process-only (the default "livenessState" indicator) -- no external
+        # dependency belongs here (ADR-0022): a Postgres or Kafka blip must never cause an
+        # orchestrator to restart every replica at once.
+        liveness:
+          include: livenessState
+        # Readiness gates on Postgres ("db" is Spring Boot's auto-configured
+        # DataSourceHealthIndicator id) in addition to the readiness marker itself. Kafka
+        # ("riskSnapshotConsumer") is deliberately NOT listed here -- it stays a health-body
+        # detail only, per ADR-0022's degraded-vs-absent reasoning. Do not add it to this list.
+        readiness:
+          include: readinessState, db
+  health:
+    livenessstate:
+      enabled: true
+    readinessstate:
+      enabled: true

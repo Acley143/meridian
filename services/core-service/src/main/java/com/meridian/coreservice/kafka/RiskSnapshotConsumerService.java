@@ -127,6 +127,18 @@ public class RiskSnapshotConsumerService {
   }
 
   /**
+   * Returns the consumer's current partition assignment. Safe to call ONLY from the thread that
+   * drives {@link #pollOnce} -- {@code KafkaConsumer} is not thread-safe, and calling this from any
+   * other thread (e.g. directly from an actuator {@code HealthIndicator} on an HTTP request thread)
+   * races the poll loop and throws {@code ConcurrentModificationException} intermittently. {@link
+   * RiskSnapshotConsumerRunner} calls this from inside its own poll loop and publishes the result
+   * for other threads to read safely; nothing else should call it.
+   */
+  Set<TopicPartition> currentAssignment() {
+    return consumer.assignment();
+  }
+
+  /**
    * Test-only: waits for this consumer's partition assignment then seeks to the end of each
    * assigned partition, so it only sees records produced after this call -- not leftover messages
    * earlier test classes left on the shared {@code risk.snapshots} topic (Kafka isn't truncated

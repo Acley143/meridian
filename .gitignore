@@ -46,3 +46,4 @@ secrets/
 # it -- regenerate via `make gen` (tools/codegen/generate.py) and commit the
 # diff; the contracts-drift CI job fails if it disagrees with a fresh
 # regeneration.
+docker-compose.override.yml

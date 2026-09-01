@@ -4,7 +4,7 @@ Four quarters, five engineers. This is the program-level plan; each
 workstream has its own `PLAN.md` with concrete deliverables, boundaries, and
 a session log — this file links to them and tracks which quarter is current.
 
-## Q1 — Black-Scholes pricer, simulated Kafka feed, service/schema skeleton (CURRENT)
+## Q1 — Black-Scholes pricer, simulated Kafka feed, service/schema skeleton (COMPLETE)
 
 Establish the skeleton end to end: contracts, a pure Black-Scholes pricer, a
 simulated tick feed, a core service that can hold portfolio/trade state and
@@ -20,7 +20,14 @@ later; Q1 proves the pipe is connected.
 - [apps/dashboard](apps/dashboard/PLAN.md)
 - [infra](infra/PLAN.md)
 
-## Q2 — American options, portfolio VaR, audit log
+Verified end to end against the real local stack (`docker compose up` +
+`services/ingest` + `services/pricer` + `services/core-service` +
+`apps/dashboard`), 2026-08-31: a real tick landed in Kafka, was priced by
+`services/pricer`, reached `services/core-service`, and streamed out over
+SSE (`curl -N .../risk/stream`) as a live-updating `RiskSnapshot` within
+the same second it was produced. The pipe is connected.
+
+## Q2 — American options, portfolio VaR, audit log (CURRENT)
 
 Extend the pricer to American-style exercise, add portfolio-level VaR
 aggregation (single-portfolio, not yet correlated across portfolios), and
@@ -69,6 +76,27 @@ to pass.
   appears in both the Avro and OpenAPI representations of a type, or a
   stated reason a given field shouldn't (see `contracts/README.md`). Owner:
   TBD, by-when: before Q2 contract work starts.
+- **`core-service` has no CORS configuration (Q1 end-to-end verification).**
+  Discovered while running the full local stack: `apps/dashboard`'s dev
+  server (`localhost:5173`) talking to `core-service` (`localhost:8080`)
+  is rejected by the browser (`Invalid CORS request` on preflight) —
+  `core-service` never sends an `Access-Control-Allow-Origin` header. The
+  rest of the pipeline works and was verified directly against the SSE
+  stream instead of through a browser. No ADR covers what origins should
+  be allowed (dev-only permissive vs. an explicit allowlist that also
+  needs to work in whatever Q4 deployment target emerges). Owner: TBD
+  (`services/core-service`), by-when: before the dashboard can be
+  demoed live in an actual browser against a real `core-service`.
+- **No portfolio/instrument creation endpoint (Q1 end-to-end verification).**
+  `services/core-service` can hold and serve portfolio/trade/position state,
+  but nothing in Q1 exposes `POST /portfolios` or an instrument-creation
+  endpoint — `InstrumentService.createInstrument` and the portfolios table
+  exist only as internal seams (see `services/core-service/PLAN.md`
+  session log). Verifying Q1 end to end required inserting the seed
+  `portfolios`/`instruments` rows directly via SQL, which is fine for this
+  one-time local verification but isn't a real onboarding path for a new
+  portfolio. Owner: TBD (`services/core-service`), by-when: before Q2, if
+  Q2's VaR/audit-log work assumes portfolios can be created without a DBA.
 
 ## Team & ownership
 

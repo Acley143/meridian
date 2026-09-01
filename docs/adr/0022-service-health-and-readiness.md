@@ -198,6 +198,29 @@ own Consequences section anticipated ("Anything Spring-managed outside
 `contracts/openapi/service-api.yaml`'s surface — actuator, if it is ever
 added — stays at the root, unversioned and unprefixed, by construction").
 
+## CI caught a test-isolation bug in the fixture itself
+`KafkaOutageReadinessExclusionFixtureTest` originally stopped/restarted
+`AbstractKafkaIntegrationTest`'s *shared* singleton Kafka container — the same
+one every other Kafka-dependent test class in the suite talks to. A real CI
+run surfaced why that's unsafe: a cold `docker stop`/`start` of a KRaft
+broker re-runs its full boot sequence (controller election, log recovery),
+which took longer on a GitHub Actions runner than the fixture's own 30-second
+recovery timeout — the fixture failed honestly, in ~61s, not a hang. But the
+still-recovering broker then wedged the very next, unrelated, pre-existing
+test in the suite (`OffsetCommitFailureTest`) for the remaining ~11 minutes
+of the job, until the workflow's `timeout-minutes` killed it. Lengthening the
+fixture's own timeout would not have fixed this — the next slow recovery
+reproduces the same blast radius. The fixture now runs against its own
+private Kafka + schema registry, started and torn down within the test class
+itself, so no other test's consumer can be affected by what this one does to
+its broker — the failure mode is structurally impossible now, not merely
+less likely. It also splits recovery into two separately-timed, separately-
+messaged checks: whether the broker itself is reachable again (via a direct
+admin-client call, generous 90s window) and, only after that, whether this
+consumer's own heartbeat recovered (30s) — conflating the two would have made
+"the broker was just slow" and "this consumer's reconnect path is broken"
+produce the identical failure message.
+
 ## Consequences
 - A Postgres outage now produces an honest, machine-readable `NotReady`
   instead of failed business requests with no structural signal; a Kafka

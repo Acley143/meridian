@@ -262,3 +262,22 @@ booking.
   full outage/recovery cycle by hand once more after these changes: no
   `-1.0` observed, `lastHeartbeatSecondsAgo` still climbs during an outage
   and recovers after.
+- 2026-09-01 (Session O, continued — CI run and fix): added
+  `timeout-minutes: 15` to every CI job (separate PR #3, merged first, since
+  a workflow change shouldn't be validated by the same run it's meant to
+  bound) after PR #2's Java job sat `IN_PROGRESS` for 40+ minutes with no
+  timeout to kill it. The re-run (rebased onto the updated workflow) hit the
+  new 15-minute wall — but reading the actual log showed
+  `KafkaOutageReadinessExclusionFixtureTest` itself had failed honestly in
+  ~61s (a too-short 30s recovery timeout against a real, slower-than-local
+  cold Kafka restart in CI), and the real problem was that it had stopped
+  the *shared* singleton Kafka container the whole suite depends on, so the
+  still-recovering broker wedged the next, unrelated test
+  (`OffsetCommitFailureTest`, pre-existing, untouched) for the rest of the
+  job. Fixed by giving the fixture its own private Kafka + schema registry
+  (no other test can be affected by what this one does to its broker,
+  structurally, not just by a longer timeout) and splitting recovery into
+  two separately-timed checks (broker reachable, then consumer heartbeat
+  recovered) so the two failure modes produce different error messages. See
+  ADR-0022's new section for the full writeup. Not yet re-verified against a
+  fresh CI run as of this entry.

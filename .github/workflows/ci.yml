@@ -63,6 +63,7 @@ jobs:
           # mpmath: used directly by libs/quant-core/tests/golden/generate_reference_values.py
           # (arbitrary-precision reference values) but not a declared dependency anywhere.
           pip install mpmath
+          pip install -e contracts/generated/python
       - name: ruff
         run: |
           if find libs services -name '*.py' ! -name '__init__.py' | grep -q .; then

@@ -221,6 +221,24 @@ consumer's own heartbeat recovered (30s) — conflating the two would have made
 "the broker was just slow" and "this consumer's reconnect path is broken"
 produce the identical failure message.
 
+The re-run that verified this fix found the identical defect in a second,
+pre-existing fixture: `PostgresOutageReadinessFixtureTest` stopped/restarted
+the same shared singleton *Postgres* container. In that run Postgres didn't
+come back within its own 60-second recovery window, so the fixture failed
+honestly — but because it was the shared container, the next three unrelated
+test classes (`DecimalRoundTripTest`, `RiskSnapshotUpsertTest`,
+`MigrationTest`) each burned 90s/60s/60s on
+`CannotGetJdbcConnectionException` before failing too. Fixed the same way:
+its own private Postgres, started and torn down within the test class, and
+the same broker-reachable-then-app-recovered split (a raw JDBC connection
+attempt against the container directly, 90s, then readiness recovery, 30s).
+A grep across every test source in `services/core-service` for Docker
+container-lifecycle calls (`stopContainerCmd`, `pauseContainerCmd`,
+`killContainerCmd`, `restartContainerCmd`, `DockerClientFactory`) and for
+direct references to the shared `KAFKA`/`SCHEMA_REGISTRY`/`POSTGRES` fields
+found no third instance — these two were the only tests that ever touched a
+shared container's lifecycle.
+
 ## Consequences
 - A Postgres outage now produces an honest, machine-readable `NotReady`
   instead of failed business requests with no structural signal; a Kafka

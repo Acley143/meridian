@@ -281,3 +281,19 @@ booking.
   recovered) so the two failure modes produce different error messages. See
   ADR-0022's new section for the full writeup. Not yet re-verified against a
   fresh CI run as of this entry.
+- 2026-09-01 (Session O, continued — second CI run): the Kafka isolation fix
+  worked (`OffsetCommitFailureTest` passed in 1.79s right after
+  `KafkaOutageReadinessExclusionFixtureTest` this run, no wedge), but the
+  identical defect surfaced in a second, pre-existing fixture:
+  `PostgresOutageReadinessFixtureTest` stopped the shared singleton Postgres
+  container, which didn't come back within 60s on this run, wedging
+  `DecimalRoundTripTest`/`RiskSnapshotUpsertTest`/`MigrationTest` for
+  90s/60s/60s each. Fixed with the same private-container + split-signal
+  treatment. Grepped every test source for Docker container-lifecycle calls
+  and shared-container field references — no third instance found. A
+  separate, still-open finding from this same failed run: the Kafka
+  fixture's very first HTTP call threw a `JsonPathException` on a non-JSON
+  response ~140ms after its embedded Tomcat started; not chased yet, since
+  it occurred in a run where Postgres was already wedged and two Kafka
+  stacks had just started back-to-back — need a clean run to know whether it
+  reproduces.

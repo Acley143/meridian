@@ -7,12 +7,16 @@ import java.util.List;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
-/** {@code GET /portfolios/{id}/risk} and {@code GET /portfolios/{id}/risk/history}. */
+/**
+ * {@code GET /api/v1/portfolios/{id}/risk} and {@code GET /api/v1/portfolios/{id}/risk/history}.
+ */
 @RestController
+@RequestMapping("/api/v1")
 public class RiskController {
 
   private final RiskSnapshotRepository riskSnapshotRepository;

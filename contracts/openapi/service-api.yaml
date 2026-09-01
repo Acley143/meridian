@@ -21,7 +21,7 @@ servers:
   - url: http://localhost:8080
 
 paths:
-  /portfolios/{portfolioId}:
+  /api/v1/portfolios/{portfolioId}:
     get:
       summary: Fetch a portfolio's metadata.
       operationId: getPortfolio
@@ -37,7 +37,7 @@ paths:
         "404":
           description: No portfolio with that id.
 
-  /portfolios/{portfolioId}/positions:
+  /api/v1/portfolios/{portfolioId}/positions:
     get:
       summary: Fetch the current positions for a portfolio.
       operationId: listPositions
@@ -53,7 +53,7 @@ paths:
                 items:
                   $ref: "#/components/schemas/Position"
 
-  /portfolios/{portfolioId}/risk:
+  /api/v1/portfolios/{portfolioId}/risk:
     get:
       summary: Fetch the latest risk snapshot for a portfolio, under the latest pricer_version.
       operationId: getLatestRisk
@@ -69,13 +69,13 @@ paths:
         "404":
           description: No snapshot exists yet for that portfolio.
 
-  /portfolios/{portfolioId}/risk/history:
+  /api/v1/portfolios/{portfolioId}/risk/history:
     get:
       summary: Bounded range query over a portfolio's risk snapshot history.
       description: >
         Returns snapshots with `as_of` in `[from, to]`, most recent first,
         capped at `limit`. This is a REST alternative to
-        `/risk/stream` for a client that wants a fixed window of history
+        `/api/v1/.../risk/stream` for a client that wants a fixed window of history
         rather than a live feed -- e.g. to render a chart on page load
         before subscribing to the stream for updates.
       operationId: getRiskHistory
@@ -116,7 +116,7 @@ paths:
         "400":
           description: "`from` is after `to`, or the range exceeds what the service is willing to scan in one request."
 
-  /portfolios/{portfolioId}/risk/stream:
+  /api/v1/portfolios/{portfolioId}/risk/stream:
     get:
       summary: Server-Sent Events stream of RiskSnapshot updates for a portfolio.
       description: >
@@ -128,8 +128,8 @@ paths:
         with a later `as_of` than the one in the header. Replay is bounded at
         500 snapshots or 15 minutes, whichever is smaller -- beyond that
         bound the service emits a `resync` event instead of replaying, and
-        the client must refetch full state via `GET /portfolios/{id}/positions`
-        and `GET /portfolios/{id}/risk`.
+        the client must refetch full state via `GET /api/v1/portfolios/{id}/positions`
+        and `GET /api/v1/portfolios/{id}/risk`.
       operationId: streamRisk
       parameters:
         - $ref: "#/components/parameters/PortfolioId"
@@ -155,7 +155,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/RiskSnapshot"
 
-  /trades:
+  /api/v1/trades:
     post:
       summary: Book a trade.
       description: >
@@ -181,7 +181,7 @@ paths:
         "400":
           description: Malformed trade (e.g. non-positive contract_size on the referenced instrument, unknown portfolio_id/instrument_id).
 
-  /portfolios/{portfolioId}/audit:
+  /api/v1/portfolios/{portfolioId}/audit:
     get:
       summary: Fetch audit log entries for a portfolio.
       description: >
@@ -313,7 +313,7 @@ components:
 
     TradeRequest:
       type: object
-      description: Body of POST /trades. See docs/domain-model.md#trade -- trade_id and ingest_time are server-assigned, not client-supplied.
+      description: Body of POST /api/v1/trades. See docs/domain-model.md#trade -- trade_id and ingest_time are server-assigned, not client-supplied.
       required: [portfolio_id, instrument_id, quantity, price, event_time]
       properties:
         portfolio_id:

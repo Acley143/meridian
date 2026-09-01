@@ -10,11 +10,12 @@ import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 /**
- * {@code GET /portfolios/{id}/risk/stream}, resume semantics per ADR-0012.
+ * {@code GET /api/v1/portfolios/{id}/risk/stream}, resume semantics per ADR-0012.
  *
  * <p>Known limitation, accepted for this session's scope: a live snapshot written and published
  * (05c's {@link com.meridian.coreservice.kafka.RiskSnapshotPersistedEvent}) at the exact moment a
@@ -25,6 +26,7 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
  * fully ordered solution would need a per-subscriber buffered queue, out of scope here.
  */
 @RestController
+@RequestMapping("/api/v1")
 public class SseController {
 
   static final int MAX_REPLAY_SNAPSHOTS = 500;

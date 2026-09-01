@@ -141,7 +141,7 @@ describe("useRiskStream", () => {
     await waitFor(() => {
       expect(fetchMock.mock.calls.length).toBe(callsBeforeResync + 1);
     });
-    expect(fetchMock.mock.calls.at(-1)?.[0]).toContain("/portfolios/p1/risk");
+    expect(fetchMock.mock.calls.at(-1)?.[0]).toContain("/api/v1/portfolios/p1/risk");
 
     await waitFor(() => {
       expect(screen.getByTestId("latest-price").textContent).toBe("9.00000000");

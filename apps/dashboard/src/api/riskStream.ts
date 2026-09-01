@@ -75,7 +75,7 @@ export function useRiskStream(portfolioId: string): RiskStreamState {
 
     fetchLatest();
 
-    const source = new EventSource(`/portfolios/${encodeURIComponent(portfolioId)}/risk/stream`);
+    const source = new EventSource(`/api/v1/portfolios/${encodeURIComponent(portfolioId)}/risk/stream`);
 
     // After a resync refetch settles, the status should reflect the
     // connection's actual state right now (which may have changed while the

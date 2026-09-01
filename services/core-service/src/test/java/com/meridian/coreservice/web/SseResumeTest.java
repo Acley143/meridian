@@ -55,7 +55,7 @@ class SseResumeTest extends AbstractRestIntegrationTest {
     Instant t2 = Instant.parse("2026-08-31T10:01:00Z");
     Instant t3 = Instant.parse("2026-08-31T10:02:00Z");
 
-    String streamUrl = baseUrl() + "/portfolios/" + portfolioId + "/risk/stream";
+    String streamUrl = baseUrl() + "/api/v1/portfolios/" + portfolioId + "/risk/stream";
 
     // First connection, no Last-Event-ID.
     String lastReceivedId;
@@ -122,7 +122,7 @@ class SseResumeTest extends AbstractRestIntegrationTest {
     Instant tooOld = Instant.now().minus(Duration.ofMinutes(20));
     String oldEventId = portfolioId + ":" + SseEventId.asOfMicros(tooOld) + ":v1.0.0";
 
-    String streamUrl = baseUrl() + "/portfolios/" + portfolioId + "/risk/stream";
+    String streamUrl = baseUrl() + "/api/v1/portfolios/" + portfolioId + "/risk/stream";
     try (SseTestClient client = new SseTestClient(streamUrl, oldEventId)) {
       assertThat(client.statusCode(Duration.ofSeconds(10))).isEqualTo(200);
 
@@ -155,7 +155,7 @@ class SseResumeTest extends AbstractRestIntegrationTest {
     Instant t2 = farPast.plusSeconds(60);
     Instant t3 = farPast.plusSeconds(120);
 
-    String streamUrl = baseUrl() + "/portfolios/" + portfolioId + "/risk/stream";
+    String streamUrl = baseUrl() + "/api/v1/portfolios/" + portfolioId + "/risk/stream";
 
     String lastReceivedId;
     try (SseTestClient client = new SseTestClient(streamUrl, null)) {
@@ -188,7 +188,7 @@ class SseResumeTest extends AbstractRestIntegrationTest {
   @Test
   void malformedLastEventIdIsRejectedCleanlyNot500() throws Exception {
     String portfolioId = "PF-SSE-MALFORMED";
-    String streamUrl = baseUrl() + "/portfolios/" + portfolioId + "/risk/stream";
+    String streamUrl = baseUrl() + "/api/v1/portfolios/" + portfolioId + "/risk/stream";
 
     try (SseTestClient client = new SseTestClient(streamUrl, "not-a-valid-event-id")) {
       int status = client.statusCode(Duration.ofSeconds(10));

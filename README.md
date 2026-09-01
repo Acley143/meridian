@@ -100,6 +100,25 @@ item in `PLAN.md` rather than patched ad hoc. The rest of the pipeline
 against the stream (`curl -N .../risk/stream`), which is unaffected since
 it isn't a browser client.
 
+### A local Postgres can shadow the container
+
+If something is already listening on `5432`, Docker's port mapping is shadowed
+and `core-service` connects to your local database instead of the container's —
+successfully. There is no error. The schema is missing or different, so reads
+return empty and writes land somewhere unexpected, which surfaces as an empty
+dashboard rather than a failure.
+
+Check `lsof -i :5432` before starting the stack. If something local is bound,
+stop it or remap the container port in an untracked `docker-compose.override.yml`:
+
+    services:
+      postgres:
+        ports:
+          - "15432:5432"
+
+and point `SPRING_DATASOURCE_URL` at `15432`. That file is gitignored because
+the remap is machine-specific.
+
 ## License
 
 Apache-2.0 — see `LICENSE`.

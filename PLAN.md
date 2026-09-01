@@ -87,6 +87,18 @@ to pass.
   needs to work in whatever Q4 deployment target emerges). Owner: TBD
   (`services/core-service`), by-when: before the dashboard can be
   demoed live in an actual browser against a real `core-service`.
+- **A local Postgres can silently shadow the container (Q1 end-to-end
+  verification).** If something is already listening on `5432`, Docker's
+  port mapping is shadowed and `core-service` connects to the local
+  database instead of the container's — successfully, with no error. The
+  schema is missing or different, so reads return empty and writes land
+  somewhere unexpected, surfacing as an empty dashboard rather than a
+  failure. Documented in `README.md` (check `lsof -i :5432`; remap the
+  container port via an untracked `docker-compose.override.yml` if
+  something local is bound). No code fix yet — nothing in `core-service`
+  or `infra/` detects or warns about this today. Owner: TBD (`infra`),
+  by-when: no hard deadline, but worth revisiting before onboarding new
+  engineers who are more likely to have a local Postgres already running.
 - **No portfolio/instrument creation endpoint (Q1 end-to-end verification).**
   `services/core-service` can hold and serve portfolio/trade/position state,
   but nothing in Q1 exposes `POST /portfolios` or an instrument-creation

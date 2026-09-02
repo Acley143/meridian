@@ -94,6 +94,56 @@ booking.
   pre-numbered here, since cross-currency aggregation (root `PLAN.md`) is
   also pending an ADR and whichever gets drafted first should take the next
   number. Owner: unassigned, by-when: Q2 planning.
+- Health probes with nothing consuming them: ADR-0022 (Session O) added
+  `/actuator/health/liveness` and `/actuator/health/readiness`, but
+  `core-service` has no `Dockerfile` and no entry in `docker-compose.yml` —
+  it's a local process, not a compose service, so there is no compose
+  `healthcheck:`/`depends_on: condition:` to point at them yet, and Q3's
+  deploy work is the first real consumer. Containerizing the service (base
+  image, JVM flags, the in-network hostname/env-var contract) is its own
+  decision, deliberately not made in Session O. Neither `postgres`, `kafka`,
+  nor `schema-registry` has a compose healthcheck either, and
+  `schema-registry`'s `depends_on: kafka` has no `condition:` — both
+  predate Session O and are noted here rather than fixed, since fixing them
+  wasn't this session's scope. Owner: unassigned, by-when: Q3 deploy
+  planning.
+- Kafka consumer death is invisible to any *automated* system: ADR-0022 made
+  this an explicit, deliberate readiness exclusion (a dead/rebalancing
+  consumer degrades reads to stale, not absent), and Session O's own fixture
+  testing caught and fixed a real bug in the health detail meant to surface
+  it — `pollThreadAlive`/the original poll-loop timestamp kept reading
+  "healthy" through a full broker outage, since `KafkaConsumer.poll()`
+  doesn't throw on one; a `lastHeartbeatSecondsAgo` field (sourced from the
+  consumer's own Kafka group heartbeat) now genuinely reflects it, verified
+  by hand against a real outage. But nothing *pages* on any of this yet — a
+  human still has to read the `riskSnapshotConsumer` health detail; alerting
+  on `lastHeartbeatSecondsAgo`/`pollLoopIterationCount` staying stuck is the
+  actual open item. Owner: unassigned, by-when: Q2 planning.
+- Recovery-under-outage is not verified by an automated fixture: ADR-0022's
+  Postgres and Kafka outage fixtures used to restart their private container
+  and assert readiness/the heartbeat detail recovered, but both
+  recovery-simulation approaches tried failed — `stop`/`start` blew through a
+  30s and then a 90s recovery budget in CI (cold restart cost is
+  uncontrolled), and `pause`/`unpause` (tried as the fix) instead hung
+  `PostgresOutageReadinessFixtureTest` for 8+ minutes with no exception, past
+  the workflow's own job timeout. See ADR-0022's editorial amendments for the
+  full writeup. Both fixtures now assert only that the outage is detected
+  correctly (readiness fails closed for Postgres, stays UP for Kafka); they
+  no longer restart their container or check recovery at all. Owner:
+  unassigned, by-when: unscheduled.
+- Testcontainers doesn't run in this local sandbox: two sessions in a row
+  (Session N-era per the 05d log, and Session O) have hand-verified Java
+  changes against the real `docker-compose.yml` stack instead, with CI as
+  the only place the real suite runs. Root-caused further in Session O: it
+  isn't a `DOCKER_HOST`/socket misconfiguration (tried pointing explicitly
+  at the Docker Desktop socket, same failure) — testcontainers 1.20.1's
+  bundled `docker-java` client fails Docker API version negotiation against
+  this Docker Desktop install (`docker compose`, the Go CLI, works fine
+  against the same daemon). Not urgent — CI is a working backstop — but it's
+  a compounding tax: every local Java change gets zero automated feedback
+  before push. Worth investigating whether a `testcontainers`/`docker-java`
+  version bump fixes it, as its own session (a dependency bump is a real
+  decision, not a drive-by). Owner: unassigned, by-when: Q2 planning.
 
 ## Session log
 - 2026-08-31 (contracts session, Eng-A): `contracts/openapi/service-api.yaml`
@@ -165,3 +215,97 @@ booking.
   `-parameters` on the compiler, which `@PathVariable`/`@RequestParam`
   need without an explicit name and which a `spring-boot-starter-parent`
   would otherwise have set for free).
+- 2026-09-01 (Session O): ADR-0022 — `spring-boot-starter-actuator`,
+  liveness/readiness probes, `RiskSnapshotConsumerHealthIndicator` (Kafka
+  as a health-body detail, explicitly excluded from the readiness group).
+  Session prompt assumed `core-service` already had (or could readily get)
+  a `docker-compose.yml` healthcheck; it has no compose entry and no
+  `Dockerfile` at all, so that task was dropped rather than improvised —
+  see "Open questions" above. Testcontainers is broken in this sandbox
+  (docker-java's bundled client negotiates an API version the local Docker
+  daemon rejects — confirmed pre-existing by reverting this session's
+  changes and running an untouched existing Kafka test, which failed
+  identically), so the new tests were verified by hand against the real
+  `docker-compose.yml` stack instead, same fallback as 05d for the same
+  reason. Fixtures 5 and 6 (Postgres outage, Kafka outage) were run for
+  real: readiness correctly went 503/DOWN on a stopped Postgres container
+  while liveness stayed 200/UP throughout, and recovered to UP within ~1s
+  of Postgres restarting with no core-service restart; readiness and
+  `GET /api/v1/portfolios/{id}/risk` were both unaffected by a stopped
+  Kafka container. That same fixture surfaced a real design finding, caught
+  and fixed before merge rather than shipped and amended a week later:
+  `KafkaConsumer.poll()` doesn't throw on an unreachable broker, so
+  `pollThreadAlive`/`lastPollLoopIterationAt` keep looking healthy through a
+  total broker outage — a field reporting "fine" during a real failure,
+  worse than no field at all, since it's the first thing an on-call
+  engineer checks. The fix, in this same session: those fields stay (loop
+  liveness is still real information) but now carry an explicit
+  `pollLoopIterationCaveat` string saying they don't indicate broker
+  reachability, and a new `lastHeartbeatSecondsAgo` field (from
+  `KafkaConsumer`'s own `consumer-coordinator-metrics`, published the same
+  cross-thread-safe way) is the signal that actually reflects it. Re-ran the
+  Kafka-outage fixture with the assertion inverted — the new field must grow
+  during the outage — and confirmed by hand: it climbed from ~0s to 61s over
+  a 60s outage and dropped back to ~1s within 6s of Kafka restarting. See
+  ADR-0022 for the full writeup. Pushing the branch alone did not run CI —
+  this repo's workflow triggers only on `push: [master]` or `pull_request`
+  — so a PR (#2) had to be opened to get a real run.
+- 2026-09-01 (Session O, continued — review feedback): the
+  `pollLoopIterationCaveat` string design above was itself replaced before
+  merge, on review. Prose in a health payload can't be asserted on by a
+  test and drifts from the field it describes; renamed the timestamp/age
+  pair to a bare `pollLoopIterationCount` instead, since nobody reads a raw
+  iteration counter as a broker-reachability claim, and dropped the caveat
+  string — the explanation now lives only in code comments, this file, and
+  ADR-0022. Also fixed a second, real instance of the identical failure
+  shape inside the fix itself: `kafka-clients` 3.7.0 returns the literal
+  sentinel `-1.0` (not `NaN`) for `last-heartbeat-seconds-ago` before any
+  heartbeat has ever been sent (decompiled and confirmed against
+  `AbstractCoordinator`) — a live `/actuator/health` response showed
+  `"lastHeartbeatSecondsAgo": -1.0` at startup before this was caught.
+  `extractHeartbeatSecondsAgo` now treats any negative value as `null`, the
+  same as `NaN`/non-numeric, pinned by a new Docker-free unit test
+  (`RiskSnapshotConsumerHeartbeatMetricParsingTest`). Also added a
+  startup-only check (`RiskSnapshotConsumerRunner
+  .checkHeartbeatMetricIsRegisteredOnce`) that logs an `ERROR` if the
+  `last-heartbeat-seconds-ago` metric name is ever missing from the running
+  Kafka client, so a future client upgrade that renames it fails loudly
+  instead of silently degrading the field to always-null. Re-verified the
+  full outage/recovery cycle by hand once more after these changes: no
+  `-1.0` observed, `lastHeartbeatSecondsAgo` still climbs during an outage
+  and recovers after.
+- 2026-09-01 (Session O, continued — CI run and fix): added
+  `timeout-minutes: 15` to every CI job (separate PR #3, merged first, since
+  a workflow change shouldn't be validated by the same run it's meant to
+  bound) after PR #2's Java job sat `IN_PROGRESS` for 40+ minutes with no
+  timeout to kill it. The re-run (rebased onto the updated workflow) hit the
+  new 15-minute wall — but reading the actual log showed
+  `KafkaOutageReadinessExclusionFixtureTest` itself had failed honestly in
+  ~61s (a too-short 30s recovery timeout against a real, slower-than-local
+  cold Kafka restart in CI), and the real problem was that it had stopped
+  the *shared* singleton Kafka container the whole suite depends on, so the
+  still-recovering broker wedged the next, unrelated test
+  (`OffsetCommitFailureTest`, pre-existing, untouched) for the rest of the
+  job. Fixed by giving the fixture its own private Kafka + schema registry
+  (no other test can be affected by what this one does to its broker,
+  structurally, not just by a longer timeout) and splitting recovery into
+  two separately-timed checks (broker reachable, then consumer heartbeat
+  recovered) so the two failure modes produce different error messages. See
+  ADR-0022's new section for the full writeup. Not yet re-verified against a
+  fresh CI run as of this entry.
+- 2026-09-01 (Session O, continued — second CI run): the Kafka isolation fix
+  worked (`OffsetCommitFailureTest` passed in 1.79s right after
+  `KafkaOutageReadinessExclusionFixtureTest` this run, no wedge), but the
+  identical defect surfaced in a second, pre-existing fixture:
+  `PostgresOutageReadinessFixtureTest` stopped the shared singleton Postgres
+  container, which didn't come back within 60s on this run, wedging
+  `DecimalRoundTripTest`/`RiskSnapshotUpsertTest`/`MigrationTest` for
+  90s/60s/60s each. Fixed with the same private-container + split-signal
+  treatment. Grepped every test source for Docker container-lifecycle calls
+  and shared-container field references — no third instance found. A
+  separate, still-open finding from this same failed run: the Kafka
+  fixture's very first HTTP call threw a `JsonPathException` on a non-JSON
+  response ~140ms after its embedded Tomcat started; not chased yet, since
+  it occurred in a run where Postgres was already wedged and two Kafka
+  stacks had just started back-to-back — need a clean run to know whether it
+  reproduces.

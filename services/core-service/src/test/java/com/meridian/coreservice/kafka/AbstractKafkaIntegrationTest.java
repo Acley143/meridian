@@ -76,6 +76,11 @@ public abstract class AbstractKafkaIntegrationTest {
     POSTGRES.start();
   }
 
+  /** Exposes the shared Postgres container to fixture tests outside this class's own subclass. */
+  public static PostgreSQLContainer<?> postgresContainer() {
+    return POSTGRES;
+  }
+
   @DynamicPropertySource
   static void properties(DynamicPropertyRegistry registry) {
     registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);

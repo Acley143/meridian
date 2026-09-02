@@ -119,6 +119,18 @@ booking.
   human still has to read the `riskSnapshotConsumer` health detail; alerting
   on `lastHeartbeatSecondsAgo`/`pollLoopIterationCount` staying stuck is the
   actual open item. Owner: unassigned, by-when: Q2 planning.
+- Recovery-under-outage is not verified by an automated fixture: ADR-0022's
+  Postgres and Kafka outage fixtures used to restart their private container
+  and assert readiness/the heartbeat detail recovered, but both
+  recovery-simulation approaches tried failed — `stop`/`start` blew through a
+  30s and then a 90s recovery budget in CI (cold restart cost is
+  uncontrolled), and `pause`/`unpause` (tried as the fix) instead hung
+  `PostgresOutageReadinessFixtureTest` for 8+ minutes with no exception, past
+  the workflow's own job timeout. See ADR-0022's editorial amendments for the
+  full writeup. Both fixtures now assert only that the outage is detected
+  correctly (readiness fails closed for Postgres, stays UP for Kafka); they
+  no longer restart their container or check recovery at all. Owner:
+  unassigned, by-when: unscheduled.
 - Testcontainers doesn't run in this local sandbox: two sessions in a row
   (Session N-era per the 05d log, and Session O) have hand-verified Java
   changes against the real `docker-compose.yml` stack instead, with CI as

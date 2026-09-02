@@ -291,3 +291,61 @@ of being the wrong kind of gate.)
 
 **`server.servlet.context-path` to relocate actuator.** Already rejected by
 ADR-0021 for reasons that apply unchanged here; not revisited.
+
+## Editorial amendments
+- 2026-09-01 (Session P follow-up, core-service): **Both outage fixtures now
+  assert the outage direction only — neither restarts its container, and
+  neither checks recovery.** This section's "CI caught a test-isolation bug
+  in the fixture itself" above describes the fixtures as they existed after
+  that fix: each got its own private container, and each still restarted it
+  to verify readiness/the heartbeat detail recovered afterward (a 90-second
+  broker/Postgres-reachable check, then a 30-second app-recovery check). That
+  recovery half has since been removed entirely, for two independent
+  reasons, tried in order:
+  1. **`stop`/`start` (the original mechanism).** A cold restart — KRaft
+     controller election and log recovery for Kafka, a startup sequence and
+     WAL recovery for Postgres — is an uncontrolled cost. It had already
+     blown through a 30-second and then a 90-second recovery budget in CI;
+     the next slow restart would always reproduce the same failure, no
+     matter how generous the timeout got. Raising the timeout again was
+     rejected as treating a symptom, not the cause.
+  2. **`pause`/`unpause` (tried as the fix for (1)).** Freezing the container
+     via the cgroup freezer instead of killing it avoids a cold restart
+     entirely, so `unpause` should resume it mid-state with nothing to wait
+     for. In practice this made `PostgresOutageReadinessFixtureTest` hang for
+     8+ minutes in CI instead of failing — no exception, no useful log
+     output, until the workflow's own job timeout killed it. The working
+     theory (not verified against PgJDBC's source, not chased further): a
+     paused container's kernel-level TCP stack can still complete a *new*
+     connection's handshake even though the userspace Postgres process is
+     frozen, so a fresh Hikari/PgJDBC connection attempt appears to connect
+     and then blocks indefinitely waiting for a wire-protocol response that
+     will never come — a stage neither Hikari's `connection-timeout` nor its
+     `validation-timeout` actually bounds, since that requires the JDBC
+     driver's own `connectTimeout`/`socketTimeout` properties, which were
+     unset. `KafkaOutageReadinessExclusionFixtureTest`'s own recovery check
+     was never confirmed broken the same way, but was removed too rather than
+     leaving the two fixtures on inconsistent recovery-simulation strategies.
+
+  Given both approaches to simulating recovery failed — one on an
+  uncontrolled timeout, one on an unbounded hang — the fixtures now prove
+  only what this ADR is actually accountable for: readiness fails closed
+  (and liveness does not) during a Postgres outage, and readiness/reads are
+  unaffected (with the heartbeat detail actually moving) during a Kafka
+  outage. Recovery-under-outage is **not** verified by an automated fixture
+  as of this amendment — a real gap, tracked as follow-up work in
+  `services/core-service/PLAN.md`, not silently dropped. Each fixture's
+  private container is simply discarded, stopped, at class teardown.
+- 2026-09-01 (Session P follow-up, core-service): **`awaitKafkaDetail` in
+  `KafkaOutageReadinessExclusionFixtureTest` now tolerates a malformed first
+  response.** Independently of the above, the fixture's very first
+  `/actuator/health` call was found to occasionally get back a non-JSON 400
+  (body: `Value must not be null`) roughly 100ms after "Tomcat started" is
+  logged — correlating with `DispatcherServlet`'s lazy first-request
+  initialization racing the request. Forcing eager initialization
+  (`spring.mvc.servlet.load-on-startup=1`) as a discriminating experiment did
+  **not** make this reproduce less; the boot race is therefore not confirmed
+  as the mechanism, and remains an open finding (recorded in
+  `services/core-service/PLAN.md`), not fixed here. The fixture now catches a
+  `JsonPathException` on this call and retries rather than erroring the test
+  — a test-robustness change only, not a production fix.

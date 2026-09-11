@@ -349,3 +349,56 @@ ADR-0021 for reasons that apply unchanged here; not revisited.
   `services/core-service/PLAN.md`), not fixed here. The fixture now catches a
   `JsonPathException` on this call and retries rather than erroring the test
   — a test-robustness change only, not a production fix.
+- 2026-09-11 (Session P follow-up, core-service): **Root cause of the `Value
+  must not be null` 400 found and fixed — it was never a `DispatcherServlet`
+  boot race.** The previous amendment's theory was tested directly and
+  refuted: forcing eager `DispatcherServlet` init
+  (`spring.mvc.servlet.load-on-startup=1`) had zero effect on
+  `RiskSnapshotConsumerReadinessExclusionTest` and
+  `HealthEndpointExposureTest.aggregateHealthShowsTheKafkaConsumerDetail`,
+  which failed identically with it in place — both hit the exact same `400`
+  body, `Value must not be null`, on every single CI run, not
+  intermittently.
+
+  A captured stack trace (temporary diagnostic logging, reverted) traced it
+  to `RiskSnapshotConsumerHealthIndicator.health()`: `lastHeartbeatSecondsAgo`
+  is `null` by design for the first several seconds of a consumer's life —
+  before its first successful Kafka group join, exactly as this ADR's
+  Decision section already documents — and that `null` was passed straight
+  into `Health.Builder#withDetail`, which calls `Assert.notNull` internally
+  and throws `IllegalArgumentException("Value must not be null")` on a null
+  value. `GlobalExceptionHandler#handleIllegalArgument` was mapped to the
+  bare `IllegalArgumentException` superclass (written only for a malformed
+  SSE `Last-Event-ID` header), so it caught this completely unrelated,
+  internal, actuator-thrown exception too and rendered it as a generic `400`
+  with no stack trace logged anywhere — a server fault reported as a client
+  fault, for three PRs running, including the one that misdiagnosed it as a
+  boot race.
+
+  Reproduced locally with 100% reliability (20/20 rapid requests against a
+  freshly started instance, and a 250ms-interval poll showing the window
+  lasts several seconds — consistent with Kafka's group-join/heartbeat
+  protocol, not a race). Fixed two ways, together: (1)
+  `RiskSnapshotConsumerHealthIndicator` now omits the
+  `lastHeartbeatSecondsAgo` detail key entirely when the value is null,
+  rather than passing null through — no sentinel substitute, since that
+  would silently change the field's type for every consumer of this
+  endpoint; `heartbeatMetricRegistered` already distinguishes "not yet
+  heartbeated" (this field simply absent) from "the metric is broken and
+  never will be" (`heartbeatMetricRegistered: false`). (2)
+  `GlobalExceptionHandler` no longer maps the bare `IllegalArgumentException`
+  superclass — only a new, narrow `MalformedLastEventIdException` (thrown
+  only by `SseController`/`SseEventId.parse`) maps to `400`; an unrelated
+  `IllegalArgumentException` anywhere else now surfaces as a `500`, which is
+  what a server fault should render as, instead of being silently absorbed
+  as a client fault. **`GET /actuator/health`'s response body may omit
+  `lastHeartbeatSecondsAgo` under the {@code riskSnapshotConsumer} detail —
+  clients must not assume the key is always present**, only that its value,
+  when present, is a non-negative seconds-ago figure.
+
+  The previous amendment's `KafkaOutageReadinessExclusionFixtureTest`
+  tolerant-retry workaround (catching `JsonPathException` on a malformed
+  first response) is now unnecessary — the endpoint returns well-formed JSON
+  from the very first call — but was left in place rather than removed as
+  part of this fix, since removing test robustness code is a separate,
+  deliberate decision from fixing the underlying bug it was worked around.

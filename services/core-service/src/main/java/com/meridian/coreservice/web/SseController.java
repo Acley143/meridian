@@ -49,12 +49,12 @@ public class SseController {
       @RequestHeader(value = "Last-Event-ID", required = false) String lastEventId) {
     // Parse (and validate) BEFORE creating/subscribing an emitter: a malformed header must fail
     // cleanly with a 400 and no dangling emitter left registered anywhere (GlobalExceptionHandler
-    // maps the IllegalArgumentException).
+    // maps MalformedLastEventIdException).
     SseEventId parsed = null;
     if (lastEventId != null) {
       parsed = SseEventId.parse(lastEventId);
       if (!parsed.portfolioId().equals(portfolioId)) {
-        throw new IllegalArgumentException(
+        throw new MalformedLastEventIdException(
             "Last-Event-ID's portfolio_id ("
                 + parsed.portfolioId()
                 + ") does not match the"

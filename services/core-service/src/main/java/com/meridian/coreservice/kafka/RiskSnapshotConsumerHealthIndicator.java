@@ -33,6 +33,17 @@ import org.springframework.stereotype.Component;
  * itself, which can't be asserted on and would drift from the field it describes. The field names
  * carry the meaning instead: {@code pollLoopIterationCount} is a bare iteration counter precisely
  * so nobody reads it as a reachability claim.
+ *
+ * <p><b>Every detail goes through {@link #withDetailIfPresent}, uniformly, even fields that happen
+ * to be structurally non-null today.</b> {@code Health.Builder#withDetail} rejects a null value
+ * outright ({@code Assert.notNull}, throws {@code IllegalArgumentException}), and this class has
+ * more than one field that is legitimately {@code null} for a while after startup ({@code
+ * lastHeartbeatSecondsAgo} until the first group join, {@code heartbeatMetricRegistered} until the
+ * first poll loop iteration completes -- both {@link RiskSnapshotConsumerRunner}'s own {@code
+ * AtomicReference}s, initialized to {@code null}). Guarding one field at a time already missed a
+ * second, identical case once (see ADR-0022's editorial amendments); the fix is the class of bug,
+ * not the instance -- a future nullable field added here is protected by construction, not by
+ * whoever adds it remembering this history.
  */
 @Component
 public class RiskSnapshotConsumerHealthIndicator implements HealthIndicator {
@@ -47,24 +58,35 @@ public class RiskSnapshotConsumerHealthIndicator implements HealthIndicator {
   public Health health() {
     boolean pollThreadAlive = runner.isPollThreadAlive();
     Set<TopicPartition> assignment = runner.currentAssignment();
-    Double lastHeartbeatSecondsAgo = runner.lastHeartbeatSecondsAgo();
 
     Health.Builder builder = pollThreadAlive ? Health.up() : Health.down();
-    builder.withDetail("pollThreadAlive", pollThreadAlive);
-    builder.withDetail("pollLoopIterationCount", runner.pollLoopIterationCount());
-    builder.withDetail("partitionAssignment", formatAssignment(assignment));
+    withDetailIfPresent(builder, "pollThreadAlive", pollThreadAlive);
+    withDetailIfPresent(builder, "pollLoopIterationCount", runner.pollLoopIterationCount());
+    withDetailIfPresent(builder, "partitionAssignment", formatAssignment(assignment));
     // Null until the consumer's first successful group join publishes a real value, or if the
     // underlying metric isn't registered at all -- see RiskSnapshotConsumerService
     // #lastHeartbeatSecondsAgo. The signal that actually reflects broker/coordinator reachability.
-    builder.withDetail("lastHeartbeatSecondsAgo", lastHeartbeatSecondsAgo);
+    withDetailIfPresent(builder, "lastHeartbeatSecondsAgo", runner.lastHeartbeatSecondsAgo());
     // Disambiguates a null lastHeartbeatSecondsAgo: true means the metric is registered and this
     // consumer just hasn't heartbeated yet (startup, briefly, before the first group join) --
     // false means the signal itself is broken and will report null forever (see
     // RiskSnapshotConsumerRunner#checkHeartbeatMetricIsRegisteredOnce, which also logs this
     // loudly). Null means the one-time startup check hasn't run yet (before the first poll loop
-    // iteration completes).
-    builder.withDetail("heartbeatMetricRegistered", runner.heartbeatMetricRegistered());
+    // iteration completes) -- also omitted, for the same reason as lastHeartbeatSecondsAgo above.
+    withDetailIfPresent(builder, "heartbeatMetricRegistered", runner.heartbeatMetricRegistered());
     return builder.build();
+  }
+
+  /**
+   * The single gate every detail in this indicator passes through. {@code
+   * Health.Builder#withDetail} throws on a null value; omitting the key entirely (never a sentinel
+   * substitute, which would silently change a field's type for every consumer of this endpoint) is
+   * the uniform policy here, applied once, so it cannot be missed for the next field someone adds.
+   */
+  private static void withDetailIfPresent(Health.Builder builder, String key, Object value) {
+    if (value != null) {
+      builder.withDetail(key, value);
+    }
   }
 
   private static List<String> formatAssignment(Set<TopicPartition> assignment) {

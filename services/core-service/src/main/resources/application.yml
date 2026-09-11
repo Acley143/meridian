@@ -1,6 +1,13 @@
 spring:
   application:
     name: core-service
+  mvc:
+    servlet:
+      # Hypothesis test for the boot-race finding in PLAN.md/ADR-0022: DispatcherServlet's
+      # default lazy first-request init was observed racing very early health-check calls,
+      # occasionally returning a malformed 400. Forcing eager init here removes that race
+      # window entirely. Nothing else changes in this commit.
+      load-on-startup: 1
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/meridian}
     username: ${SPRING_DATASOURCE_USERNAME:meridian}

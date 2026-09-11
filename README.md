@@ -78,7 +78,14 @@ mvn -pl services/core-service spring-boot:run
 #   INSERT INTO portfolios (portfolio_id, name, base_currency, owner) ...
 #   INSERT INTO instruments (instrument_id, underlying_id, instrument_type, ...) ...
 # then book a position via POST /api/v1/trades (snake_case body -- portfolio_id,
-# instrument_id, quantity, price, event_time -- per contracts/openapi/service-api.yaml)
+# instrument_id, quantity, price, event_time -- per contracts/openapi/service-api.yaml).
+# An Idempotency-Key header is required (ADR-0023) -- any client-chosen
+# opaque string, e.g.:
+#   curl -X POST localhost:8080/api/v1/trades \
+#     -H 'Idempotency-Key: <uuid>' -H 'Content-Type: application/json' -d '{...}'
+# A retry with the same key and the same body replays the original response
+# (including trade_id) instead of booking a second trade; the same key with
+# a different body gets 409.
 
 # pricer: consumes ticks + portfolio state, produces RiskSnapshots
 python3 -m pricer.cli services/pricer/fixtures/instruments.yaml

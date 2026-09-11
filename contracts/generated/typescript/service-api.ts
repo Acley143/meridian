@@ -113,6 +113,8 @@ export interface paths {
         /**
          * Book a trade.
          * @description Synchronous REST booking endpoint (Q1 default; see services/core-service/PLAN.md open questions for whether this stays REST or moves to an inbound Kafka topic). Updates the affected portfolio's positions and produces a PortfolioState message (ADR-0003).
+         *
+         *     **Idempotent (ADR-0023).** `Idempotency-Key` is required. A retry with the same key and the same request body replays the original `201` (or `400`) response verbatim, including the original `trade_id` -- it does not book a second trade. The same key with a *different* request body is rejected with `409` and never replayed. A key is scoped to this endpoint only; reusing it against a different endpoint is not a collision.
          */
         post: operations["bookTrade"];
         delete?: never;
@@ -247,6 +249,8 @@ export interface components {
     responses: never;
     parameters: {
         PortfolioId: string;
+        /** @description Client-supplied opaque token identifying one logical write attempt (ADR-0023). Must not be empty. Natural-key dedup on the request body is deliberately not used -- two genuine trades can share every other field at the same instant, so only a client-chosen key tells a retry apart from a second submission. */
+        IdempotencyKey: string;
     };
     requestBodies: never;
     headers: never;
@@ -398,7 +402,10 @@ export interface operations {
     bookTrade: {
         parameters: {
             query?: never;
-            header?: never;
+            header: {
+                /** @description Client-supplied opaque token identifying one logical write attempt (ADR-0023). Must not be empty. Natural-key dedup on the request body is deliberately not used -- two genuine trades can share every other field at the same instant, so only a client-chosen key tells a retry apart from a second submission. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
             path?: never;
             cookie?: never;
         };
@@ -417,8 +424,15 @@ export interface operations {
                     "application/json": components["schemas"]["Trade"];
                 };
             };
-            /** @description Malformed trade (e.g. non-positive contract_size on the referenced instrument, unknown portfolio_id/instrument_id). */
+            /** @description Malformed trade (e.g. non-positive contract_size on the referenced instrument, unknown portfolio_id/instrument_id), or a missing/empty `Idempotency-Key` header. */
             400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description `Idempotency-Key` was already used with a request body that does not match this one (ADR-0023). The original trade was not re-booked and this request was not applied. */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

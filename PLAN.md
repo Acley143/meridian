@@ -109,6 +109,24 @@ to pass.
   one-time local verification but isn't a real onboarding path for a new
   portfolio. Owner: TBD (`services/core-service`), by-when: before Q2, if
   Q2's VaR/audit-log work assumes portfolios can be created without a DBA.
+- **`idempotency_keys` retention sweep not built (ADR-0023, Session P).**
+  `POST /trades`'s idempotency store (`services/core-service`) records
+  `created_at` and indexes it for a 24-hour retention window, but no sweep
+  job exists yet — rows accumulate indefinitely. ADR-0023 covers the
+  reasoning; this is the tracked follow-up it points to, not a decision
+  still to make. Owner: TBD (`services/core-service`), by-when:
+  unscheduled.
+- **`services/pricer/tests/test_tombstone.py::test_tombstone_mid_stream_stops_snapshots`
+  failed nondeterministically (found 2026-09-11, Session P).** Failed on
+  master run `33582972332` with `AssertionError: a tombstoned portfolio
+  must not produce a snapshot`, and passed on the immediately preceding
+  branch run `33580881002` with identical code. Not yet established whether
+  the nondeterminism is in the test itself or in the pricer's tombstone
+  handling — in a system built on deterministic replay, a real ordering
+  race is a live possibility and this must not be assumed to be a
+  test-only issue. Not investigated this session (out of scope). Owner:
+  TBD (`services/pricer`), by-when: before relying on tombstone handling
+  for Q2 VaR work.
 
 ## Team & ownership
 

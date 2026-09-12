@@ -44,14 +44,14 @@ public class TradeController {
       @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
       @RequestBody byte[] rawBody) {
     if (idempotencyKey == null || idempotencyKey.isBlank()) {
-      throw new IllegalArgumentException("Idempotency-Key header is required");
+      throw new MissingIdempotencyKeyException("Idempotency-Key header is required");
     }
 
     TradeRequestDto request;
     try {
       request = objectMapper.readValue(rawBody, TradeRequestDto.class);
     } catch (IOException e) {
-      throw new IllegalArgumentException("malformed trade request body", e);
+      throw new MalformedTradeRequestException("malformed trade request body", e);
     }
 
     Instant ingestTime = Instant.now();

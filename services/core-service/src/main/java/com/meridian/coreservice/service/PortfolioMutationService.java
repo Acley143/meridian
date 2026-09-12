@@ -127,8 +127,7 @@ public class PortfolioMutationService {
     }
 
     recordPortfolioCreatedAuditEntry(portfolioId, name, baseCurrency, owner, now);
-    // TEMPORARY: disabled to prove PortfolioCreationTest fails against broken behavior (Session R2).
-    // portfolioStateProducer.publish(portfolioId, List.of(), now);
+    portfolioStateProducer.publish(portfolioId, List.of(), now);
 
     return new PortfolioCreationOutcome.Created(
         new PortfolioDto(portfolioId, name, baseCurrency, owner));

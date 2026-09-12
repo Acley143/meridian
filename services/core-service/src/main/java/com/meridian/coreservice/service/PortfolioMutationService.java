@@ -3,11 +3,15 @@ package com.meridian.coreservice.service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.meridian.contracts.Position;
 import com.meridian.coreservice.audit.AuditLogRepository;
+import com.meridian.coreservice.idempotency.IdempotencyFingerprint;
+import com.meridian.coreservice.idempotency.IdempotencyKeyRepository;
+import com.meridian.coreservice.idempotency.IdempotencyKeyRow;
 import com.meridian.coreservice.kafka.PortfolioStateProducer;
 import com.meridian.coreservice.persistence.domain.PositionEntity;
 import com.meridian.coreservice.persistence.domain.TradeEntity;
 import com.meridian.coreservice.persistence.repository.PositionJpaRepository;
 import com.meridian.coreservice.persistence.repository.TradeJpaRepository;
+import com.meridian.coreservice.web.dto.TradeDto;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.LinkedHashMap;
@@ -15,6 +19,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -36,17 +41,92 @@ public class PortfolioMutationService {
   private final TradeJpaRepository tradeRepository;
   private final PortfolioStateProducer portfolioStateProducer;
   private final AuditLogRepository auditLogRepository;
-  private final ObjectMapper objectMapper = new ObjectMapper();
+  private final IdempotencyKeyRepository idempotencyKeyRepository;
+  // Local, default-configured mapper for the audit payload only -- its keys are already
+  // hand-written snake_case and its BigDecimal fields are already toPlainString()'d, so it never
+  // needs the snake_case/money-as-string customizations JacksonConfig applies to the HTTP-facing
+  // bean below.
+  private final ObjectMapper auditObjectMapper = new ObjectMapper();
+  // The Spring-managed, JacksonConfig-customized mapper -- used to serialize the stored
+  // idempotency response so a replay is byte-identical to what the original HTTP response body
+  // would have been.
+  private final ObjectMapper responseObjectMapper;
 
   public PortfolioMutationService(
       PositionJpaRepository positionRepository,
       TradeJpaRepository tradeRepository,
       PortfolioStateProducer portfolioStateProducer,
-      AuditLogRepository auditLogRepository) {
+      AuditLogRepository auditLogRepository,
+      IdempotencyKeyRepository idempotencyKeyRepository,
+      ObjectMapper responseObjectMapper) {
     this.positionRepository = positionRepository;
     this.tradeRepository = tradeRepository;
     this.portfolioStateProducer = portfolioStateProducer;
     this.auditLogRepository = auditLogRepository;
+    this.idempotencyKeyRepository = idempotencyKeyRepository;
+    this.responseObjectMapper = responseObjectMapper;
+  }
+
+  /**
+   * ADR-0023: the idempotent entry point for {@code POST /trades}. Claims {@code (endpoint,
+   * idempotencyKey)} first -- before any business mutation, including the audit append -- via
+   * {@link IdempotencyKeyRepository#tryClaim}, inside this same {@code @Transactional} boundary. A
+   * concurrent request for the same key blocks on that claim's row lock until this transaction
+   * commits or rolls back (Postgres row lock), so no two concurrent callers can both pass the claim
+   * and both reach {@link AuditLogRepository#append}'s JVM-level {@code synchronized} section for
+   * the same key -- lock order is always Postgres row lock, then JVM audit lock.
+   *
+   * <p>A losing claim means a row already exists for this key: same fingerprint replays the stored
+   * response verbatim (never re-minting {@code trade_id}); a different fingerprint is rejected with
+   * {@link TradeBookingOutcome.Conflict}, never replayed.
+   */
+  @Transactional
+  public TradeBookingOutcome applyTradeIdempotent(
+      String idempotencyKey,
+      String endpoint,
+      byte[] rawRequestBody,
+      String portfolioId,
+      String instrumentId,
+      BigDecimal quantity,
+      BigDecimal price,
+      Instant eventTime,
+      Instant ingestTime) {
+    String fingerprint = IdempotencyFingerprint.sha256Hex(rawRequestBody);
+
+    boolean claimed = idempotencyKeyRepository.tryClaim(endpoint, idempotencyKey, fingerprint);
+    if (!claimed) {
+      IdempotencyKeyRow existing =
+          idempotencyKeyRepository
+              .find(endpoint, idempotencyKey)
+              .orElseThrow(
+                  () ->
+                      new IllegalStateException(
+                          "idempotency claim lost but no row found for endpoint="
+                              + endpoint
+                              + " key="
+                              + idempotencyKey));
+      if (!existing.requestFingerprint().equals(fingerprint)) {
+        return new TradeBookingOutcome.Conflict();
+      }
+      return new TradeBookingOutcome.Replayed(existing.responseStatus(), existing.responseBody());
+    }
+
+    String tradeId = UUID.randomUUID().toString();
+    applyTrade(tradeId, portfolioId, instrumentId, quantity, price, eventTime, ingestTime);
+
+    TradeDto trade =
+        new TradeDto(tradeId, portfolioId, instrumentId, quantity, price, eventTime, ingestTime);
+    String responseBody;
+    try {
+      responseBody = responseObjectMapper.writeValueAsString(trade);
+    } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+      throw new IllegalStateException(
+          "failed to serialize trade response for idempotency store", e);
+    }
+    idempotencyKeyRepository.storeResponse(
+        endpoint, idempotencyKey, HttpStatus.CREATED.value(), responseBody);
+
+    return new TradeBookingOutcome.Created(trade);
   }
 
   /**
@@ -111,7 +191,7 @@ public class PortfolioMutationService {
 
     String payloadJson;
     try {
-      payloadJson = objectMapper.writeValueAsString(payload);
+      payloadJson = auditObjectMapper.writeValueAsString(payload);
     } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
       throw new IllegalStateException("failed to serialize trade_booked audit payload", e);
     }

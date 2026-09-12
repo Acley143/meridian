@@ -164,7 +164,18 @@ paths:
         REST or moves to an inbound Kafka topic). Updates the affected
         portfolio's positions and produces a PortfolioState message
         (ADR-0003).
+
+
+        **Idempotent (ADR-0023).** `Idempotency-Key` is required. A retry
+        with the same key and the same request body replays the original
+        `201` (or `400`) response verbatim, including the original
+        `trade_id` -- it does not book a second trade. The same key with a
+        *different* request body is rejected with `409` and never
+        replayed. A key is scoped to this endpoint only; reusing it against
+        a different endpoint is not a collision.
       operationId: bookTrade
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
         required: true
         content:
@@ -179,7 +190,15 @@ paths:
               schema:
                 $ref: "#/components/schemas/Trade"
         "400":
-          description: Malformed trade (e.g. non-positive contract_size on the referenced instrument, unknown portfolio_id/instrument_id).
+          description: >
+            Malformed trade (e.g. non-positive contract_size on the
+            referenced instrument, unknown portfolio_id/instrument_id), or
+            a missing/empty `Idempotency-Key` header.
+        "409":
+          description: >
+            `Idempotency-Key` was already used with a request body that
+            does not match this one (ADR-0023). The original trade was not
+            re-booked and this request was not applied.
 
   /api/v1/portfolios/{portfolioId}/audit:
     get:
@@ -219,6 +238,19 @@ components:
       required: true
       schema:
         type: string
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: >
+        Client-supplied opaque token identifying one logical write attempt
+        (ADR-0023). Must not be empty. Natural-key dedup on the request
+        body is deliberately not used -- two genuine trades can share every
+        other field at the same instant, so only a client-chosen key tells
+        a retry apart from a second submission.
+      schema:
+        type: string
+        minLength: 1
 
   schemas:
     Portfolio:

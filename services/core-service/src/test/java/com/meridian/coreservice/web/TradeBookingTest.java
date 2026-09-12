@@ -43,6 +43,7 @@ class TradeBookingTest extends AbstractRestIntegrationTest {
     given()
         .filter(OPENAPI_FILTER)
         .baseUri(baseUrl())
+        .header("Idempotency-Key", "trade-booking-test-" + java.util.UUID.randomUUID())
         .contentType("application/json")
         .body(requestBody)
         .when()
@@ -75,6 +76,7 @@ class TradeBookingTest extends AbstractRestIntegrationTest {
 
     given()
         .baseUri(baseUrl())
+        .header("Idempotency-Key", "trade-booking-test-" + java.util.UUID.randomUUID())
         .contentType("application/json")
         .body(requestBody)
         .when()
@@ -106,6 +108,7 @@ class TradeBookingTest extends AbstractRestIntegrationTest {
 
     given()
         .baseUri(baseUrl())
+        .header("Idempotency-Key", "trade-booking-test-" + java.util.UUID.randomUUID())
         .contentType("application/json")
         .body(requestBody)
         .when()

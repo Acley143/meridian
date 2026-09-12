@@ -309,3 +309,25 @@ booking.
   it occurred in a run where Postgres was already wedged and two Kafka
   stacks had just started back-to-back — need a clean run to know whether it
   reproduces.
+- 2026-09-11 (Session P): `POST /trades` now requires an `Idempotency-Key`
+  header (ADR-0023) — insert-first claim on a new `idempotency_keys` table
+  (V4 migration), inside the same `@Transactional` call as the rest of
+  trade booking, ahead of the audit append. Hand-verified against the real
+  `docker-compose.yml` stack (Testcontainers still doesn't run in this
+  sandbox, same limitation as every prior session): same-key-same-body
+  replay, same-key-different-body `409`, different-keys-same-body books
+  two trades, missing/empty header `400`, 10 iterations of concurrent
+  same-key requests each producing exactly one trade/audit entry, and the
+  rollback-releases-the-key case. That last hand-verification pass caught
+  a real bug before it shipped: a losing claim's failed `INSERT` aborts
+  the rest of the Postgres transaction (`25P02`), so the following
+  lookup-and-replay query 500'd until `IdempotencyKeyRepository#tryClaim`
+  was rewritten to wrap the attempt in a `SAVEPOINT` and roll back to that
+  instead of the whole transaction on a unique-constraint violation — see
+  ADR-0023's Decision section for the full mechanism. `POST /portfolios`
+  is out of scope; the `(endpoint, idempotency_key)` schema is shaped to
+  extend to it later without a migration. Retention sweep not built,
+  tracked in root `PLAN.md`. Also recorded, but not investigated (out of
+  scope for this session): `services/pricer`'s tombstone test failed
+  nondeterministically on a master CI run investigated at the top of this
+  session — see root `PLAN.md`'s open questions.

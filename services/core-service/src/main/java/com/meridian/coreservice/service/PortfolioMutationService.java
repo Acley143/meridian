@@ -11,8 +11,12 @@ import com.meridian.coreservice.persistence.domain.PositionEntity;
 import com.meridian.coreservice.persistence.domain.TradeEntity;
 import com.meridian.coreservice.persistence.repository.PositionJpaRepository;
 import com.meridian.coreservice.persistence.repository.TradeJpaRepository;
+import com.meridian.coreservice.web.dto.PortfolioDto;
 import com.meridian.coreservice.web.dto.TradeDto;
 import java.math.BigDecimal;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
+import java.sql.Savepoint;
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -20,6 +24,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
+import org.springframework.jdbc.core.ConnectionCallback;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -37,11 +43,14 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class PortfolioMutationService {
 
+  private static final String UNIQUE_VIOLATION_SQLSTATE = "23505";
+
   private final PositionJpaRepository positionRepository;
   private final TradeJpaRepository tradeRepository;
   private final PortfolioStateProducer portfolioStateProducer;
   private final AuditLogRepository auditLogRepository;
   private final IdempotencyKeyRepository idempotencyKeyRepository;
+  private final JdbcTemplate jdbcTemplate;
   // Local, default-configured mapper for the audit payload only -- its keys are already
   // hand-written snake_case and its BigDecimal fields are already toPlainString()'d, so it never
   // needs the snake_case/money-as-string customizations JacksonConfig applies to the HTTP-facing
@@ -58,13 +67,137 @@ public class PortfolioMutationService {
       PortfolioStateProducer portfolioStateProducer,
       AuditLogRepository auditLogRepository,
       IdempotencyKeyRepository idempotencyKeyRepository,
+      JdbcTemplate jdbcTemplate,
       ObjectMapper responseObjectMapper) {
     this.positionRepository = positionRepository;
     this.tradeRepository = tradeRepository;
     this.portfolioStateProducer = portfolioStateProducer;
     this.auditLogRepository = auditLogRepository;
     this.idempotencyKeyRepository = idempotencyKeyRepository;
+    this.jdbcTemplate = jdbcTemplate;
     this.responseObjectMapper = responseObjectMapper;
+  }
+
+  /**
+   * ADR-0024: creates a portfolio. Unlike {@link #applyTradeIdempotent}, there is no
+   * client-supplied idempotency key -- {@code portfolio_id} is itself the request's identity, and
+   * the resource is fully specified by its own fields, so a retry is detected by comparing the
+   * persisted row, not a raw-byte fingerprint (ADR-0024's Decision).
+   *
+   * <p>Order within this one {@code @Transactional} method is load-bearing: the portfolio row is
+   * inserted first (a duplicate {@code portfolio_id} fails here, via the {@code PRIMARY KEY}
+   * constraint, before the JVM-synchronized audit section is ever reached); the audit entry is
+   * appended second; {@code portfolio.state} is published last, so a publish failure rolls back the
+   * whole transaction (the same rule {@link #applyTrade} already follows) -- a committed portfolio
+   * row with no corresponding {@code portfolio.state} message never happens.
+   *
+   * <p>Duplicate handling does not check-then-insert (that TOCTOU race is exactly what {@link
+   * IdempotencyKeyRepository#tryClaim} avoids for {@code POST /trades}): {@link
+   * #tryInsertPortfolio} attempts the insert first, using the identical {@code SAVEPOINT} technique
+   * as {@link IdempotencyKeyRepository#tryClaim} so a failed insert (unique violation) doesn't
+   * abort the rest of the transaction and leave the follow-up read unable to run. A losing insert
+   * means a row already exists: {@code name}/{@code base_currency}/{@code owner} all matching the
+   * request is a replay (200, the stored row); any of them differing is a conflict (409) -- neither
+   * path appends to the audit log or publishes {@code portfolio.state}, since nothing new happened.
+   */
+  @Transactional
+  public PortfolioCreationOutcome createPortfolio(
+      String portfolioId, String name, String baseCurrency, String owner) {
+    Instant now = Instant.now();
+
+    boolean inserted = tryInsertPortfolio(portfolioId, name, baseCurrency, owner);
+    if (!inserted) {
+      PortfolioRow existing =
+          findPortfolioRow(portfolioId)
+              .orElseThrow(
+                  () ->
+                      new IllegalStateException(
+                          "portfolio insert lost race but no row found for portfolio_id="
+                              + portfolioId));
+      boolean identical =
+          existing.name().equals(name)
+              && existing.baseCurrency().equals(baseCurrency)
+              && existing.owner().equals(owner);
+      if (!identical) {
+        return new PortfolioCreationOutcome.Conflict();
+      }
+      return new PortfolioCreationOutcome.Existing(
+          new PortfolioDto(
+              portfolioId, existing.name(), existing.baseCurrency(), existing.owner()));
+    }
+
+    recordPortfolioCreatedAuditEntry(portfolioId, name, baseCurrency, owner, now);
+    portfolioStateProducer.publish(portfolioId, List.of(), now);
+
+    return new PortfolioCreationOutcome.Created(
+        new PortfolioDto(portfolioId, name, baseCurrency, owner));
+  }
+
+  /**
+   * Attempts to insert {@code (portfolio_id, name, base_currency, owner)}. Returns {@code true} if
+   * this call created the row, {@code false} if a row already existed for {@code portfolio_id} --
+   * same {@code SAVEPOINT}-around-the-insert mechanism as {@link
+   * IdempotencyKeyRepository#tryClaim}, for the identical reason: a failed {@code INSERT} aborts
+   * the rest of the enclosing Postgres transaction unless rolled back to a savepoint taken
+   * immediately before it, and the caller needs the transaction usable afterward to read the
+   * existing row.
+   */
+  private boolean tryInsertPortfolio(
+      String portfolioId, String name, String baseCurrency, String owner) {
+    return jdbcTemplate.execute(
+        (ConnectionCallback<Boolean>)
+            con -> {
+              Savepoint savepoint = con.setSavepoint();
+              try (PreparedStatement ps =
+                  con.prepareStatement(
+                      "INSERT INTO portfolios (portfolio_id, name, base_currency, owner) VALUES"
+                          + " (?, ?, ?, ?)")) {
+                ps.setString(1, portfolioId);
+                ps.setString(2, name);
+                ps.setString(3, baseCurrency);
+                ps.setString(4, owner);
+                ps.executeUpdate();
+                return true;
+              } catch (SQLException e) {
+                if (UNIQUE_VIOLATION_SQLSTATE.equals(e.getSQLState())) {
+                  con.rollback(savepoint);
+                  return false;
+                }
+                throw e;
+              }
+            });
+  }
+
+  private Optional<PortfolioRow> findPortfolioRow(String portfolioId) {
+    List<PortfolioRow> rows =
+        jdbcTemplate.query(
+            "SELECT name, base_currency, owner FROM portfolios WHERE portfolio_id = ?",
+            (rs, rowNum) ->
+                new PortfolioRow(
+                    rs.getString("name"), rs.getString("base_currency"), rs.getString("owner")),
+            portfolioId);
+    return rows.stream().findFirst();
+  }
+
+  private record PortfolioRow(String name, String baseCurrency, String owner) {}
+
+  private void recordPortfolioCreatedAuditEntry(
+      String portfolioId, String name, String baseCurrency, String owner, Instant eventTime) {
+    Map<String, Object> payload = new LinkedHashMap<>();
+    payload.put("portfolio_id", portfolioId);
+    payload.put("name", name);
+    payload.put("base_currency", baseCurrency);
+    payload.put("owner", owner);
+
+    String payloadJson;
+    try {
+      payloadJson = auditObjectMapper.writeValueAsString(payload);
+    } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+      throw new IllegalStateException("failed to serialize portfolio_created audit payload", e);
+    }
+
+    auditLogRepository.append(
+        UUID.randomUUID().toString(), "portfolio_created", payloadJson, eventTime, portfolioId);
   }
 
   /**

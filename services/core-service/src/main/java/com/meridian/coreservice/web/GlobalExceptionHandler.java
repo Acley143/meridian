@@ -21,6 +21,9 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
  *       portfolio_id}/{@code instrument_id} (the foreign key constraints in V1__init_schema.sql
  *       reject it; no separate existence-check query is needed to surface the same 400 the spec
  *       requires).
+ *   <li>{@link InvalidPortfolioRequestException} -- {@code POST /portfolios}'s body is
+ *       missing/blank a required field, or {@code base_currency} doesn't match {@code ^[A-Z]{3}$}
+ *       (ADR-0024).
  * </ul>
  *
  * <p>The two {@code POST /trades} cases are separate types, not one shared catch-all, even though
@@ -63,5 +66,10 @@ public class GlobalExceptionHandler {
   public ResponseEntity<String> handleDataIntegrityViolation(DataIntegrityViolationException e) {
     return ResponseEntity.status(HttpStatus.BAD_REQUEST)
         .body("malformed trade: unknown portfolio_id or instrument_id");
+  }
+
+  @ExceptionHandler(InvalidPortfolioRequestException.class)
+  public ResponseEntity<String> handleInvalidPortfolioRequest(InvalidPortfolioRequestException e) {
+    return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
   }
 }

@@ -10,6 +10,28 @@
  */
 
 export interface paths {
+    "/api/v1/portfolios": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create a portfolio.
+         * @description Creates a portfolio row, appends a `portfolio_created` audit entry, and publishes a `portfolio.state` record with an empty `positions` array, all in one transaction (ADR-0024).
+         *
+         *     **Not idempotency-key based, unlike `POST /trades` (ADR-0024).** `portfolio_id` is client-supplied and is itself the resource's identity; a portfolio is fully specified by its own fields, so a retry is detected by comparing the persisted row, not a raw request fingerprint. A retry with the same `portfolio_id` and the same `name`/`base_currency`/`owner` returns `200` with the stored portfolio (no second audit entry, no second `portfolio.state` message); the same `portfolio_id` with any of those three fields different returns `409`.
+         */
+        post: operations["createPortfolio"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/portfolios/{portfolioId}": {
         parameters: {
             query?: never;
@@ -155,6 +177,14 @@ export interface components {
             base_currency: string;
             owner: string;
         };
+        /** @description Body of POST /api/v1/portfolios (ADR-0024). Same fields as Portfolio -- creation takes the full resource up front, since portfolio_id is client-supplied and there is no server-assigned identity to return separately. */
+        PortfolioRequest: {
+            portfolio_id: string;
+            name: string;
+            /** @description ISO 4217 currency code. Validated against ^[A-Z]{3}$ only -- not checked against the ISO 4217 table itself. */
+            base_currency: string;
+            owner: string;
+        };
         /** @description See docs/domain-model.md#position. */
         Position: {
             portfolio_id: string;
@@ -258,6 +288,53 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    createPortfolio: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PortfolioRequest"];
+            };
+        };
+        responses: {
+            /** @description `portfolio_id` already existed with `name`, `base_currency`, and `owner` all matching this request -- the stored portfolio, unchanged. Not re-created; no new audit entry or `portfolio.state` message. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Portfolio"];
+                };
+            };
+            /** @description Portfolio created. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Portfolio"];
+                };
+            };
+            /** @description A required field was missing or blank, or `base_currency` did not match `^[A-Z]{3}$`. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description `portfolio_id` already existed with a different `name`, `base_currency`, or `owner`. Not applied. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     getPortfolio: {
         parameters: {
             query?: never;

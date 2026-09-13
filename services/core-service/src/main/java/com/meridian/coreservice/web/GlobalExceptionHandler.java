@@ -24,6 +24,9 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
  *   <li>{@link InvalidPortfolioRequestException} -- {@code POST /portfolios}'s body is
  *       missing/blank a required field, or {@code base_currency} doesn't match {@code ^[A-Z]{3}$}
  *       (ADR-0024).
+ *   <li>{@link InvalidInstrumentRequestException} -- {@code POST /instruments}'s body is missing a
+ *       required field, an enum field doesn't parse, a conditional-field rule is violated, or
+ *       {@code currency}/{@code contract_size} fail validation (ADR-0025).
  * </ul>
  *
  * <p>The two {@code POST /trades} cases are separate types, not one shared catch-all, even though
@@ -70,6 +73,12 @@ public class GlobalExceptionHandler {
 
   @ExceptionHandler(InvalidPortfolioRequestException.class)
   public ResponseEntity<String> handleInvalidPortfolioRequest(InvalidPortfolioRequestException e) {
+    return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+  }
+
+  @ExceptionHandler(InvalidInstrumentRequestException.class)
+  public ResponseEntity<String> handleInvalidInstrumentRequest(
+      InvalidInstrumentRequestException e) {
     return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
   }
 }

@@ -197,7 +197,7 @@ One row in the append-only, hash-chained audit log (ADR-0008).
 | name | type | unit | nullable | precision | meaning |
 |---|---|---|---|---|---|
 | entry_id | string | — | no | — | Globally unique identifier for this row, assigned at write time. Not a hash — see `entry_hash` below. |
-| entry_type | string | — | no | — | What kind of event this row records (e.g. "trade_booked", "portfolio_created", "risk_snapshot_produced"). Not free text in practice — governed by the emitting service's `PLAN.md`. |
+| entry_type | string | — | no | — | What kind of event this row records (e.g. "trade_booked", "portfolio_created", "instrument_created", "risk_snapshot_produced"). Not free text in practice — governed by the emitting service's `PLAN.md`. |
 | payload | string (canonical JSON) | — | no | — | The canonical serialization of the event being audited. "Canonical" means a fixed, deterministic field order and encoding — required for `entry_hash`/`prev_hash` to be reproducibly verifiable. |
 | prev_hash | string (hex-encoded SHA-256) | — | no (empty string for the first row only) | — | SHA-256 of the canonical form of the *previous* row in the chain. This is what makes the log tamper-evident (ADR-0008) — it is not a hash of this row. |
 | entry_hash | string (hex-encoded SHA-256) | — | no | — | SHA-256 of this row's own canonical form (`entry_id` + `entry_type` + `payload`, excluding `entry_hash` itself). Stored so a verifier doesn't need to recompute it from scratch to check the *next* row's `prev_hash`. |

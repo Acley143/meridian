@@ -145,6 +145,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/instruments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create an instrument.
+         * @description Creates an instrument row, appends an `instrument_created` audit entry (with a null `portfolio_id` -- ADR-0025), and publishes a `reference.instruments` record, all in one transaction (ADR-0025).
+         *
+         *     **Not idempotency-key based, for the same reason as `POST /portfolios` (ADR-0024, cited by ADR-0025).** `instrument_id` is client-supplied and is itself the resource's identity; an instrument is fully specified by its own fields, so a retry is detected by comparing the persisted row, not a raw request fingerprint. A retry with the same `instrument_id` and every other field matching returns `200` with the stored instrument (no second audit entry, no second `reference.instruments` message); the same `instrument_id` with any field different returns `409`.
+         *
+         *     **Conditional fields.** `option_type`, `strike`, and `expiry` must all be present when `instrument_type` is `VANILLA_EUROPEAN_OPTION` or `VANILLA_AMERICAN_OPTION`, and all absent otherwise -- present-and-non-null on a non-option is rejected with `400`, not silently ignored.
+         */
+        post: operations["createInstrument"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/portfolios/{portfolioId}/audit": {
         parameters: {
             query?: never;
@@ -184,6 +208,43 @@ export interface components {
             /** @description ISO 4217 currency code. Validated against ^[A-Z]{3}$ only -- not checked against the ISO 4217 table itself. */
             base_currency: string;
             owner: string;
+        };
+        /** @description See docs/domain-model.md#instrument and contracts/avro/reference-instruments.avsc -- field-for-field the same shape published to reference.instruments. option_type, strike, and expiry are always present in the response, null unless instrument_type is VANILLA_EUROPEAN_OPTION or VANILLA_AMERICAN_OPTION. */
+        Instrument: {
+            instrument_id: string;
+            underlying_id: string;
+            /** @enum {string} */
+            instrument_type: "EQUITY" | "VANILLA_EUROPEAN_OPTION" | "VANILLA_AMERICAN_OPTION";
+            /** @enum {string|null} */
+            option_type: "CALL" | "PUT" | null;
+            /** @description Decimal (precision 38, scale 8) encoded as a string, per ADR-0004/ADR-0013. */
+            strike: string | null;
+            /** Format: date-time */
+            expiry: string | null;
+            /** @description ISO 4217 currency code. */
+            currency: string;
+            /** @description Decimal (precision 38, scale 8) encoded as a string, per ADR-0004/ADR-0013. */
+            contract_size: string;
+        };
+        /** @description Body of POST /api/v1/instruments (ADR-0025). Same fields as Instrument -- creation takes the full resource up front, since instrument_id is client-supplied and there is no server-assigned identity to return separately. option_type, strike, and expiry are required together when instrument_type is VANILLA_EUROPEAN_OPTION or VANILLA_AMERICAN_OPTION, and must all be absent otherwise. */
+        InstrumentRequest: {
+            instrument_id: string;
+            underlying_id: string;
+            /** @enum {string} */
+            instrument_type: "EQUITY" | "VANILLA_EUROPEAN_OPTION" | "VANILLA_AMERICAN_OPTION";
+            /** @enum {string|null} */
+            option_type?: "CALL" | "PUT" | null;
+            /** @description Decimal (precision 38, scale 8) encoded as a string, per ADR-0004/ADR-0013. Required iff instrument_type is an option type. */
+            strike?: string | null;
+            /**
+             * Format: date-time
+             * @description Required iff instrument_type is an option type.
+             */
+            expiry?: string | null;
+            /** @description ISO 4217 currency code. Validated against ^[A-Z]{3}$ only -- not checked against the ISO 4217 table itself. */
+            currency: string;
+            /** @description Decimal (precision 38, scale 8) encoded as a string, per ADR-0004/ADR-0013. Must be strictly positive. */
+            contract_size: string;
         };
         /** @description See docs/domain-model.md#position. */
         Position: {
@@ -509,6 +570,53 @@ export interface operations {
                 content?: never;
             };
             /** @description `Idempotency-Key` was already used with a request body that does not match this one (ADR-0023). The original trade was not re-booked and this request was not applied. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    createInstrument: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InstrumentRequest"];
+            };
+        };
+        responses: {
+            /** @description `instrument_id` already existed with every other field matching this request -- the stored instrument, unchanged. Not re-created; no new audit entry or `reference.instruments` message. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Instrument"];
+                };
+            };
+            /** @description Instrument created. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Instrument"];
+                };
+            };
+            /** @description A required field was missing, `instrument_type`/`option_type` did not parse into the generated Avro enum, a conditional-field rule was violated in either direction, `currency` did not match `^[A-Z]{3}$`, `contract_size` was not strictly positive, or `strike`/`expiry` was unparseable. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description `instrument_id` already existed with at least one field different. Not applied. */
             409: {
                 headers: {
                     [name: string]: unknown;

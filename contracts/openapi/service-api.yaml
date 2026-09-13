@@ -251,6 +251,67 @@ paths:
             does not match this one (ADR-0023). The original trade was not
             re-booked and this request was not applied.
 
+  /api/v1/instruments:
+    post:
+      summary: Create an instrument.
+      description: >
+        Creates an instrument row, appends an `instrument_created` audit
+        entry (with a null `portfolio_id` -- ADR-0025), and publishes a
+        `reference.instruments` record, all in one transaction (ADR-0025).
+
+
+        **Not idempotency-key based, for the same reason as `POST
+        /portfolios` (ADR-0024, cited by ADR-0025).** `instrument_id` is
+        client-supplied and is itself the resource's identity; an
+        instrument is fully specified by its own fields, so a retry is
+        detected by comparing the persisted row, not a raw request
+        fingerprint. A retry with the same `instrument_id` and every other
+        field matching returns `200` with the stored instrument (no second
+        audit entry, no second `reference.instruments` message); the same
+        `instrument_id` with any field different returns `409`.
+
+
+        **Conditional fields.** `option_type`, `strike`, and `expiry` must
+        all be present when `instrument_type` is `VANILLA_EUROPEAN_OPTION`
+        or `VANILLA_AMERICAN_OPTION`, and all absent otherwise --
+        present-and-non-null on a non-option is rejected with `400`, not
+        silently ignored.
+      operationId: createInstrument
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InstrumentRequest"
+      responses:
+        "201":
+          description: Instrument created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Instrument"
+        "200":
+          description: >
+            `instrument_id` already existed with every other field matching
+            this request -- the stored instrument, unchanged. Not
+            re-created; no new audit entry or `reference.instruments`
+            message.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Instrument"
+        "400":
+          description: >
+            A required field was missing, `instrument_type`/`option_type`
+            did not parse into the generated Avro enum, a conditional-field
+            rule was violated in either direction, `currency` did not match
+            `^[A-Z]{3}$`, `contract_size` was not strictly positive, or
+            `strike`/`expiry` was unparseable.
+        "409":
+          description: >
+            `instrument_id` already existed with at least one field
+            different. Not applied.
+
   /api/v1/portfolios/{portfolioId}/audit:
     get:
       summary: Fetch audit log entries for a portfolio.
@@ -338,6 +399,93 @@ components:
           pattern: "^[A-Z]{3}$"
         owner:
           type: string
+
+    Instrument:
+      type: object
+      description: >
+        See docs/domain-model.md#instrument and
+        contracts/avro/reference-instruments.avsc -- field-for-field the
+        same shape published to reference.instruments. option_type,
+        strike, and expiry are always present in the response, null unless
+        instrument_type is VANILLA_EUROPEAN_OPTION or
+        VANILLA_AMERICAN_OPTION.
+      required:
+        [
+          instrument_id,
+          underlying_id,
+          instrument_type,
+          option_type,
+          strike,
+          expiry,
+          currency,
+          contract_size,
+        ]
+      properties:
+        instrument_id:
+          type: string
+        underlying_id:
+          type: string
+        instrument_type:
+          type: string
+          enum: [EQUITY, VANILLA_EUROPEAN_OPTION, VANILLA_AMERICAN_OPTION]
+        option_type:
+          type: string
+          enum: [CALL, PUT]
+          nullable: true
+        strike:
+          type: string
+          nullable: true
+          description: Decimal (precision 38, scale 8) encoded as a string, per ADR-0004/ADR-0013.
+        expiry:
+          type: string
+          format: date-time
+          nullable: true
+        currency:
+          type: string
+          description: ISO 4217 currency code.
+        contract_size:
+          type: string
+          description: Decimal (precision 38, scale 8) encoded as a string, per ADR-0004/ADR-0013.
+
+    InstrumentRequest:
+      type: object
+      description: >
+        Body of POST /api/v1/instruments (ADR-0025). Same fields as
+        Instrument -- creation takes the full resource up front, since
+        instrument_id is client-supplied and there is no server-assigned
+        identity to return separately. option_type, strike, and expiry are
+        required together when instrument_type is
+        VANILLA_EUROPEAN_OPTION or VANILLA_AMERICAN_OPTION, and must all be
+        absent otherwise.
+      required: [instrument_id, underlying_id, instrument_type, currency, contract_size]
+      properties:
+        instrument_id:
+          type: string
+        underlying_id:
+          type: string
+        instrument_type:
+          type: string
+          enum: [EQUITY, VANILLA_EUROPEAN_OPTION, VANILLA_AMERICAN_OPTION]
+        option_type:
+          type: string
+          enum: [CALL, PUT]
+          nullable: true
+        strike:
+          type: string
+          nullable: true
+          description: Decimal (precision 38, scale 8) encoded as a string, per ADR-0004/ADR-0013. Required iff instrument_type is an option type.
+        expiry:
+          type: string
+          format: date-time
+          nullable: true
+          description: Required iff instrument_type is an option type.
+        currency:
+          type: string
+          description: ISO 4217 currency code. Validated against ^[A-Z]{3}$ only -- not checked against the ISO 4217 table itself.
+          pattern: "^[A-Z]{3}$"
+        contract_size:
+          type: string
+          description: Decimal (precision 38, scale 8) encoded as a string, per ADR-0004/ADR-0013. Must be strictly positive.
 
     Position:
       type: object

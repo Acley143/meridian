@@ -121,6 +121,23 @@ silently defaulting to "not an option" (a negative `!= EQUITY` rule) or
 silently defaulting to "an option" (whatever the negative rule's inverse
 would have been).
 
+### `expiry` is truncated to microseconds at the REST edge
+`expiry` is a client-supplied `TIMESTAMPTZ`, subject to the identical
+pgjdbc-rounds-half-up-versus-Avro-floors asymmetry ADR-0024's editorial
+amendment found for `event_time`: Postgres rounds a sub-microsecond
+remainder to the nearest microsecond on write/read-back, while values that
+flow through an Avro `timestamp-micros` conversion are floored. Field-by-
+field duplicate detection (see "Duplicate semantics" above) depends on
+comparing a freshly-parsed request `expiry` against the value Postgres
+reads back for an existing row; an untruncated `expiry` whose nanosecond
+remainder is >= 500ns would be stored as one value and compared against a
+different, unrounded value on a byte-identical repeat request, producing a
+`409` for two requests that should replay as `200`. `InstrumentController`
+truncates `expiry` to microseconds immediately after parsing, before it is
+ever persisted or compared, for the same reason and by the same mechanism
+as ADR-0024's fix — not a new decision, an application of an already-settled
+one to a second field that has the same shape of risk.
+
 ### Open question: `reference.instruments` carries no `event_time`/`ingest_time`
 Unlike `portfolio.state` (`event_time` and `ingest_time` on every message,
 ADR-0005), `contracts/avro/reference-instruments.avsc` has neither field.

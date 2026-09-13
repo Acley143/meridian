@@ -18,6 +18,7 @@ import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Savepoint;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -103,7 +104,10 @@ public class PortfolioMutationService {
   @Transactional
   public PortfolioCreationOutcome createPortfolio(
       String portfolioId, String name, String baseCurrency, String owner) {
-    Instant now = Instant.now();
+    // Truncated to microseconds at the source: Postgres (rounds to the nearest microsecond) and
+    // the Avro timestamp-micros conversion (truncates) disagree on sub-microsecond nanos, so an
+    // untruncated Instant.now() can publish a different event_time than the audit entry stores.
+    Instant now = Instant.now().truncatedTo(ChronoUnit.MICROS);
 
     boolean inserted = tryInsertPortfolio(portfolioId, name, baseCurrency, owner);
     if (!inserted) {

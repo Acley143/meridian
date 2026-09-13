@@ -209,3 +209,31 @@ inventory session (Session Q) found — a portfolio that exists in Postgres
 with no corresponding `portfolio.state` record is invisible to the pricer
 by construction, indefinitely, until some trade happens to be booked
 against it.
+
+## Editorial amendments
+
+### 2026-09-13: `event_time` is truncated to microseconds at capture
+The single `Instant.now()` captured once at the top of `createPortfolio`
+(see "`event_time` is the server clock at creation, not client-supplied"
+above) is truncated to microsecond precision at the point of capture,
+before it is used for either the audit entry or the `portfolio.state`
+publish.
+
+Without this, the two sinks that record the same instant can disagree:
+pgjdbc rounds half-up when encoding a `TIMESTAMPTZ`, while the Avro
+`timestamp-micros` conversion floors. An untruncated instant whose
+nanosecond remainder is >= 500ns is therefore recorded differently by the
+audit log and by `portfolio.state` — one event ending up with two
+different `event_time` values depending only on which storage layer is
+read. Microsecond is the precision of the coarsest sink; the application
+should not produce precision the storage layers disagree about how to
+discard.
+
+The trade path is unaffected by this: `Trade.event_time` is parsed from a
+client-supplied JSON field, which in practice carries microsecond-or-coarser
+precision. Nothing enforces that, however — a client sending nanosecond
+precision in `event_time` would reintroduce the identical divergence on the
+trade path. Recorded here as a known edge, not fixed.
+
+Found by `PortfolioCreationTest`'s timestamp-equality assertion failing in
+CI on runs 34675855060 and 34708325925. Fixed in commit 4e46787.

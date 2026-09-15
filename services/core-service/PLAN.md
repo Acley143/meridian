@@ -131,6 +131,18 @@ booking.
   correctly (readiness fails closed for Postgres, stays UP for Kafka); they
   no longer restart their container or check recovery at all. Owner:
   unassigned, by-when: unscheduled.
+- `DataSourceHealthIndicator` produced an uncaught `PSQLException` instead of
+  a clean `DOWN`, once, during `PostgresOutageReadinessFixtureTest`'s CI run:
+  `org.postgresql.util.PSQLException: This connection has been closed`,
+  thrown from `PgConnection.clearWarnings()` inside Hikari's
+  `ProxyConnection.close()` while releasing a pooled connection back after a
+  health check, propagating uncaught through to a 500 rather than a
+  structured readiness response. Observed under the `stop`/`start` outage
+  simulation, which no longer exists in either fixture (see the
+  recovery-under-outage entry above) — it may not reproduce under the
+  current `stop`-only, no-restart fixtures, and has not been re-verified.
+  Recorded as a finding only; not fixed. Owner: unassigned, by-when:
+  unscheduled.
 - Testcontainers doesn't run in this local sandbox: two sessions in a row
   (Session N-era per the 05d log, and Session O) have hand-verified Java
   changes against the real `docker-compose.yml` stack instead, with CI as

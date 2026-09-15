@@ -561,6 +561,9 @@ components:
         ingest_time:
           type: string
           format: date-time
+        unpaired_extra_field:
+          type: string
+          description: TEMPORARY -- deliberately has no Avro counterpart, to prove check_cross_contract.py's CI step fails the build.
 
     TradeRequest:
       type: object

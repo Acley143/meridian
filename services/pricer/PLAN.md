@@ -110,6 +110,45 @@ Consumes ticks and portfolio state, prices every position using
 - Calling back into `core-service` for anything — forbidden by ADR-0003, not
   just out of scope.
 
+## Extended scope, Q2
+- [x] Structured unpriceable-portfolio reporting (ADR-0018), owner Eng-B,
+  Q2: `PricerService._report_unpriceable` (`pricer/service.py`) logs a
+  structured WARNING (`event=portfolio_unpriceable`, with `portfolio_id`,
+  `reason`, `trigger`, `missing` all as `extra=` attributes, never only
+  free text) and increments a `collections.Counter` keyed by the new
+  `UnpriceableReason` enum (`pricer/pricing.py`), exposed read-only via
+  `PricerService.unpriceable_counts`. The counter counts *events*, not
+  distinct portfolios -- a portfolio skipped on every tick increments its
+  reason once per tick. All three of `_price_portfolio`'s existing skip
+  paths (no reference data, no observed price, `UnpricableInstrumentError`)
+  now report before returning `None`; `_apply_portfolio_message` also
+  reports at portfolio-update time for any position whose instrument_id
+  has no reference data, since `PortfolioView` only indexes positions with
+  reference data and such a portfolio would otherwise never be affected by
+  a tick and never be reported at all. Tests:
+  `services/pricer/tests/test_unpriceable_reporting.py`, all four
+  asserting on the log record's structured attributes and on
+  `unpriceable_counts`, never only on the absence of a snapshot.
+  Follow-up, same owner/quarter: `_price_portfolio` evaluates the whole
+  portfolio before reporting, at most one event per portfolio per tick, in
+  fixed precedence (missing reference data, then unpriced underlyings,
+  then per-position pricing failures), with `missing` naming every
+  affected id rather than only the first found, and a new `detail` field
+  on `_report_unpriceable` carrying the joined `UnpricableInstrumentError`
+  message(s) so the reason a position couldn't be priced isn't lost from
+  the log.
+- `pricer/pricing.py:price_instrument`'s six `assert` statements (one
+  instrument-type branch) were replaced with an explicit check that raises
+  `UnpricableInstrumentError` naming the instrument_id and the missing
+  field(s), while implementing the above. This is defence in depth, not a
+  reachable path today: `InstrumentReference.__post_init__`
+  (`pricer/reference_data.py`) already rejects an incomplete
+  `VANILLA_EUROPEAN_OPTION` at fixture-load time, so no position holding
+  one can ever reach `price_instrument` with a missing field through the
+  fixture-loading path this service uses. Untested for that reason -- there
+  is no way to construct the failing input without bypassing
+  `InstrumentReference` itself.
+
 ## Boundaries
 - **Owns:** `services/pricer/**`.
 - **Must not touch:** `libs/quant-core` internals (may depend on it),

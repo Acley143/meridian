@@ -16,11 +16,23 @@ keyed by underlying_id -- see `pricer.portfolio_view`), price and aggregate
 each one (one snapshot per affected portfolio, Task 6's Q1 fan-out policy),
 flush all of them to the broker, and only then commit the tick's offset --
 never before every snapshot it produced is durably delivered.
+
+Unpriceable-portfolio reporting (ADR-0018): a portfolio that cannot be
+priced -- missing reference data, no observed price yet for an underlying,
+or an instrument type with no pricer -- is never silently skipped. Every
+skip goes through `_report_unpriceable`, which logs a structured WARNING
+(`event=portfolio_unpriceable`) and increments `unpriceable_counts`.
+`_price_portfolio` evaluates the whole portfolio before reporting: at most
+one event is reported per portfolio per tick, in fixed precedence --
+missing reference data first, then unpriced underlyings, then per-position
+pricing failures -- each naming every affected id, not just the first one
+found.
 """
 from __future__ import annotations
 
 import time
 import uuid
+from collections import Counter
 from datetime import datetime
 from decimal import Decimal
 from logging import Logger
@@ -41,6 +53,7 @@ from pricer.logging_config import get_logger
 from pricer.portfolio_view import PortfolioView
 from pricer.pricing import (
     UnpricableInstrumentError,
+    UnpriceableReason,
     aggregate_portfolio,
     aggregate_position,
     oldest_input_event_time,
@@ -75,6 +88,7 @@ class PricerService:
         self.view = PortfolioView(reference_data)
         self._last_price: dict[str, Decimal] = {}
         self._last_event_time: dict[str, datetime] = {}
+        self._unpriceable_counts: Counter[UnpriceableReason] = Counter()
         self.ready = False
 
         self._portfolio_consumer = None
@@ -83,6 +97,45 @@ class PricerService:
             bootstrap_servers=bootstrap_servers,
             schema_registry_url=schema_registry_url,
             topic=risk_snapshot_topic,
+        )
+
+    @property
+    def unpriceable_counts(self) -> Counter[UnpriceableReason]:
+        """A copy of the running per-reason unpriceable-event counts
+        (ADR-0018). Counts *events* (one per skip), not distinct
+        portfolios -- a portfolio skipped on every tick increments its
+        reason's count once per tick, not once total."""
+        return Counter(self._unpriceable_counts)
+
+    def _report_unpriceable(
+        self,
+        *,
+        portfolio_id: str,
+        reason: UnpriceableReason,
+        trigger: str,
+        missing: list[str],
+        detail: str = "",
+    ) -> None:
+        missing_sorted = sorted(set(missing))
+        self._unpriceable_counts[reason] += 1
+        message = (
+            "portfolio_unpriceable portfolio_id=%s reason=%s trigger=%s missing=%s"
+        )
+        args = [portfolio_id, reason.value, trigger, ",".join(missing_sorted)]
+        if detail:
+            message += " detail=%s"
+            args.append(detail)
+        self._log.warning(
+            message,
+            *args,
+            extra={
+                "event": "portfolio_unpriceable",
+                "portfolio_id": portfolio_id,
+                "reason": reason,
+                "trigger": trigger,
+                "missing": missing_sorted,
+                "detail": detail,
+            },
         )
 
     # -- Task 1: hydration gate ------------------------------------------
@@ -144,6 +197,20 @@ class PricerService:
                 key.portfolio_id,
                 len(value.positions),
             )
+            unknown = sorted(
+                {
+                    position.instrument_id
+                    for position in value.positions
+                    if position.instrument_id not in self.reference_data
+                }
+            )
+            if unknown:
+                self._report_unpriceable(
+                    portfolio_id=key.portfolio_id,
+                    reason=UnpriceableReason.NO_REFERENCE_DATA,
+                    trigger="portfolio_update",
+                    missing=unknown,
+                )
         self._portfolio_consumer.commit(msg)
 
     def _drain_portfolio_updates(self) -> None:
@@ -208,38 +275,71 @@ class PricerService:
 
     def _price_portfolio(self, portfolio_id: str, triggering_tick: Tick) -> RiskSnapshot | None:
         positions = self.view.positions(portfolio_id)
+
+        # (a) Every held instrument must have reference data before anything
+        # else is checked -- collected across all positions, not just the
+        # first missing one.
+        no_reference_data = sorted(
+            {p.instrument_id for p in positions if p.instrument_id not in self.reference_data}
+        )
+        if no_reference_data:
+            self._report_unpriceable(
+                portfolio_id=portfolio_id,
+                reason=UnpriceableReason.NO_REFERENCE_DATA,
+                trigger="tick",
+                missing=no_reference_data,
+            )
+            return None
+
+        # (b) Every underlying must have an observed price -- again, every
+        # missing one, not just the first.
+        no_price = sorted(
+            {
+                self.reference_data.get(p.instrument_id).underlying_id
+                for p in positions
+                if self.reference_data.get(p.instrument_id).underlying_id not in self._last_price
+            }
+        )
+        if no_price:
+            self._report_unpriceable(
+                portfolio_id=portfolio_id,
+                reason=UnpriceableReason.NO_PRICE,
+                trigger="tick",
+                missing=no_price,
+            )
+            return None
+
+        # (c) Price every position, collecting every pricing failure (not
+        # just the first) before reporting.
         contributions = []
         underlyings_used: set[str] = set()
+        failures: list[tuple[str, str]] = []
 
         for position in positions:
-            if position.instrument_id not in self.reference_data:
-                self._log.warning(
-                    "skipping portfolio_id=%s: no reference data for instrument_id=%s",
-                    portfolio_id,
-                    position.instrument_id,
-                )
-                return None
             reference = self.reference_data.get(position.instrument_id)
             underlying_id = reference.underlying_id
-            if underlying_id not in self._last_price:
-                self._log.warning(
-                    "skipping portfolio_id=%s: no observed price yet for underlying_id=%s",
-                    portfolio_id,
-                    underlying_id,
-                )
-                return None
-
             spot = self._last_price[underlying_id]
             try:
                 pricing_result = price_instrument(reference, spot, triggering_tick.event_time)
             except UnpricableInstrumentError as exc:
-                self._log.warning("skipping portfolio_id=%s: %s", portfolio_id, exc)
-                return None
+                failures.append((position.instrument_id, str(exc)))
+                continue
 
             contributions.append(
                 aggregate_position(pricing_result, position.quantity, reference.contract_size, spot)
             )
             underlyings_used.add(underlying_id)
+
+        if failures:
+            failures.sort(key=lambda f: f[0])
+            self._report_unpriceable(
+                portfolio_id=portfolio_id,
+                reason=UnpriceableReason.INSTRUMENT_NOT_PRICEABLE,
+                trigger="tick",
+                missing=[instrument_id for instrument_id, _ in failures],
+                detail="; ".join(message for _, message in failures),
+            )
+            return None
 
         aggregate = aggregate_portfolio(contributions)
         oldest = oldest_input_event_time(underlyings_used, self._last_event_time)

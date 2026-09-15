@@ -56,8 +56,8 @@ class CompactedTopicInitializerTest extends AbstractKafkaIntegrationTest {
                     kafkaProperties.getBootstrapServers(), topic))
         .isInstanceOf(IllegalStateException.class)
         .hasMessageContaining(topic)
-        .hasMessageContaining("compact")
-        .hasMessageContaining("delete");
+        .hasMessageContaining("has cleanup.policy=delete, expected compact")
+        .hasMessageNotContaining("failed to verify");
   }
 
   @Test
@@ -71,8 +71,8 @@ class CompactedTopicInitializerTest extends AbstractKafkaIntegrationTest {
                     kafkaProperties.getBootstrapServers(), topic))
         .isInstanceOf(IllegalStateException.class)
         .hasMessageContaining(topic)
-        .hasMessageContaining("1")
-        .hasMessageContaining("2");
+        .hasMessageContaining("has 2 partition(s), expected 1")
+        .hasMessageNotContaining("failed to verify");
   }
 
   @Test
@@ -86,7 +86,8 @@ class CompactedTopicInitializerTest extends AbstractKafkaIntegrationTest {
                     kafkaProperties.getBootstrapServers(), topic))
         .isInstanceOf(IllegalStateException.class)
         .hasMessageContaining(topic)
-        .hasMessageContaining("compact,delete");
+        .hasMessageContaining("has cleanup.policy=compact,delete, expected compact")
+        .hasMessageNotContaining("failed to verify");
   }
 
   @Test

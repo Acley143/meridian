@@ -71,8 +71,21 @@ number three components downstream, not a compile error here.
 - Hash-chained audit log persistence (ADR-0008, Q2) — `GET .../audit` is
   contract-only this quarter.
 
+## Extended scope, Q2
+- `tools/schema-lint/**` is now owned by this workstream. Owner: Acley,
+  Quarter: Q2.
+- The six scripts already there are in scope: `check_avro.py`,
+  `check_openapi.py`, `check_adr_numbering.py`, `check_api_v1_prefix.py`,
+  `check_no_attribution.py`, `check_markdown_links.py`.
+- The directory was unowned until now: no workstream `PLAN.md` claimed it,
+  and the six scripts landed there from sessions owned elsewhere. A session
+  asked to add to it had no governing plan to read.
+- Why this workstream: every script in `tools/schema-lint/` lints a
+  contract or a docs artifact — the same surface this workstream already
+  owns.
+
 ## Boundaries
-- **Owns:** `contracts/**`, `tools/codegen/**`.
+- **Owns:** `contracts/**`, `tools/codegen/**`, `tools/schema-lint/**`.
 - **Must not touch:** `services/*` and `libs/*` implementation code —
   workstreams there depend on `contracts/`, not the reverse. Schema changes
   affecting a workstream's deliverables are coordinated with that

@@ -183,6 +183,20 @@ silent on a field is not the same as that field's absence being correct.
 - `tools/schema-lint/check_cross_contract.py` and
   `tools/schema-lint/schema_pairing.py` are added, wired into the
   `contracts` CI job.
+- `tools/schema-lint/tests/test_check_cross_contract.py::test_real_contracts_pass`
+  is a deliberate end-to-end tripwire: unlike the suite's other eight tests,
+  which run the comparator against synthetic fixtures in a temp directory,
+  this one reads the real `contracts/avro` and
+  `contracts/openapi/service-api.yaml` directly and asserts zero errors.
+  Real drift between the two contracts therefore turns **two** CI steps
+  red at once — the `check_cross_contract.py` step and the schema-lint
+  pytest step — both naming the same field and the same message. That is
+  expected, not a sign the tests are miswired: without this note, someone
+  seeing the test step fail because of an ordinary spec change could read
+  it as improper coupling (a unit test that shouldn't depend on real repo
+  state) and repoint `test_real_contracts_pass` at a fixture, which would
+  quietly remove the one test in the suite that catches drift in the
+  actual, shipped contracts rather than in synthetic stand-ins.
 - Adding a new Avro schema or OpenAPI component without updating
   `schema_pairing.py` now fails CI, by design.
 - A future field-level drift between a paired Avro record and its OpenAPI

@@ -38,6 +38,11 @@ nothing for the dashboard to talk to.
   (ADR-0019, keyed by `instrument_id`) via an internal `InstrumentService`
   seam — no REST endpoint exposes instrument creation yet; that's a future
   session's work.
+- `CompactedTopicInitializer` now verifies (not just creates) an existing
+  `portfolio.state`/`reference.instruments` topic's `cleanup.policy` and
+  partition count on startup, refusing to start on a mismatch instead of
+  silently accepting a misconfigured pre-existing topic (ADR-0003,
+  ADR-0016, ADR-0019). Owner: Eng-D, Q2.
 
 ## Boundaries
 - **Owns:** `services/core-service/**`.

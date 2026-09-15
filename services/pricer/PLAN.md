@@ -129,6 +129,14 @@ Consumes ticks and portfolio state, prices every position using
   `services/pricer/tests/test_unpriceable_reporting.py`, all four
   asserting on the log record's structured attributes and on
   `unpriceable_counts`, never only on the absence of a snapshot.
+  Follow-up, same owner/quarter: `_price_portfolio` evaluates the whole
+  portfolio before reporting, at most one event per portfolio per tick, in
+  fixed precedence (missing reference data, then unpriced underlyings,
+  then per-position pricing failures), with `missing` naming every
+  affected id rather than only the first found, and a new `detail` field
+  on `_report_unpriceable` carrying the joined `UnpricableInstrumentError`
+  message(s) so the reason a position couldn't be priced isn't lost from
+  the log.
 - `pricer/pricing.py:price_instrument`'s six `assert` statements (one
   instrument-type branch) were replaced with an explicit check that raises
   `UnpricableInstrumentError` naming the instrument_id and the missing

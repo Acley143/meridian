@@ -120,7 +120,7 @@ def test_no_reference_data_reported_at_tick_time(kafka_stack, caplog) -> None:
         assert len(records) >= 1
         record = records[0]
         assert record.reason == UnpriceableReason.NO_REFERENCE_DATA
-        assert "UNKNOWN-1" in record.missing
+        assert record.missing == ["UNKNOWN-1"]
 
         assert service.unpriceable_counts[UnpriceableReason.NO_REFERENCE_DATA] >= 1
     finally:
@@ -162,7 +162,7 @@ def test_no_reference_data_reported_at_portfolio_update_time(kafka_stack, caplog
         ]
         assert len(records) >= 1
         record = records[0]
-        assert "UNKNOWN-2" in record.missing
+        assert record.missing == ["UNKNOWN-2"]
 
         assert service.unpriceable_counts[UnpriceableReason.NO_REFERENCE_DATA] >= 1
     finally:
@@ -226,8 +226,187 @@ def test_instrument_not_priceable_reported_at_tick_time(kafka_stack, caplog) -> 
         assert len(records) >= 1
         record = records[0]
         assert record.reason == UnpriceableReason.INSTRUMENT_NOT_PRICEABLE
-        assert "AAPL-AMER-150" in record.missing
+        assert record.missing == ["AAPL-AMER-150"]
+        assert record.detail
+        assert "AAPL-AMER-150" in record.detail
+        assert "no pricer" in record.detail
 
         assert service.unpriceable_counts[UnpriceableReason.INSTRUMENT_NOT_PRICEABLE] >= 1
+    finally:
+        service.close()
+
+
+def test_no_reference_data_reports_every_missing_instrument(kafka_stack, caplog) -> None:
+    """(e) Precedence: when a portfolio has both missing-reference-data
+    instruments and an unpriced underlying, NO_REFERENCE_DATA is reported
+    -- once, naming every missing instrument_id -- and NO_PRICE is not
+    reported at all for that portfolio on that tick."""
+    caplog.set_level(logging.WARNING, logger="pricer")
+
+    reference_data = ReferenceData(
+        {
+            "AAPL": InstrumentReference(
+                instrument_id="AAPL",
+                instrument_type="EQUITY",
+                underlying_id="AAPL",
+                currency="USD",
+                contract_size=Decimal(1),
+            ),
+            "MSFT": InstrumentReference(
+                instrument_id="MSFT",
+                instrument_type="EQUITY",
+                underlying_id="MSFT",
+                currency="USD",
+                contract_size=Decimal(1),
+            ),
+        }
+    )
+
+    topics = unique_topics()
+    t0 = datetime(2026, 1, 1, tzinfo=UTC)
+    fixture = PortfolioFixture(
+        portfolio_id="P",
+        positions=[
+            Position(
+                portfolio_id="P",
+                instrument_id="AAPL",
+                quantity=Decimal(10),
+                average_cost=Decimal(100),
+                as_of_event_time=t0,
+            ),
+            Position(
+                portfolio_id="P",
+                instrument_id="MSFT",
+                quantity=Decimal(5),
+                average_cost=Decimal(200),
+                as_of_event_time=t0,
+            ),
+            Position(
+                portfolio_id="P",
+                instrument_id="UNKNOWN-E1",
+                quantity=Decimal(1),
+                average_cost=Decimal(1),
+                as_of_event_time=t0,
+            ),
+            Position(
+                portfolio_id="P",
+                instrument_id="UNKNOWN-E2",
+                quantity=Decimal(1),
+                average_cost=Decimal(1),
+                as_of_event_time=t0,
+            ),
+        ],
+        event_time=t0,
+    )
+    seed_portfolios(kafka_stack, topics, [fixture])
+
+    service = make_service(kafka_stack, topics, reference_data)
+    service.hydrate()
+    service.start_tick_consumption()
+
+    scenario_id, ticks = load_tick_fixtures()
+    assert ticks[0].instrument_id == "AAPL"
+    produce_ticks(kafka_stack, topics, scenario_id, ticks[:1])
+
+    process_n_real_ticks(service, 1)
+    try:
+        # Hydration also emits a "portfolio_update" record for the same
+        # portfolio -- excluded here by the trigger filter, not by
+        # weakening the count.
+        records = [
+            r
+            for r in _unpriceable_records(caplog)
+            if r.portfolio_id == "P" and r.trigger == "tick"
+        ]
+        assert len(records) == 1
+        record = records[0]
+        assert record.reason == UnpriceableReason.NO_REFERENCE_DATA
+        assert record.missing == ["UNKNOWN-E1", "UNKNOWN-E2"]
+        assert not any(r.reason == UnpriceableReason.NO_PRICE for r in records)
+    finally:
+        service.close()
+
+
+def test_no_price_reports_every_unpriced_underlying(kafka_stack, caplog) -> None:
+    """(f) NO_PRICE names every underlying with no observed price, not just
+    the first one encountered while iterating positions."""
+    caplog.set_level(logging.WARNING, logger="pricer")
+
+    reference_data = ReferenceData(
+        {
+            "AAPL": InstrumentReference(
+                instrument_id="AAPL",
+                instrument_type="EQUITY",
+                underlying_id="AAPL",
+                currency="USD",
+                contract_size=Decimal(1),
+            ),
+            "MSFT": InstrumentReference(
+                instrument_id="MSFT",
+                instrument_type="EQUITY",
+                underlying_id="MSFT",
+                currency="USD",
+                contract_size=Decimal(1),
+            ),
+            "GOOG": InstrumentReference(
+                instrument_id="GOOG",
+                instrument_type="EQUITY",
+                underlying_id="GOOG",
+                currency="USD",
+                contract_size=Decimal(1),
+            ),
+        }
+    )
+
+    topics = unique_topics()
+    t0 = datetime(2026, 1, 1, tzinfo=UTC)
+    fixture = PortfolioFixture(
+        portfolio_id="P",
+        positions=[
+            Position(
+                portfolio_id="P",
+                instrument_id="AAPL",
+                quantity=Decimal(10),
+                average_cost=Decimal(100),
+                as_of_event_time=t0,
+            ),
+            Position(
+                portfolio_id="P",
+                instrument_id="MSFT",
+                quantity=Decimal(5),
+                average_cost=Decimal(200),
+                as_of_event_time=t0,
+            ),
+            Position(
+                portfolio_id="P",
+                instrument_id="GOOG",
+                quantity=Decimal(1),
+                average_cost=Decimal(1000),
+                as_of_event_time=t0,
+            ),
+        ],
+        event_time=t0,
+    )
+    seed_portfolios(kafka_stack, topics, [fixture])
+
+    service = make_service(kafka_stack, topics, reference_data)
+    service.hydrate()
+    service.start_tick_consumption()
+
+    scenario_id, ticks = load_tick_fixtures()
+    assert ticks[0].instrument_id == "AAPL"
+    produce_ticks(kafka_stack, topics, scenario_id, ticks[:1])
+
+    process_n_real_ticks(service, 1)
+    try:
+        records = [
+            r
+            for r in _unpriceable_records(caplog)
+            if r.portfolio_id == "P" and r.trigger == "tick"
+        ]
+        assert len(records) == 1
+        record = records[0]
+        assert record.reason == UnpriceableReason.NO_PRICE
+        assert record.missing == ["GOOG", "MSFT"]
     finally:
         service.close()

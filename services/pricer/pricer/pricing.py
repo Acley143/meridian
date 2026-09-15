@@ -21,6 +21,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
+from enum import Enum
 
 from quant_core import PRICER_VERSION
 from quant_core.numeric import to_model, to_money
@@ -28,6 +29,15 @@ from quant_core.pricing.black_scholes import price as black_scholes_price
 from quant_core.types import EuropeanOption, MarketState, PricingResult
 
 from pricer.reference_data import InstrumentReference
+
+
+class UnpriceableReason(str, Enum):
+    """Stable reason codes for structured unpriceable-portfolio reporting
+    (ADR-0018) -- see `pricer.service.PricerService._report_unpriceable`."""
+
+    NO_REFERENCE_DATA = "NO_REFERENCE_DATA"
+    NO_PRICE = "NO_PRICE"
+    INSTRUMENT_NOT_PRICEABLE = "INSTRUMENT_NOT_PRICEABLE"
 
 
 class UnpricableInstrumentError(Exception):
@@ -60,12 +70,22 @@ def price_instrument(
         return _price_equity(spot)
 
     if reference.instrument_type == "VANILLA_EUROPEAN_OPTION":
-        assert reference.option_type is not None
-        assert reference.strike is not None
-        assert reference.expiry_iso is not None
-        assert reference.volatility is not None
-        assert reference.risk_free_rate is not None
-        assert reference.dividend_yield is not None
+        missing = [
+            name
+            for name, value in (
+                ("option_type", reference.option_type),
+                ("strike", reference.strike),
+                ("expiry_iso", reference.expiry_iso),
+                ("volatility", reference.volatility),
+                ("risk_free_rate", reference.risk_free_rate),
+                ("dividend_yield", reference.dividend_yield),
+            )
+            if value is None
+        ]
+        if missing:
+            raise UnpricableInstrumentError(
+                f"{reference.instrument_id}: VANILLA_EUROPEAN_OPTION missing {missing}"
+            )
         option = EuropeanOption(
             underlying_id=reference.underlying_id,
             strike=reference.strike,

@@ -128,3 +128,8 @@ in that file as a Q1 stand-in for this topic.
   entire problem this ADR exists to fix. A curve identified only by
   `currency` reintroduces exactly the untraceable-flat-vol failure mode
   described in Context, just moved from a YAML file onto a Kafka topic.
+
+## Editorial amendments
+- 2026-09-15: **The `market.curves` row and paragraph above are superseded
+  by ADR-0027.** The `reference.instruments` decision in this ADR is
+  unchanged.

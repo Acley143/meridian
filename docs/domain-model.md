@@ -107,6 +107,29 @@ message type in the system; this is what the throughput budget in
 
 ---
 
+## MarketCurve
+
+One scalar market-data value for one scenario, published to the
+log-compacted `market.curves` topic (ADR-0027, superseding ADR-0019's
+`market.curves` shape). Log-compacted, keyed by `(scenario_id, kind,
+curve_id)`, produced by `services/ingest`, per ADR-0027.
+
+| name | type | unit | nullable | precision | meaning |
+|---|---|---|---|---|---|
+| scenario_id | string | — | no | — | Identifies the seeded simulated market scenario this value belongs to (ADR-0011, ADR-0006). Required and non-empty. |
+| kind | enum (`CurveKind`: `RISK_FREE_RATE`, `VOLATILITY`, `DIVIDEND_YIELD`, `FX_RATE`) | — | no | — | Which market quantity this value carries. Determines the meaning of `curve_id` and which of `value_float`/`value_decimal` is populated. |
+| curve_id | string | — | no | — | Per `kind`: `RISK_FREE_RATE` — an ISO 4217 currency code; `VOLATILITY`/`DIVIDEND_YIELD` — an `underlying_id`; `FX_RATE` — six letters `FROMTO` (e.g. `EURUSD`), value is units of `TO` per one unit of `FROM`. |
+| value_float | float64 | continuously compounded, annualised decimal fraction (`docs/conventions.md`) | yes | — | Set only when `kind` is `RISK_FREE_RATE`, `VOLATILITY`, or `DIVIDEND_YIELD`; null otherwise. |
+| value_decimal | decimal | units of `TO` per one unit of `FROM` | yes | precision 38, scale 8 (ADR-0004) | Set only when `kind` is `FX_RATE`; null otherwise. Decimal because it multiplies cash amounts (ADR-0004). |
+| event_time | timestamp | — | no | microsecond | The scenario's `start_time` (scenario time, not wall clock) — a replay of the same `scenario_id` produces an identical `event_time`. |
+| ingest_time | timestamp | — | no | microsecond | UTC instant the producer (`services/ingest`) published this value — wall clock. |
+
+Exactly one of `value_float`/`value_decimal` is non-null, determined by
+`kind`; a record violating this is rejected in both directions, by the
+producer and by the consumer.
+
+---
+
 ## PortfolioState
 
 The materialized, current set of positions for a portfolio, as produced onto

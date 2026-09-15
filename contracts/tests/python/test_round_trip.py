@@ -9,6 +9,12 @@ from decimal import Decimal
 
 import avro.io
 import avro.schema
+from meridian_contracts.market_curves import SCHEMA_JSON as MARKET_CURVE_SCHEMA_JSON
+from meridian_contracts.market_curves import CurveKind, MarketCurve
+from meridian_contracts.market_curves_key import (
+    SCHEMA_JSON as MARKET_CURVE_KEY_SCHEMA_JSON,
+)
+from meridian_contracts.market_curves_key import MarketCurveKey
 from meridian_contracts.portfolio_state import (
     SCHEMA_JSON as PORTFOLIO_STATE_SCHEMA_JSON,
 )
@@ -107,3 +113,39 @@ def test_portfolio_state_empty_positions_round_trips() -> None:
     state = PortfolioState(portfolio_id="portfolio-1", positions=[], event_time=_NOW, ingest_time=_NOW)
     back = PortfolioState.from_dict(_round_trip(state.to_dict(), PORTFOLIO_STATE_SCHEMA_JSON))
     assert back == state
+
+
+def test_market_curve_volatility_round_trips() -> None:
+    curve = MarketCurve(
+        scenario_id="scenario-1",
+        kind=CurveKind.VOLATILITY,
+        curve_id="AAPL",
+        value_float=0.25,
+        value_decimal=None,
+        event_time=_NOW,
+        ingest_time=_NOW,
+    )
+    back = MarketCurve.from_dict(_round_trip(curve.to_dict(), MARKET_CURVE_SCHEMA_JSON))
+    assert back == curve
+
+    key = MarketCurveKey(scenario_id="scenario-1", kind=CurveKind.VOLATILITY, curve_id="AAPL")
+    back_key = MarketCurveKey.from_dict(_round_trip(key.to_dict(), MARKET_CURVE_KEY_SCHEMA_JSON))
+    assert back_key == key
+
+
+def test_market_curve_fx_rate_round_trips() -> None:
+    curve = MarketCurve(
+        scenario_id="scenario-1",
+        kind=CurveKind.FX_RATE,
+        curve_id="EURUSD",
+        value_float=None,
+        value_decimal=Decimal("1.08420000"),
+        event_time=_NOW,
+        ingest_time=_NOW,
+    )
+    back = MarketCurve.from_dict(_round_trip(curve.to_dict(), MARKET_CURVE_SCHEMA_JSON))
+    assert back == curve
+
+    key = MarketCurveKey(scenario_id="scenario-1", kind=CurveKind.FX_RATE, curve_id="EURUSD")
+    back_key = MarketCurveKey.from_dict(_round_trip(key.to_dict(), MARKET_CURVE_KEY_SCHEMA_JSON))
+    assert back_key == key

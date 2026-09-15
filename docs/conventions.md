@@ -60,8 +60,8 @@ that conversion, not after.
 ## Rates and volatilities
 
 Continuously compounded, annualised, expressed as **decimals** — `0.05` for
-5%, never `5`. This applies to both the risk-free rate and volatility
-everywhere they appear as a `quant_core` input or output.
+5%, never `5`. This applies to the risk-free rate, dividend yield, and
+volatility everywhere they appear as a `quant_core` input or output.
 
 ## Time to expiry
 

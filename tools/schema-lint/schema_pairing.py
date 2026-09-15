@@ -59,6 +59,13 @@ UNPAIRED_AVRO = {
         "market.ticks goes ingest -> pricer over Kafka and is never "
         "surfaced through core-service's REST API."
     ),
+    "MarketCurveKey": (
+        "Kafka message key; keys never cross into OpenAPI by construction."
+    ),
+    "MarketCurve": (
+        "market.curves goes ingest -> pricer over Kafka and is never "
+        "surfaced through core-service's REST API."
+    ),
 }
 
 # OpenAPI components/schemas entries with no Avro counterpart, and why.

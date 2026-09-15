@@ -1,0 +1,49 @@
+{
+  "type": "record",
+  "name": "MarketCurve",
+  "namespace": "com.meridian.contracts",
+  "doc": "One scalar market-data value for one scenario, published to the log-compacted market.curves topic (ADR-0027, supersedes ADR-0019's market.curves shape). Keyed by (scenario_id, kind, curve_id) -- see market-curves-key.avsc. Exactly one of value_float / value_decimal is non-null, determined by kind: RISK_FREE_RATE, VOLATILITY, and DIVIDEND_YIELD populate value_float (continuously compounded, annualised decimal fraction, per docs/conventions.md); FX_RATE populates value_decimal (units of TO per one unit of FROM, per curve_id's convention -- decimal because it multiplies cash amounts and ADR-0004 forbids floats touching cash). A record with any other combination of the two value fields is rejected in both directions, by the producer and by the consumer.",
+  "fields": [
+    {
+      "name": "scenario_id",
+      "type": "string",
+      "doc": "Identifies the seeded simulated market scenario this value belongs to (ADR-0011, ADR-0006). Required and non-empty -- must match MarketCurveKey.scenario_id."
+    },
+    {
+      "name": "kind",
+      "type": {
+        "type": "enum",
+        "name": "CurveKind",
+        "symbols": ["RISK_FREE_RATE", "VOLATILITY", "DIVIDEND_YIELD", "FX_RATE"]
+      },
+      "doc": "Which market quantity this value carries. Determines the meaning of curve_id and which of value_float / value_decimal is populated. Must match MarketCurveKey.kind."
+    },
+    {
+      "name": "curve_id",
+      "type": "string",
+      "doc": "Identifies the specific curve within (scenario_id, kind), per kind: RISK_FREE_RATE -- an ISO 4217 currency code; VOLATILITY and DIVIDEND_YIELD -- an underlying_id (docs/domain-model.md#instrument); FX_RATE -- six letters FROMTO (e.g. EURUSD), where the published value is units of TO per one unit of FROM. Must match MarketCurveKey.curve_id."
+    },
+    {
+      "name": "value_float",
+      "type": ["null", "double"],
+      "default": null,
+      "doc": "The value, for kind RISK_FREE_RATE, VOLATILITY, or DIVIDEND_YIELD: a continuously compounded, annualised decimal fraction (0.05 for 5%, never 5), per docs/conventions.md. Null for kind FX_RATE, where value_decimal is used instead."
+    },
+    {
+      "name": "value_decimal",
+      "type": ["null", { "type": "bytes", "logicalType": "decimal", "precision": 38, "scale": 8 }],
+      "default": null,
+      "doc": "The value, for kind FX_RATE only: units of TO per one unit of FROM, per curve_id's direction convention. Decimal (precision 38, scale 8) per ADR-0004/ADR-0013, since this value multiplies cash amounts. Null for kind RISK_FREE_RATE, VOLATILITY, or DIVIDEND_YIELD, where value_float is used instead."
+    },
+    {
+      "name": "event_time",
+      "type": { "type": "long", "logicalType": "timestamp-micros" },
+      "doc": "The scenario's start_time (scenario time, not wall clock) -- so a replay of the same scenario_id produces an identical event_time for this value. Per ADR-0005/ADR-0027."
+    },
+    {
+      "name": "ingest_time",
+      "type": { "type": "long", "logicalType": "timestamp-micros" },
+      "doc": "UTC instant the producer (services/ingest) published this value -- wall clock, per ADR-0005."
+    }
+  ]
+}

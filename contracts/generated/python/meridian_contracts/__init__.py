@@ -1,5 +1,7 @@
 """GENERATED -- DO NOT EDIT. Regenerate via `make gen`."""
 
+from . import market_curves as market_curves
+from . import market_curves_key as market_curves_key
 from . import portfolio_state as portfolio_state
 from . import portfolio_state_key as portfolio_state_key
 from . import reference_instruments as reference_instruments

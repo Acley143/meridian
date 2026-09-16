@@ -13,7 +13,9 @@ that scenario's first tick. Each entry has exactly the keys `kind`,
 a six-letter `FROMTO` pair for `FX_RATE`. `value` for `FX_RATE` must be a
 quoted YAML string (parsed as `Decimal`); for every other kind, `value`
 must be an unquoted number (parsed as `float`). Absent `curves` means the
-scenario declares no curves.
+scenario declares no curves. A `curve_id` that YAML could otherwise read as
+a boolean (`ON`, `OFF`, `YES`, `NO`) must be quoted, since the loader
+rejects any non-string `curve_id`.
 
 **Changing any parameter of a scenario requires a new `scenario_id`.** A
 scenario id names a specific reproducible tick stream — every consumer that

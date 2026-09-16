@@ -9,13 +9,20 @@ actually produced it. See `services/ingest/scenarios/README.md`.
 
 A scenario may also declare an optional top-level `curves` list: the
 `market.curves` values (ADR-0027) that `ingest/feed.py` publishes once,
-before that scenario's first tick. Each entry has exactly the keys `kind`,
-`curve_id`, `value`. `kind` must be one of `meridian_contracts.market_curves
-.CurveKind`'s values. For `FX_RATE`, `value` must be a YAML string (parsed
-as `Decimal`); for every other kind, `value` must be a YAML int or float
-(a YAML boolean is rejected, even though `bool` is a Python `int` subclass)
-and is parsed as `float`. A `curves` list is optional; a scenario that omits
-it declares no curves. No further validation happens here — the shared
+before that scenario's first tick. Each entry must be a mapping with
+exactly the keys `kind`, `curve_id`, `value` — a missing or unexpected key
+raises `ValueError` naming the scenario_id, rather than a bare `KeyError`.
+`curve_id` must be a non-empty string; PyYAML reads unquoted `ON`, `OFF`,
+`YES`, `NO` as booleans, so a curve_id that could be misread that way must
+be quoted in YAML, and any non-string curve_id is rejected at load rather
+than surfacing later, partway through Avro serialization. `kind` must be
+one of `meridian_contracts.market_curves.CurveKind`'s values. For
+`FX_RATE`, `value` must be a YAML string, parsed as `Decimal` (a value that
+is not a valid decimal raises `ValueError`, not `decimal.InvalidOperation`);
+for every other kind, `value` must be a YAML int or float (a YAML boolean
+is rejected, even though `bool` is a Python `int` subclass) and is parsed
+as `float`. A `curves` list is optional; a scenario that omits it declares
+no curves. No further validation happens here — the shared
 `quant_io.market_curve_io.validate_market_curve` validator runs before any
 curve is produced.
 """
@@ -23,7 +30,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any
 
@@ -31,6 +38,7 @@ import yaml
 from meridian_contracts.market_curves import CurveKind
 
 _CURVE_KIND_VALUES = {kind.value for kind in CurveKind}
+_CURVE_ENTRY_KEYS = {"kind", "curve_id", "value"}
 
 
 @dataclass(frozen=True)
@@ -93,9 +101,25 @@ def _load_curves(scenario_id: str, raw_curves: list[dict[str, Any]] | None) -> t
     seen: set[tuple[str, str]] = set()
     curves: list[CurveConfig] = []
     for entry in raw_curves:
+        entry_keys = set(entry) if isinstance(entry, dict) else set()
+        if not isinstance(entry, dict) or entry_keys != _CURVE_ENTRY_KEYS:
+            missing = sorted(_CURVE_ENTRY_KEYS - entry_keys)
+            unexpected = sorted(entry_keys - _CURVE_ENTRY_KEYS)
+            raise ValueError(
+                f"scenario {scenario_id!r}: curve entry {entry!r} must have exactly the keys "
+                f"{sorted(_CURVE_ENTRY_KEYS)}; missing {missing}, unexpected {unexpected}"
+            )
+
         kind = entry["kind"]
         curve_id = entry["curve_id"]
         value = entry["value"]
+
+        if not isinstance(curve_id, str) or curve_id == "":
+            raise ValueError(
+                f"scenario {scenario_id!r}: curve entry {entry!r}: curve_id must be a non-empty "
+                "string -- quote the value in YAML if it could otherwise be read as a boolean "
+                "(e.g. ON, OFF, YES, NO) or any other non-string type"
+            )
 
         if kind not in _CURVE_KIND_VALUES:
             raise ValueError(f"scenario {scenario_id!r}: curve entry {entry!r} has unknown kind {kind!r}")
@@ -112,8 +136,14 @@ def _load_curves(scenario_id: str, raw_curves: list[dict[str, Any]] | None) -> t
                 raise ValueError(
                     f"scenario {scenario_id!r}: curve entry {entry!r}: FX_RATE value must be a quoted string"
                 )
+            try:
+                value_decimal = Decimal(value)
+            except InvalidOperation as exc:
+                raise ValueError(
+                    f"scenario {scenario_id!r}: curve entry {entry!r}: value is not a valid decimal"
+                ) from exc
             curves.append(
-                CurveConfig(kind=kind, curve_id=curve_id, value_float=None, value_decimal=Decimal(value))
+                CurveConfig(kind=kind, curve_id=curve_id, value_float=None, value_decimal=value_decimal)
             )
         else:
             if isinstance(value, bool) or not isinstance(value, (int, float)):

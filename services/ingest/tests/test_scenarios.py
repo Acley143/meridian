@@ -119,6 +119,53 @@ def test_curve_loading_rejects_repeated_kind_and_curve_id(tmp_path: Path) -> Non
         load_scenario(path)
 
 
+def test_curve_loading_rejects_unquoted_boolean_curve_id(tmp_path: Path) -> None:
+    """PyYAML reads unquoted ON/OFF/YES/NO as booleans -- a real ticker
+    named ON must be quoted, and an unquoted one must fail loudly at load,
+    not partway through Avro serialization."""
+    scenario_id = "bad-boolean-curve-id"
+    path = tmp_path / "scenario.yaml"
+    path.write_text(
+        _SCENARIO_HEADER.format(scenario_id=scenario_id)
+        + "curves:\n  - kind: VOLATILITY\n    curve_id: ON\n    value: 0.25\n"
+    )
+    with pytest.raises(ValueError, match=scenario_id):
+        load_scenario(path)
+
+
+def test_curve_loading_rejects_extra_key(tmp_path: Path) -> None:
+    scenario_id = "bad-extra-key"
+    path = tmp_path / "scenario.yaml"
+    path.write_text(
+        _SCENARIO_HEADER.format(scenario_id=scenario_id)
+        + "curves:\n  - kind: VOLATILITY\n    curve_id: AAPL\n    value: 0.25\n    units: pct\n"
+    )
+    with pytest.raises(ValueError, match=scenario_id):
+        load_scenario(path)
+
+
+def test_curve_loading_rejects_missing_key(tmp_path: Path) -> None:
+    scenario_id = "bad-missing-key"
+    path = tmp_path / "scenario.yaml"
+    path.write_text(
+        _SCENARIO_HEADER.format(scenario_id=scenario_id)
+        + "curves:\n  - kind: VOLATILITY\n    curve_id: AAPL\n"
+    )
+    with pytest.raises(ValueError, match=scenario_id):
+        load_scenario(path)
+
+
+def test_curve_loading_rejects_unparseable_fx_rate_value(tmp_path: Path) -> None:
+    scenario_id = "bad-fx-rate-not-a-number"
+    path = tmp_path / "scenario.yaml"
+    path.write_text(
+        _SCENARIO_HEADER.format(scenario_id=scenario_id)
+        + 'curves:\n  - kind: FX_RATE\n    curve_id: EURUSD\n    value: "abc"\n'
+    )
+    with pytest.raises(ValueError, match=scenario_id):
+        load_scenario(path)
+
+
 def test_small_deterministic_v2_curves_match_pricer_fixture_exactly() -> None:
     """Guards fixture parity between small-deterministic-v2's curves and
     services/pricer/fixtures/instruments.yaml until services/pricer consumes

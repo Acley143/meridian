@@ -83,6 +83,17 @@ number three components downstream, not a compile error here.
 - Why this workstream: every script in `tools/schema-lint/` lints a
   contract or a docs artifact — the same surface this workstream already
   owns.
+- `docs/adr/0027-market-curves.md` (supersedes ADR-0019's `market.curves`
+  shape, with a dated Editorial amendment on ADR-0019 pointing to it) and
+  the `market-curves.avsc`/`market-curves-key.avsc` schemas landed, plus
+  their `schema_pairing.py` unpaired-Avro entries and a contract test
+  (`test_round_trip.py`'s two new `MarketCurve`/`MarketCurveKey` cases,
+  `test_schema_evolution.py`'s `CurveKind` identity check). No PLAN.md
+  claims ownership of `docs/adr/` or `docs/domain-model.md`, so the
+  `docs/domain-model.md` `MarketCurve` section and `docs/conventions.md`'s
+  "Rates and volatilities" wording (extended to name dividend yield
+  alongside the risk-free rate and volatility) are recorded here too.
+  Owner: Acley, Quarter: Q2.
 
 ## Boundaries
 - **Owns:** `contracts/**`, `tools/codegen/**`, `tools/schema-lint/**`.

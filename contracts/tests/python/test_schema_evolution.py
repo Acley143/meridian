@@ -58,3 +58,39 @@ def test_adding_field_without_default_is_rejected(schema_path: Path) -> None:
         f"{schema_path.name}: adding a field WITHOUT a default was accepted as BACKWARD-compatible -- "
         "the enforcement mechanism is broken, not just this schema."
     )
+
+
+def _find_enum(node, name: str):
+    """Depth-first search for a named enum definition anywhere in a schema."""
+    if isinstance(node, dict):
+        if node.get("type") == "enum" and node.get("name") == name:
+            return node
+        for value in node.values():
+            found = _find_enum(value, name)
+            if found is not None:
+                return found
+    elif isinstance(node, list):
+        for item in node:
+            found = _find_enum(item, name)
+            if found is not None:
+                return found
+    return None
+
+
+def test_curve_kind_identical_in_market_curves_and_market_curves_key() -> None:
+    value_schema = _load(_AVRO_DIR / "market-curves.avsc")
+    key_schema = _load(_AVRO_DIR / "market-curves-key.avsc")
+
+    value_curve_kind = _find_enum(value_schema, "CurveKind")
+    key_curve_kind = _find_enum(key_schema, "CurveKind")
+
+    assert value_curve_kind is not None, "CurveKind not found in market-curves.avsc"
+    assert key_curve_kind is not None, "CurveKind not found in market-curves-key.avsc"
+    assert value_curve_kind.get("namespace") == key_curve_kind.get("namespace"), (
+        "CurveKind namespace differs between market-curves.avsc and market-curves-key.avsc"
+    )
+    assert value_curve_kind["symbols"] == key_curve_kind["symbols"], (
+        "CurveKind symbols differ (or differ in order) between market-curves.avsc and "
+        "market-curves-key.avsc: "
+        f"{value_curve_kind['symbols']!r} != {key_curve_kind['symbols']!r}"
+    )

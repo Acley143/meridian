@@ -186,6 +186,46 @@ def test_publish_scenario_curves_rejects_invalid_curve_and_produces_nothing(
     assert messages == []
 
 
+def test_publish_scenario_curves_rejects_unrepresentable_value_decimal_and_produces_nothing(
+    kafka_stack: KafkaStack,
+) -> None:
+    topic = _unique_topic()
+    producer = MarketCurveProducer(
+        bootstrap_servers=kafka_stack.bootstrap_servers,
+        schema_registry_url=kafka_stack.schema_registry_url,
+        topic=topic,
+    )
+    scenario_id = f"contract-{uuid.uuid4()}"
+    curves = [
+        _curve(scenario_id=scenario_id, kind=CurveKind.VOLATILITY, curve_id="AAPL", value_float=0.25),
+        # Invalid: 9 fractional digits, one more than decimal(38,8) allows.
+        _curve(
+            scenario_id=scenario_id,
+            kind=CurveKind.FX_RATE,
+            curve_id="EURUSD",
+            value_decimal=Decimal("1.123456789"),
+        ),
+    ]
+    with pytest.raises(InvalidMarketCurveError):
+        producer.publish_scenario_curves(curves)
+
+    # The batch rule requires validation before any produce -- the only
+    # evidence for "nothing was produced" is that consuming the topic to
+    # its end yields no records at all.
+    consumer = make_market_curve_consumer(
+        bootstrap_servers=kafka_stack.bootstrap_servers,
+        schema_registry_url=kafka_stack.schema_registry_url,
+        group_id=f"test-{uuid.uuid4()}",
+        topic=topic,
+        enable_partition_eof=True,
+    )
+    try:
+        messages = _collect_until_eof(consumer)
+    finally:
+        consumer.close()
+    assert messages == []
+
+
 def test_constructing_producer_against_delete_policy_topic_raises(kafka_stack: KafkaStack) -> None:
     topic = _unique_topic()
     admin = AdminClient({"bootstrap.servers": kafka_stack.bootstrap_servers})

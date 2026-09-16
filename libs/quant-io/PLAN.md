@@ -62,7 +62,10 @@ Python side.
   `validate_market_curve`, the single shape validator (ADR-0027
   Decision 3) shared by this producer and, later, the consumer that
   hydrates `market.curves` — a record failing it is rejected in both
-  directions, never silently accepted by one side only.
+  directions, never silently accepted by one side only. `value_decimal` is
+  checked against decimal(38,8) representability before any curve in a
+  batch is produced, not left to fail during Avro serialization partway
+  through the batch.
 
 ## Boundaries
 - **Owns:** `libs/quant-io/**`.

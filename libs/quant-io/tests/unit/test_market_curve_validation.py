@@ -152,3 +152,41 @@ def test_non_utc_ingest_time_rejected() -> None:
     )
     with pytest.raises(InvalidMarketCurveError, match=CurveKind.RISK_FREE_RATE.value):
         validate_market_curve(curve)
+
+
+def test_value_decimal_nine_fractional_digits_rejected() -> None:
+    curve = _curve(kind=CurveKind.FX_RATE, value_decimal=Decimal("1.123456789"))
+    with pytest.raises(InvalidMarketCurveError, match=CurveKind.FX_RATE.value):
+        validate_market_curve(curve)
+
+
+def test_value_decimal_nan_rejected() -> None:
+    curve = _curve(kind=CurveKind.FX_RATE, value_decimal=Decimal("NaN"))
+    with pytest.raises(InvalidMarketCurveError, match=CurveKind.FX_RATE.value):
+        validate_market_curve(curve)
+
+
+def test_value_decimal_infinity_rejected() -> None:
+    curve = _curve(kind=CurveKind.FX_RATE, value_decimal=Decimal("Infinity"))
+    with pytest.raises(InvalidMarketCurveError, match=CurveKind.FX_RATE.value):
+        validate_market_curve(curve)
+
+
+def test_value_decimal_thirty_one_integer_digits_rejected() -> None:
+    curve = _curve(kind=CurveKind.FX_RATE, value_decimal=Decimal("1" + "0" * 30))
+    with pytest.raises(InvalidMarketCurveError, match=CurveKind.FX_RATE.value):
+        validate_market_curve(curve)
+
+
+def test_value_decimal_eight_fractional_digits_accepted() -> None:
+    validate_market_curve(_curve(kind=CurveKind.FX_RATE, value_decimal=Decimal("1.12345678")))
+
+
+def test_value_decimal_thirty_integer_digits_accepted() -> None:
+    curve = _curve(kind=CurveKind.FX_RATE, value_decimal=Decimal("1" + "0" * 29 + ".12345678"))
+    validate_market_curve(curve)
+
+
+@pytest.mark.parametrize("value_decimal", [Decimal("1.5"), Decimal(2)])
+def test_value_decimal_fewer_than_eight_fractional_digits_accepted(value_decimal: Decimal) -> None:
+    validate_market_curve(_curve(kind=CurveKind.FX_RATE, value_decimal=value_decimal))

@@ -9,6 +9,7 @@ from __future__ import annotations
 import math
 import re
 from collections.abc import Sequence
+from decimal import Decimal
 
 from meridian_contracts import market_curves as market_curve_schema
 from meridian_contracts import market_curves_key as market_curve_key_schema
@@ -29,10 +30,30 @@ _CURVE_ID_PATTERNS = {
 _FLOAT_KINDS = (CurveKind.RISK_FREE_RATE, CurveKind.VOLATILITY, CurveKind.DIVIDEND_YIELD)
 _NON_EMPTY_CURVE_ID_KINDS = (CurveKind.VOLATILITY, CurveKind.DIVIDEND_YIELD)
 
+# decimal(38,8), the wire type for FX_RATE's value_decimal (ADR-0027
+# Decision 3, ADR-0013): at most 30 integer digits and 8 fractional digits.
+_MAX_INTEGER_DIGITS = 30
+_MAX_FRACTIONAL_DIGITS = 8
+
 
 class InvalidMarketCurveError(ValueError):
     """A `MarketCurve` (or a batch of them) violates ADR-0027's shape
     invariants."""
+
+
+def _fits_decimal_38_8(value: Decimal) -> bool:
+    """Whether `value` is finite and representable as decimal(38,8) --
+    checked directly against `Decimal.as_tuple()` rather than by quantizing
+    (quant_core.numeric.to_money quantizes silently, which would accept and
+    round away exactly the shapes this must reject)."""
+    if not value.is_finite():
+        return False
+    _sign, digits, exponent = value.as_tuple()
+    if not isinstance(exponent, int):
+        return False  # only reachable for Inf/NaN, already excluded above
+    fractional_digits = max(0, -exponent)
+    integer_digits = max(0, len(digits) + exponent)
+    return fractional_digits <= _MAX_FRACTIONAL_DIGITS and integer_digits <= _MAX_INTEGER_DIGITS
 
 
 def validate_market_curve(curve: MarketCurve) -> None:
@@ -60,6 +81,9 @@ def validate_market_curve(curve: MarketCurve) -> None:
 
     if curve.value_float is not None and not math.isfinite(curve.value_float):
         _fail("value_float must be finite")
+
+    if curve.value_decimal is not None and not _fits_decimal_38_8(curve.value_decimal):
+        _fail("value_decimal must be finite and representable at precision 38, scale 8")
 
     if curve.kind in _CURVE_ID_PATTERNS:
         if not _CURVE_ID_PATTERNS[curve.kind].match(curve.curve_id):
@@ -117,8 +141,12 @@ class MarketCurveProducer:
         Decision 4: every curve key a scenario needs is published exactly
         once, before that scenario's first tick). Every curve in the batch
         is validated -- and the batch checked for a single `scenario_id`
-        and no duplicate `(kind, curve_id)` -- before anything is produced,
-        so a batch that fails validation never partially lands."""
+        and no duplicate `(kind, curve_id)` -- before anything is produced:
+        a batch that fails validation produces nothing. A delivery failure
+        after validation (e.g. a broker rejection) can still leave a
+        partial batch, surfaced as `DeliveryError` -- republishing the same
+        scenario afterwards is safe, because `market.curves` is compacted
+        and every curve's value is identical on retry."""
         if not curves:
             raise InvalidMarketCurveError("publish_scenario_curves requires at least one curve")
 

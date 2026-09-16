@@ -10,8 +10,12 @@ import uuid
 from collections.abc import Iterable
 from typing import Any
 
+from meridian_contracts import market_curves as market_curve_schema
+from meridian_contracts import market_curves_key as market_curve_key_schema
 from meridian_contracts import tick as tick_schema
 from meridian_contracts import tick_key as tick_key_schema
+from meridian_contracts.market_curves import MarketCurve
+from meridian_contracts.market_curves_key import MarketCurveKey
 from meridian_contracts.tick import Tick
 from meridian_contracts.tick_key import TickKey
 from quant_io.consumer import AvroConsumer
@@ -60,6 +64,38 @@ def consume_all(
         auto_offset_reset="earliest",
     )
     records: list[tuple[TickKey, Tick]] = []
+    deadline = time.monotonic() + timeout
+    try:
+        while len(records) < expected_count and time.monotonic() < deadline:
+            msg = consumer.poll(1.0)
+            if msg is not None:
+                records.append((msg.key(), msg.value()))
+    finally:
+        consumer.close()
+    return records
+
+
+def consume_all_curves(
+    *,
+    bootstrap_servers: str,
+    schema_registry_url: str,
+    topic: str,
+    expected_count: int,
+    timeout: float = 30.0,
+) -> list[tuple[MarketCurveKey, MarketCurve]]:
+    """Mirrors `consume_all`, for the `market.curves` shape (ADR-0027)."""
+    consumer = AvroConsumer(
+        bootstrap_servers=bootstrap_servers,
+        schema_registry_url=schema_registry_url,
+        topic=topic,
+        group_id=f"test-{uuid.uuid4()}",
+        value_schema_str=market_curve_schema.SCHEMA_JSON,
+        value_from_dict=MarketCurve.from_dict,
+        key_schema_str=market_curve_key_schema.SCHEMA_JSON,
+        key_from_dict=MarketCurveKey.from_dict,
+        auto_offset_reset="earliest",
+    )
+    records: list[tuple[MarketCurveKey, MarketCurve]] = []
     deadline = time.monotonic() + timeout
     try:
         while len(records) < expected_count and time.monotonic() < deadline:

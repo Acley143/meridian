@@ -4,9 +4,29 @@ every historical snapshot tagged with it a lie, so every scenario file must
 declare a distinct id."""
 from pathlib import Path
 
-from ingest.scenario import load_all_scenarios
+import pytest
+import yaml
+from ingest.scenario import load_all_scenarios, load_scenario
 
 _SCENARIOS_DIR = Path(__file__).resolve().parents[1] / "scenarios"
+_SMALL_DETERMINISTIC_V2 = _SCENARIOS_DIR / "small-deterministic-v2.yaml"
+_INSTRUMENTS_FIXTURE = (
+    Path(__file__).resolve().parents[2] / "pricer" / "fixtures" / "instruments.yaml"
+)
+
+_SCENARIO_HEADER = """\
+scenario_id: {scenario_id}
+seed: 1
+start_time: "2026-01-01T00:00:00Z"
+tick_interval_seconds: 1.0
+tick_count: 1
+instruments:
+  AAPL:
+    s0: "150.00"
+    drift: 0.05
+    volatility: 0.20
+    currency: USD
+"""
 
 
 def test_scenario_ids_are_unique_across_the_directory() -> None:
@@ -17,3 +37,165 @@ def test_scenario_ids_are_unique_across_the_directory() -> None:
 
 def test_at_least_one_scenario_file_present() -> None:
     assert load_all_scenarios(_SCENARIOS_DIR), f"no scenario files found in {_SCENARIOS_DIR}"
+
+
+def test_small_deterministic_v2_loads_exactly_the_five_declared_curves() -> None:
+    scenario = load_scenario(_SMALL_DETERMINISTIC_V2)
+
+    expected = {
+        ("RISK_FREE_RATE", "USD"): (0.04, None),
+        ("VOLATILITY", "AAPL"): (0.25, None),
+        ("DIVIDEND_YIELD", "AAPL"): (0.0, None),
+        ("VOLATILITY", "MSFT"): (0.35, None),
+        ("DIVIDEND_YIELD", "MSFT"): (0.0, None),
+    }
+    assert len(scenario.curves) == len(expected)
+    actual = {(c.kind, c.curve_id): (c.value_float, c.value_decimal) for c in scenario.curves}
+    assert actual == expected
+
+
+@pytest.mark.parametrize("scenario_path", ["small-deterministic.yaml", "throughput-1000.yaml"])
+def test_scenarios_without_a_curves_section_load_with_no_curves(scenario_path: str) -> None:
+    scenario = load_scenario(_SCENARIOS_DIR / scenario_path)
+    assert scenario.curves == ()
+
+
+def test_curve_loading_rejects_unknown_kind(tmp_path: Path) -> None:
+    scenario_id = "bad-curve-kind"
+    path = tmp_path / "scenario.yaml"
+    path.write_text(
+        _SCENARIO_HEADER.format(scenario_id=scenario_id)
+        + "curves:\n  - kind: NOT_A_KIND\n    curve_id: USD\n    value: 0.04\n"
+    )
+    with pytest.raises(ValueError, match=scenario_id):
+        load_scenario(path)
+
+
+def test_curve_loading_rejects_unquoted_fx_rate_value(tmp_path: Path) -> None:
+    scenario_id = "bad-fx-rate-value"
+    path = tmp_path / "scenario.yaml"
+    path.write_text(
+        _SCENARIO_HEADER.format(scenario_id=scenario_id)
+        + "curves:\n  - kind: FX_RATE\n    curve_id: EURUSD\n    value: 1.08\n"
+    )
+    with pytest.raises(ValueError, match=scenario_id):
+        load_scenario(path)
+
+
+def test_curve_loading_rejects_quoted_volatility_value(tmp_path: Path) -> None:
+    scenario_id = "bad-volatility-value"
+    path = tmp_path / "scenario.yaml"
+    path.write_text(
+        _SCENARIO_HEADER.format(scenario_id=scenario_id)
+        + 'curves:\n  - kind: VOLATILITY\n    curve_id: AAPL\n    value: "0.25"\n'
+    )
+    with pytest.raises(ValueError, match=scenario_id):
+        load_scenario(path)
+
+
+def test_curve_loading_rejects_boolean_volatility_value(tmp_path: Path) -> None:
+    """`bool` is a Python `int` subclass, so this must be checked explicitly
+    rather than relying on `isinstance(value, (int, float))`."""
+    scenario_id = "bad-boolean-value"
+    path = tmp_path / "scenario.yaml"
+    path.write_text(
+        _SCENARIO_HEADER.format(scenario_id=scenario_id)
+        + "curves:\n  - kind: VOLATILITY\n    curve_id: AAPL\n    value: true\n"
+    )
+    with pytest.raises(ValueError, match=scenario_id):
+        load_scenario(path)
+
+
+def test_curve_loading_rejects_repeated_kind_and_curve_id(tmp_path: Path) -> None:
+    scenario_id = "bad-repeated-curve"
+    path = tmp_path / "scenario.yaml"
+    path.write_text(
+        _SCENARIO_HEADER.format(scenario_id=scenario_id)
+        + "curves:\n"
+        + "  - kind: RISK_FREE_RATE\n    curve_id: USD\n    value: 0.04\n"
+        + "  - kind: RISK_FREE_RATE\n    curve_id: USD\n    value: 0.05\n"
+    )
+    with pytest.raises(ValueError, match=scenario_id):
+        load_scenario(path)
+
+
+def test_curve_loading_rejects_unquoted_boolean_curve_id(tmp_path: Path) -> None:
+    """PyYAML reads unquoted ON/OFF/YES/NO as booleans -- a real ticker
+    named ON must be quoted, and an unquoted one must fail loudly at load,
+    not partway through Avro serialization."""
+    scenario_id = "bad-boolean-curve-id"
+    path = tmp_path / "scenario.yaml"
+    path.write_text(
+        _SCENARIO_HEADER.format(scenario_id=scenario_id)
+        + "curves:\n  - kind: VOLATILITY\n    curve_id: ON\n    value: 0.25\n"
+    )
+    with pytest.raises(ValueError, match=scenario_id):
+        load_scenario(path)
+
+
+def test_curve_loading_rejects_extra_key(tmp_path: Path) -> None:
+    scenario_id = "bad-extra-key"
+    path = tmp_path / "scenario.yaml"
+    path.write_text(
+        _SCENARIO_HEADER.format(scenario_id=scenario_id)
+        + "curves:\n  - kind: VOLATILITY\n    curve_id: AAPL\n    value: 0.25\n    units: pct\n"
+    )
+    with pytest.raises(ValueError, match=scenario_id):
+        load_scenario(path)
+
+
+def test_curve_loading_rejects_missing_key(tmp_path: Path) -> None:
+    scenario_id = "bad-missing-key"
+    path = tmp_path / "scenario.yaml"
+    path.write_text(
+        _SCENARIO_HEADER.format(scenario_id=scenario_id)
+        + "curves:\n  - kind: VOLATILITY\n    curve_id: AAPL\n"
+    )
+    with pytest.raises(ValueError, match=scenario_id):
+        load_scenario(path)
+
+
+def test_curve_loading_rejects_unparseable_fx_rate_value(tmp_path: Path) -> None:
+    scenario_id = "bad-fx-rate-not-a-number"
+    path = tmp_path / "scenario.yaml"
+    path.write_text(
+        _SCENARIO_HEADER.format(scenario_id=scenario_id)
+        + 'curves:\n  - kind: FX_RATE\n    curve_id: EURUSD\n    value: "abc"\n'
+    )
+    with pytest.raises(ValueError, match=scenario_id):
+        load_scenario(path)
+
+
+def test_small_deterministic_v2_curves_match_pricer_fixture_exactly() -> None:
+    """Guards fixture parity between small-deterministic-v2's curves and
+    services/pricer/fixtures/instruments.yaml until services/pricer consumes
+    market.curves directly (ADR-0027 Consequences) -- this test is retired
+    in that session, once the fixture's volatility/risk_free_rate/
+    dividend_yield fields are retired too."""
+    scenario = load_scenario(_SMALL_DETERMINISTIC_V2)
+    curves_by_key = {(c.kind, c.curve_id): c for c in scenario.curves}
+
+    fixture = yaml.safe_load(_INSTRUMENTS_FIXTURE.read_text())
+    expected_keys: set[tuple[str, str]] = set()
+    for instrument in fixture["instruments"].values():
+        if instrument["instrument_type"] != "VANILLA_EUROPEAN_OPTION":
+            continue
+        currency = instrument["currency"]
+        underlying_id = instrument["underlying_id"]
+
+        rate_key = ("RISK_FREE_RATE", currency)
+        vol_key = ("VOLATILITY", underlying_id)
+        div_key = ("DIVIDEND_YIELD", underlying_id)
+        expected_keys |= {rate_key, vol_key, div_key}
+
+        assert rate_key in curves_by_key, f"missing {rate_key} for {instrument}"
+        assert curves_by_key[rate_key].value_float == instrument["risk_free_rate"]
+        assert vol_key in curves_by_key, f"missing {vol_key} for {instrument}"
+        assert curves_by_key[vol_key].value_float == instrument["volatility"]
+        assert div_key in curves_by_key, f"missing {div_key} for {instrument}"
+        assert curves_by_key[div_key].value_float == instrument["dividend_yield"]
+
+    assert set(curves_by_key) == expected_keys, (
+        f"small-deterministic-v2 declares curves beyond fixture parity: "
+        f"{set(curves_by_key) - expected_keys}"
+    )

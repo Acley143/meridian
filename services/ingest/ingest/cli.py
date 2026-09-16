@@ -5,6 +5,7 @@ import argparse
 import os
 from pathlib import Path
 
+from quant_io.market_curve_io import MarketCurveProducer
 from quant_io.tick_producer import TickProducer
 
 from ingest.feed import PacingMode, run_feed
@@ -32,11 +33,15 @@ def main(argv: list[str] | None = None) -> int:
     log = get_scenario_logger(scenario.scenario_id)
     log.info("loaded scenario from %s", args.scenario_path)
 
+    curve_producer = MarketCurveProducer(
+        bootstrap_servers=args.bootstrap_servers,
+        schema_registry_url=args.schema_registry_url,
+    )
     producer = TickProducer(
         bootstrap_servers=args.bootstrap_servers,
         schema_registry_url=args.schema_registry_url,
     )
-    run_feed(scenario, producer, PacingMode(args.pacing), logger=log)
+    run_feed(scenario, producer, PacingMode(args.pacing), logger=log, curve_producer=curve_producer)
     return 0
 
 

@@ -37,6 +37,29 @@ runs lives in `libs/quant-core`, not here.
 - Rate control tied to the 1,000 ticks/sec throughput target — that's a Q4
   load-test concern; Q1's rate is whatever's convenient for development.
 
+## Extended scope, Q2
+- [x] Scenarios may declare a `curves` section (`ingest/scenario.py`'s
+      `CurveConfig`, ADR-0027): the `market.curves` values a scenario needs,
+      validated at load time against `meridian_contracts.market_curves
+      .CurveKind` and the FX_RATE-is-decimal/others-are-float split.
+      `scenarios/small-deterministic-v2.yaml` is the first scenario to use
+      it, mirroring `services/pricer/fixtures/instruments.yaml`'s values.
+      Owner: Eng-C, quarter: Q2.
+- [x] `ingest/feed.py`'s `run_feed` publishes a scenario's declared curves as
+      one batch, via an injected `MarketCurveProducer`, before any tick is
+      produced (ADR-0027 Decision 4); a scenario with curves and no curve
+      producer raises. `ingest/cli.py` wires a real `MarketCurveProducer`,
+      constructed before the tick producer so topic-provisioning failures
+      surface first. Owner: Eng-C, quarter: Q2.
+- [x] `run_feed`'s post-tick-loop `flush()` now checks its outstanding
+      count and raises `DeliveryError` on anything left undelivered, rather
+      than discarding the count. Owner: Eng-C, quarter: Q2.
+- [x] `test_scenarios.py`'s fixture-parity test is a temporary guard: it
+      asserts `small-deterministic-v2`'s curves exactly match
+      `services/pricer/fixtures/instruments.yaml`'s market-assumption
+      fields, and is retired once `services/pricer` consumes `market.curves`
+      directly instead of that fixture. Owner: Eng-C, quarter: Q2.
+
 ## Boundaries
 - **Owns:** `services/ingest/**`.
 - **Must not touch:** `contracts/avro/tick.avsc` without coordinating with

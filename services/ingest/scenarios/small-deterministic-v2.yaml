@@ -1,0 +1,35 @@
+# Small deterministic scenario with market curves (ADR-0027). Curve values
+# mirror services/pricer/fixtures/instruments.yaml. Changing any value below
+# (including any curve value) requires a new scenario_id (see README.md).
+scenario_id: small-deterministic-v2
+seed: 42
+start_time: "2026-01-01T00:00:00Z"
+tick_interval_seconds: 1.0
+tick_count: 20
+instruments:
+  AAPL:
+    s0: "150.00"
+    drift: 0.05
+    volatility: 0.20
+    currency: USD
+  MSFT:
+    s0: "300.00"
+    drift: 0.03
+    volatility: 0.25
+    currency: USD
+curves:
+  - kind: RISK_FREE_RATE
+    curve_id: USD
+    value: 0.04
+  - kind: VOLATILITY
+    curve_id: AAPL
+    value: 0.25
+  - kind: DIVIDEND_YIELD
+    curve_id: AAPL
+    value: 0.0
+  - kind: VOLATILITY
+    curve_id: MSFT
+    value: 0.35
+  - kind: DIVIDEND_YIELD
+    curve_id: MSFT
+    value: 0.0

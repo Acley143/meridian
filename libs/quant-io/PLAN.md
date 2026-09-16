@@ -48,6 +48,22 @@ Python side.
 - Java or TypeScript equivalents — those live alongside `services/core-service`
   and `apps/dashboard` respectively, not here.
 
+## Extended scope, Q2
+**Owner:** Eng-B  ·  **Quarter:** Q2
+
+- `quant_io/topic_admin.py` — compacted-topic provisioning
+  (`ensure_compacted_topic`, `TopicConfigurationError`), mirroring
+  `services/core-service`'s `CompactedTopicInitializer` (ADR-0027
+  Decision 10): the sole producer of a compacted topic owns and verifies
+  its configuration, refusing to start on a mismatch rather than altering
+  it.
+- `quant_io/market_curve_io.py` — the `market.curves` producer
+  (`MarketCurveProducer`, `make_market_curve_consumer`) and
+  `validate_market_curve`, the single shape validator (ADR-0027
+  Decision 3) shared by this producer and, later, the consumer that
+  hydrates `market.curves` — a record failing it is rejected in both
+  directions, never silently accepted by one side only.
+
 ## Boundaries
 - **Owns:** `libs/quant-io/**`.
 - **Must not touch:** everything else, including `libs/quant-core` internals

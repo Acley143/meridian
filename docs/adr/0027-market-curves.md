@@ -21,14 +21,12 @@ fixture (`services/pricer/fixtures/instruments.yaml`) exists:
   that `market.curves` "replaces" the fixture's `volatility`,
   `risk_free_rate`, and `dividend_yield` fields. The fixture carries all
   three; the shape ADR-0019 fixed only carries two.
-- **No place for FX rates.** Root `PLAN.md`'s open questions name
-  cross-currency portfolio aggregation as an unresolved Q2 blocker: one
-  reporting currency per portfolio, with FX conversion needed wherever a
-  position's currency differs from its portfolio's. That decision is
-  already settled at the root-`PLAN.md` level; the concrete consequence for
-  this topic is that FX rates must come from `market.curves`, event-time
-  keyed and scenario-scoped exactly like every other curve, and ADR-0019's
-  shape has no field for one.
+- **No place for FX rates.** Root `PLAN.md` lists cross-currency portfolio
+  aggregation, including where FX conversion happens, as an open question.
+  Whatever that decision is, FX rates are market inputs that must be
+  scenario-scoped and event-time keyed like every other curve, so this ADR
+  reserves their place on `market.curves` and does not decide where
+  conversion happens; ADR-0019's shape has no field for one.
 
 A log-compacted topic only ever retains the latest value per key. That
 constrains what this ADR can build cheaply: a value that must change within
@@ -76,10 +74,10 @@ not by oversight.
    -joined topic instead — not an extension of this one.
 
 5. **Time fields.** `event_time` is the scenario's `start_time`, so a
-   replay of the same `scenario_id` produces byte-identical curve values
-   every time (the same reproducibility guarantee `Tick.scenario_id`
-   already gives the tick stream). `ingest_time` is the producer's wall
-   clock, per ADR-0005. `scenario_id` is required and non-empty — unlike
+   replay of the same `scenario_id` produces identical `event_time` and
+   value fields (`ingest_time` is wall clock and differs by design).
+   `ingest_time` is the producer's wall clock, per ADR-0005. `scenario_id`
+   is required and non-empty — unlike
    `Tick.scenario_id`, this field carries no legacy empty-string default,
    because `market.curves` has no pre-ADR-0011 history to be backward
    compatible with.
@@ -96,11 +94,11 @@ not by oversight.
    `services/ingest`'s scenario simulator uses to generate tick paths is
    *realised* volatility, used only for path simulation and never
    published on this topic. These must not be unified: their difference is
-   what gives a delta-hedging backtest meaningful P&L. A pricer computing
-   Greeks from the same volatility that generated the underlying's price
-   path would see risk that trivially nets to (near) zero — the entire
-   point of running implied volatility against a simulated realised path
-   is to have the two disagree.
+   what gives a delta-hedging backtest meaningful P&L. When implied
+   volatility equals the realised volatility of the simulated path, a
+   delta-hedging backtest's hedging P&L is zero in expectation apart from
+   discrete-rebalancing noise; the P&L the backtest exists to measure comes
+   from the gap between the two.
 
 8. **Required curves, per instrument type.** A `VANILLA_EUROPEAN_OPTION`
    position requires `RISK_FREE_RATE` for its currency, and `VOLATILITY`
@@ -116,7 +114,7 @@ not by oversight.
    unpriceable reasons: `NO_REFERENCE_DATA`, `NO_PRICE`, `MISSING_CURVE`,
    `INSTRUMENT_NOT_PRICEABLE`. The pricer's ADR-0018 readiness gate is
    extended to include hydration of `market.curves`, alongside
-   `reference.instruments` and `portfolio.state`.
+   `portfolio.state`.
 
 10. **Topic provisioning convention**, recorded here because until now it
     existed only as a code comment in `services/core-service`
@@ -126,9 +124,10 @@ not by oversight.
     `compact` and its partition count matches expectations, refusing to
     start on a mismatch rather than silently altering the topic underneath
     whatever else might be consuming it. `market.curves` follows this
-    convention with one partition, implemented in the producer's
-    (`services/ingest`'s) library code — the same pattern already used for
-    `market.ticks`, `portfolio.state`, and `reference.instruments`.
+    convention with one partition, implemented in `libs/quant-io` (the
+    library `services/ingest` publishes through) — the same pattern
+    `services/core-service` already uses for `portfolio.state` and
+    `reference.instruments`.
 
 ## Consequences
 - `services/pricer/fixtures/instruments.yaml`'s `volatility`,
@@ -165,12 +164,12 @@ not by oversight.
   be kept in sync, for no benefit — nothing in this system ever needs to
   subscribe to only one kind without the others.
 - **A single `["double", decimal]` union value field**, instead of two
-  separate nullable fields. Rejected: Avro unions of two non-null branches
-  can't each carry an independent default, and — more fundamentally — a
-  single field conflates "not yet set" with "set to the wrong numeric
-  representation for this `kind`," where two nullable fields make the
-  exactly-one-of rule an explicit, checkable invariant instead of an
-  implicit one resting on which union branch happened to be written.
+  separate nullable fields. Rejected: the repo's Python code generator
+  (`tools/codegen/avro_to_python.py`) supports only two-member unions with
+  a null branch, so a union of two non-null types cannot be generated; and
+  two nullable fields make the exactly-one-of rule an explicit, checkable
+  invariant instead of an implicit one resting on which union branch
+  happened to be written.
 - **`float64` for FX rate**, matching the other three kinds for
   uniformity. Rejected outright by ADR-0004: FX rates multiply cash
   amounts, and ADR-0004 forbids floats touching cash without an explicit

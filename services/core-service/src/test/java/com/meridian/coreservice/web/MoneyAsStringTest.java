@@ -5,8 +5,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 
 import com.atlassian.oai.validator.restassured.OpenApiValidationFilter;
+import com.meridian.coreservice.persistence.domain.RiskSnapshotRecord;
+import com.meridian.coreservice.persistence.repository.RiskSnapshotRepository;
 import java.math.BigDecimal;
 import java.nio.file.Path;
+import java.time.Instant;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -23,6 +26,7 @@ class MoneyAsStringTest extends AbstractRestIntegrationTest {
   private static final String DOUBLE_LOSSY_VALUE = "79228162514.26433759";
 
   @Autowired private JdbcTemplate jdbcTemplate;
+  @Autowired private RiskSnapshotRepository riskSnapshotRepository;
 
   private static final OpenApiValidationFilter OPENAPI_FILTER =
       new OpenApiValidationFilter(
@@ -98,5 +102,46 @@ class MoneyAsStringTest extends AbstractRestIntegrationTest {
         .get("/api/v1/portfolios/PF-DOES-NOT-EXIST")
         .then()
         .statusCode(404);
+  }
+
+  // The /risk response is validated against contracts/openapi/service-api.yaml like the portfolio
+  // and position responses above. That validation is what fails if the DTO ever drops a field the
+  // spec requires again (oldest_input_event_time was silently missing until this test existed);
+  // the body assertions pin base_currency (ADR-0028) end to end from the persisted row.
+  @Test
+  void latestRiskSnapshotResponseMatchesOpenApiSchemaAndCarriesBaseCurrency() {
+    String portfolioId = "PF-RISK-CONFORMANCE";
+    Instant asOf = Instant.parse("2026-08-31T12:00:00Z");
+    jdbcTemplate.update(
+        "INSERT INTO portfolios (portfolio_id, name, base_currency, owner) VALUES (?, ?, 'EUR',"
+            + " 'desk-1') ON CONFLICT DO NOTHING",
+        portfolioId,
+        "Risk Conformance");
+    riskSnapshotRepository.upsert(
+        new RiskSnapshotRecord(
+            portfolioId,
+            "EUR",
+            asOf,
+            "v1.0.0",
+            new BigDecimal("100.00000000"),
+            BigDecimal.ONE,
+            BigDecimal.ONE,
+            BigDecimal.ONE,
+            BigDecimal.ONE,
+            BigDecimal.ONE,
+            0.05,
+            "scenario-1",
+            asOf.minusSeconds(30),
+            Instant.parse("2026-08-31T12:00:01Z")));
+
+    given()
+        .filter(OPENAPI_FILTER)
+        .baseUri(baseUrl())
+        .when()
+        .get("/api/v1/portfolios/" + portfolioId + "/risk")
+        .then()
+        .statusCode(200)
+        .body("base_currency", equalTo("EUR"))
+        .body("oldest_input_event_time", equalTo("2026-08-31T11:59:30Z"));
   }
 }

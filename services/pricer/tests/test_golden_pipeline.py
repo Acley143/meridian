@@ -21,6 +21,7 @@ def test_matches_checked_in_golden_snapshots(kafka_stack) -> None:
 
     for actual, expected in zip(produced_sorted, golden_sorted, strict=True):
         assert actual.portfolio_id == expected["portfolio_id"]
+        assert actual.base_currency == expected["base_currency"]
         assert actual.as_of.isoformat() == expected["as_of"]
         assert actual.pricer_version == expected["pricer_version"]
         assert str(actual.price) == expected["price"]

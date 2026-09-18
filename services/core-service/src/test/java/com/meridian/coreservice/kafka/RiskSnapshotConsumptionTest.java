@@ -56,6 +56,7 @@ class RiskSnapshotConsumptionTest extends AbstractKafkaIntegrationTest {
   private RiskSnapshot sampleSnapshot(String portfolioId, Instant asOf) {
     return new RiskSnapshot(
         portfolioId,
+        "USD",
         asOf,
         "v1.0.0",
         new BigDecimal("100.00000000"),

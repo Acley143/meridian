@@ -29,6 +29,7 @@ function snapshot(overrides: Partial<RiskSnapshot> = {}): RiskSnapshot {
     cash_theta: "4.00000000",
     cash_rho: "5.00000000",
     var_95: 1,
+    base_currency: "USD",
     scenario_id: "s1",
     oldest_input_event_time: "2026-08-31T00:05:00.000Z",
     ingest_time: "2026-08-31T00:05:01.000Z",

@@ -29,6 +29,7 @@ public class RiskSnapshotRepositoryWriter implements RiskSnapshotWriter {
     RiskSnapshotRecord record =
         new RiskSnapshotRecord(
             snapshot.getPortfolioId(),
+            snapshot.getBaseCurrency(),
             snapshot.getAsOf(),
             snapshot.getPricerVersion(),
             snapshot.getPrice(),

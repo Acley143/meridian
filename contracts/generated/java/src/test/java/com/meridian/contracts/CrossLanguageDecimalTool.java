@@ -39,6 +39,7 @@ public final class CrossLanguageDecimalTool {
   private static RiskSnapshot fixtureWithPrice(BigDecimal price) {
     return new RiskSnapshot(
         "portfolio-1",
+        "USD",
         Instant.parse("2026-01-01T00:00:00.000000Z"),
         "0.1.0",
         price,

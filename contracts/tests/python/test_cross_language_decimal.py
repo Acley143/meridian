@@ -51,6 +51,7 @@ def _sample_risk_snapshot_dict(price: Decimal) -> dict:
     now = datetime.datetime(2026, 1, 1, tzinfo=datetime.timezone.utc)
     return {
         "portfolio_id": "portfolio-1",
+        "base_currency": "USD",
         "as_of": now,
         "pricer_version": "0.1.0",
         "price": price,

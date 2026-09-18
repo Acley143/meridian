@@ -7,6 +7,7 @@ portfolios:
   # for. Also exercises staleness (AAPL-CALL and MSFT-PUT tick at
   # different times) and the ADR-0017 cross-underlying aggregation.
   PF-1:
+    base_currency: USD
     event_time: "2026-01-01T00:00:00Z"
     positions:
       - instrument_id: AAPL-CALL-150
@@ -20,6 +21,7 @@ portfolios:
   # contract_size) -- every AAPL tick affects both PF-1 and PF-2, which is
   # what the fan-out measurement (Task 6) and reverse-index tests exercise.
   PF-2:
+    base_currency: USD
     event_time: "2026-01-01T00:00:00Z"
     positions:
       - instrument_id: AAPL

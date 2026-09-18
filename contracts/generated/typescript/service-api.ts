@@ -263,6 +263,8 @@ export interface components {
         /** @description See docs/domain-model.md#risksnapshot, ADR-0007, and contracts/avro/risk-snapshot.avsc (this is the same shape as the wire schema). */
         RiskSnapshot: {
             portfolio_id: string;
+            /** @description The reporting currency (ISO 4217) these figures are denominated in, copied from the portfolio's base_currency (ADR-0028). An empty string means unknown and is never written by services/pricer. */
+            base_currency: string;
             /**
              * Format: date-time
              * @description Part of the ADR-0007 identity tuple. Distinct from ingest_time.

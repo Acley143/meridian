@@ -196,9 +196,21 @@ hasn't updated in a while — the dashboard can distinguish a live risk
 number from one resting on a feed that quietly stopped, which otherwise
 looks identical to a quiet market.
 
+**Revised again (ADR-0028):** added `base_currency`, the reporting currency
+these figures are denominated in, copied from the portfolio's
+`base_currency` (which reaches the pricer on `portfolio.state`). **The unit
+column below states the target semantics, and it is true only from the
+session that implements ADR-0028 Decision 3 (per-position FX conversion).**
+Until then the pricer does not convert: `base_currency` records the
+portfolio's reporting currency, but a portfolio holding instruments in more
+than one currency would still be summed across currencies. A portfolio whose
+reporting currency is unknown is not priced at all (`UNKNOWN_BASE_CURRENCY`,
+ADR-0018), so a published snapshot never carries an empty `base_currency`.
+
 | name | type | unit | nullable | precision | meaning |
 |---|---|---|---|---|---|
 | portfolio_id | string | — | no | — | Part of the identity tuple (ADR-0007). |
+| base_currency | string (ISO 4217) | — | no (empty string default) | — | The reporting currency these figures are denominated in, copied from the portfolio's `base_currency` (ADR-0028). Empty string means unknown — the compatibility default for records written before this field existed — and `services/pricer` never writes it. Not part of the identity tuple. |
 | as_of | timestamp | — | no | microsecond | Part of the identity tuple. The event time this snapshot values the portfolio as of — not the time the computation ran, and not `ingest_time` below. Renamed from `as_of_event_time` for brevity; same field. |
 | pricer_version | string | — | no | — | Part of the identity tuple. Identifies the exact pricing model/code version used, enabling re-pricing history and diffing (ADR-0007). Not a build number of the whole service — scoped specifically to the pricing logic. |
 | price | decimal | `Portfolio.base_currency` | no | precision 38, scale 8 | Total mark-to-market value of the portfolio. A cash amount — decimal per ADR-0004/ADR-0013. Named to match `quant_core`'s `PricingResult.price` (ADR-0014); this is a portfolio-level aggregate, not a per-instrument price. |

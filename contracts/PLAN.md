@@ -103,6 +103,14 @@ number three components downstream, not a compile error here.
   (ADR-0026), so no OpenAPI change. Adding `base_currency` to `RiskSnapshot`
   is a later session and will be an ADR-0026 paired change. Owner: Acley,
   Quarter: Q2.
+- `risk-snapshot.avsc` gained a top-level `base_currency` string
+  (`"default": ""`, immediately after `portfolio_id`), paired with the
+  OpenAPI `RiskSnapshot` component (added to its `required` list, per
+  ADR-0026), with regenerated Python/Java/TypeScript bindings, a
+  `docs/domain-model.md` row and prose stating that the unit column is true
+  only once ADR-0028 Decision 3's conversion lands, and the extended
+  `test_round_trip.py` / `RoundTripTest.java` cases. ADR-0028 Decision 6.
+  Owner: Acley, Quarter: Q2.
 
 ## Boundaries
 - **Owns:** `contracts/**`, `tools/codegen/**`, `tools/schema-lint/**`.
@@ -144,8 +152,8 @@ interface, not a second one. Every other Q1 workstream imports
   reflects the Q1 REST decision but isn't load-bearing if that changes.
 - Currency: cash Greeks (ADR-0017) are summable across underlyings, not
   across currencies. Decided in ADR-0028; the wire plumbing
-  (`portfolio.state.base_currency`) is done, and `RiskSnapshot` recording its
-  currency is still outstanding — see root `PLAN.md`.
+  (`portfolio.state.base_currency`) and `RiskSnapshot.base_currency` are
+  done; the conversion itself is still outstanding — see root `PLAN.md`.
 
 ## Session log
 - 2026-08-31 (Eng-A session): Q1 contracts work — ADR-0015 (build

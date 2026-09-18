@@ -22,6 +22,7 @@ def test_removing_a_position_stops_it_from_triggering_snapshots(kafka_stack) -> 
     t0 = datetime(2026, 1, 1, tzinfo=UTC)
     with_position = PortfolioFixture(
         portfolio_id="P",
+        base_currency="USD",
         positions=[
             Position(
                 portfolio_id="P",
@@ -46,7 +47,7 @@ def test_removing_a_position_stops_it_from_triggering_snapshots(kafka_stack) -> 
     assert len(first[0]) == 1, "expected one snapshot while the position is still held"
 
     # Full-state replacement removing the position -- not a delta.
-    without_position = PortfolioFixture(portfolio_id="P", positions=[], event_time=datetime(2026, 1, 3, tzinfo=UTC))
+    without_position = PortfolioFixture(portfolio_id="P", base_currency="USD", positions=[], event_time=datetime(2026, 1, 3, tzinfo=UTC))
     seed_portfolios(kafka_stack, topics, [without_position])
 
     _send_tick(kafka_stack, topics, "AAPL", "151.00", datetime(2026, 1, 4, tzinfo=UTC))
@@ -66,6 +67,7 @@ def test_reindexing_leaves_other_portfolios_on_the_same_underlying_untouched(kaf
     t0 = datetime(2026, 1, 1, tzinfo=UTC)
     p1 = PortfolioFixture(
         portfolio_id="P1",
+        base_currency="USD",
         positions=[
             Position(
                 portfolio_id="P1",
@@ -79,6 +81,7 @@ def test_reindexing_leaves_other_portfolios_on_the_same_underlying_untouched(kaf
     )
     p2 = PortfolioFixture(
         portfolio_id="P2",
+        base_currency="USD",
         positions=[
             Position(
                 portfolio_id="P2",
@@ -96,7 +99,7 @@ def test_reindexing_leaves_other_portfolios_on_the_same_underlying_untouched(kaf
     service.hydrate()
     assert service.view.portfolios_for_underlying("AAPL") == {"P1", "P2"}
 
-    seed_portfolios(kafka_stack, topics, [PortfolioFixture(portfolio_id="P1", positions=[], event_time=datetime(2026, 1, 2, tzinfo=UTC))])
+    seed_portfolios(kafka_stack, topics, [PortfolioFixture(portfolio_id="P1", base_currency="USD", positions=[], event_time=datetime(2026, 1, 2, tzinfo=UTC))])
     # _drain_portfolio_updates() polls with timeout=0 (non-blocking, so it
     # never stalls the hot tick-processing path) -- give the consumer a
     # few real chances to actually fetch the just-produced message rather

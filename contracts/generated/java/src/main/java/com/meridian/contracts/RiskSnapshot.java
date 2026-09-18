@@ -21,10 +21,10 @@ import org.apache.avro.message.SchemaStore;
 /** Priced, risk-bearing output of the pricer for one portfolio at one instant under one model version. See docs/domain-model.md#risksnapshot and ADR-0007. Discrete Greek fields (not a map) so each carries its own doc/default and the registry's BACKWARD check can catch a typo in a field name at schema-review time rather than at read time. Portfolio-level Greeks are cash Greeks (ADR-0017), Decimal(38,8) -- not the per-unit float64 Greeks quant_core.types.PricingResult carries -- because raw per-unit Greeks are not summable across a portfolio's different underlyings. */
 @org.apache.avro.specific.AvroGenerated
 public class RiskSnapshot extends org.apache.avro.specific.SpecificRecordBase implements org.apache.avro.specific.SpecificRecord {
-  private static final long serialVersionUID = -1406579456229067672L;
+  private static final long serialVersionUID = 4407051093339592043L;
 
 
-  public static final org.apache.avro.Schema SCHEMA$ = new org.apache.avro.Schema.Parser().parse("{\"type\":\"record\",\"name\":\"RiskSnapshot\",\"namespace\":\"com.meridian.contracts\",\"doc\":\"Priced, risk-bearing output of the pricer for one portfolio at one instant under one model version. See docs/domain-model.md#risksnapshot and ADR-0007. Discrete Greek fields (not a map) so each carries its own doc/default and the registry's BACKWARD check can catch a typo in a field name at schema-review time rather than at read time. Portfolio-level Greeks are cash Greeks (ADR-0017), Decimal(38,8) -- not the per-unit float64 Greeks quant_core.types.PricingResult carries -- because raw per-unit Greeks are not summable across a portfolio's different underlyings.\",\"fields\":[{\"name\":\"portfolio_id\",\"type\":{\"type\":\"string\",\"avro.java.string\":\"String\"},\"doc\":\"Part of the identity tuple (ADR-0007).\"},{\"name\":\"as_of\",\"type\":{\"type\":\"long\",\"logicalType\":\"timestamp-micros\"},\"doc\":\"Part of the identity tuple. Event time this snapshot values the portfolio as of -- distinct from ingest_time below, which is when the pricer produced this message.\"},{\"name\":\"pricer_version\",\"type\":{\"type\":\"string\",\"avro.java.string\":\"String\"},\"doc\":\"Part of the identity tuple. Exact pricing model/code version used (ADR-0007).\"},{\"name\":\"price\",\"type\":{\"type\":\"bytes\",\"logicalType\":\"decimal\",\"precision\":38,\"scale\":8},\"doc\":\"Total mark-to-market value of the portfolio, in the portfolio's base currency. Decimal (precision 38, scale 8) per ADR-0004/ADR-0013. Named to match quant_core.types.PricingResult.price (ADR-0014); this is a portfolio-level aggregate, not a single-instrument price.\"},{\"name\":\"cash_delta\",\"type\":{\"type\":\"bytes\",\"logicalType\":\"decimal\",\"precision\":38,\"scale\":8},\"doc\":\"Aggregated portfolio-level cash delta (ADR-0017): sum of delta * S * 0.01 * quantity * contract_size across positions -- currency change per 1% relative move in spot. Decimal, not float64: raw per-unit deltas across different underlyings are not in comparable units and cannot be summed meaningfully; a cash amount can be. Per docs/conventions.md.\"},{\"name\":\"cash_gamma\",\"type\":{\"type\":\"bytes\",\"logicalType\":\"decimal\",\"precision\":38,\"scale\":8},\"doc\":\"Aggregated portfolio-level cash gamma (ADR-0017): sum of gamma * S^2 * 0.0001 * quantity * contract_size across positions -- change in cash_delta per 1% move in spot. Per docs/conventions.md.\"},{\"name\":\"cash_vega\",\"type\":{\"type\":\"bytes\",\"logicalType\":\"decimal\",\"precision\":38,\"scale\":8},\"doc\":\"Aggregated portfolio-level cash vega (ADR-0017): sum of vega * quantity * contract_size across positions -- currency per 1.00 absolute change in volatility, not per 1% (docs/conventions.md).\"},{\"name\":\"cash_theta\",\"type\":{\"type\":\"bytes\",\"logicalType\":\"decimal\",\"precision\":38,\"scale\":8},\"doc\":\"Aggregated portfolio-level cash theta (ADR-0017): sum of theta * quantity * contract_size across positions -- currency per calendar year, not per day (docs/conventions.md).\"},{\"name\":\"cash_rho\",\"type\":{\"type\":\"bytes\",\"logicalType\":\"decimal\",\"precision\":38,\"scale\":8},\"doc\":\"Aggregated portfolio-level cash rho (ADR-0017): sum of rho * quantity * contract_size across positions -- currency per 1.00 absolute change in the risk-free rate (docs/conventions.md).\"},{\"name\":\"var_95\",\"type\":\"double\",\"doc\":\"1-day 95% Value at Risk, as a magnitude in the portfolio's base currency. float64 per ADR-0004 despite the currency unit -- this is a risk statistic, not a cash balance.\"},{\"name\":\"scenario_id\",\"type\":{\"type\":\"string\",\"avro.java.string\":\"String\"},\"doc\":\"Propagated from the Tick stream that produced the prices behind this snapshot (ADR-0011). End-to-end lineage: any risk number can be traced back to the exact reproducible tick stream that produced it -- what makes 'replay the same market day under two pricers and diff' actually work. Added after this schema's first version; empty string is the BACKWARD-compatible default.\",\"default\":\"\"},{\"name\":\"oldest_input_event_time\",\"type\":{\"type\":\"long\",\"logicalType\":\"timestamp-micros\"},\"doc\":\"Earliest event_time among the prices actually used to price this snapshot's positions -- min over each position's underlying's last-known tick event_time at computation time. Equal to as_of when every input was priced off the triggering tick itself; smaller when at least one position's price is from an earlier tick on an instrument that hasn't updated since. Lets a consumer distinguish a live risk number from one resting on a feed that quietly stopped -- a dead feed and a quiet market otherwise look identical downstream. Added after this schema's first version; the BACKWARD-compatible default (epoch, 0) is a sentinel meaning 'unknown, written before this field existed,' never a real staleness value.\",\"default\":0},{\"name\":\"ingest_time\",\"type\":{\"type\":\"long\",\"logicalType\":\"timestamp-micros\"},\"doc\":\"UTC instant this snapshot was produced by the pricer.\"}]}");
+  public static final org.apache.avro.Schema SCHEMA$ = new org.apache.avro.Schema.Parser().parse("{\"type\":\"record\",\"name\":\"RiskSnapshot\",\"namespace\":\"com.meridian.contracts\",\"doc\":\"Priced, risk-bearing output of the pricer for one portfolio at one instant under one model version. See docs/domain-model.md#risksnapshot and ADR-0007. Discrete Greek fields (not a map) so each carries its own doc/default and the registry's BACKWARD check can catch a typo in a field name at schema-review time rather than at read time. Portfolio-level Greeks are cash Greeks (ADR-0017), Decimal(38,8) -- not the per-unit float64 Greeks quant_core.types.PricingResult carries -- because raw per-unit Greeks are not summable across a portfolio's different underlyings.\",\"fields\":[{\"name\":\"portfolio_id\",\"type\":{\"type\":\"string\",\"avro.java.string\":\"String\"},\"doc\":\"Part of the identity tuple (ADR-0007).\"},{\"name\":\"base_currency\",\"type\":{\"type\":\"string\",\"avro.java.string\":\"String\"},\"doc\":\"The reporting currency (ISO 4217) these figures are denominated in, copied from the portfolio's base_currency. An empty string means unknown -- the compatibility default for records written before this field existed -- and is never written by services/pricer (ADR-0028).\",\"default\":\"\"},{\"name\":\"as_of\",\"type\":{\"type\":\"long\",\"logicalType\":\"timestamp-micros\"},\"doc\":\"Part of the identity tuple. Event time this snapshot values the portfolio as of -- distinct from ingest_time below, which is when the pricer produced this message.\"},{\"name\":\"pricer_version\",\"type\":{\"type\":\"string\",\"avro.java.string\":\"String\"},\"doc\":\"Part of the identity tuple. Exact pricing model/code version used (ADR-0007).\"},{\"name\":\"price\",\"type\":{\"type\":\"bytes\",\"logicalType\":\"decimal\",\"precision\":38,\"scale\":8},\"doc\":\"Total mark-to-market value of the portfolio, in the portfolio's base currency. Decimal (precision 38, scale 8) per ADR-0004/ADR-0013. Named to match quant_core.types.PricingResult.price (ADR-0014); this is a portfolio-level aggregate, not a single-instrument price.\"},{\"name\":\"cash_delta\",\"type\":{\"type\":\"bytes\",\"logicalType\":\"decimal\",\"precision\":38,\"scale\":8},\"doc\":\"Aggregated portfolio-level cash delta (ADR-0017): sum of delta * S * 0.01 * quantity * contract_size across positions -- currency change per 1% relative move in spot. Decimal, not float64: raw per-unit deltas across different underlyings are not in comparable units and cannot be summed meaningfully; a cash amount can be. Per docs/conventions.md.\"},{\"name\":\"cash_gamma\",\"type\":{\"type\":\"bytes\",\"logicalType\":\"decimal\",\"precision\":38,\"scale\":8},\"doc\":\"Aggregated portfolio-level cash gamma (ADR-0017): sum of gamma * S^2 * 0.0001 * quantity * contract_size across positions -- change in cash_delta per 1% move in spot. Per docs/conventions.md.\"},{\"name\":\"cash_vega\",\"type\":{\"type\":\"bytes\",\"logicalType\":\"decimal\",\"precision\":38,\"scale\":8},\"doc\":\"Aggregated portfolio-level cash vega (ADR-0017): sum of vega * quantity * contract_size across positions -- currency per 1.00 absolute change in volatility, not per 1% (docs/conventions.md).\"},{\"name\":\"cash_theta\",\"type\":{\"type\":\"bytes\",\"logicalType\":\"decimal\",\"precision\":38,\"scale\":8},\"doc\":\"Aggregated portfolio-level cash theta (ADR-0017): sum of theta * quantity * contract_size across positions -- currency per calendar year, not per day (docs/conventions.md).\"},{\"name\":\"cash_rho\",\"type\":{\"type\":\"bytes\",\"logicalType\":\"decimal\",\"precision\":38,\"scale\":8},\"doc\":\"Aggregated portfolio-level cash rho (ADR-0017): sum of rho * quantity * contract_size across positions -- currency per 1.00 absolute change in the risk-free rate (docs/conventions.md).\"},{\"name\":\"var_95\",\"type\":\"double\",\"doc\":\"1-day 95% Value at Risk, as a magnitude in the portfolio's base currency. float64 per ADR-0004 despite the currency unit -- this is a risk statistic, not a cash balance.\"},{\"name\":\"scenario_id\",\"type\":{\"type\":\"string\",\"avro.java.string\":\"String\"},\"doc\":\"Propagated from the Tick stream that produced the prices behind this snapshot (ADR-0011). End-to-end lineage: any risk number can be traced back to the exact reproducible tick stream that produced it -- what makes 'replay the same market day under two pricers and diff' actually work. Added after this schema's first version; empty string is the BACKWARD-compatible default.\",\"default\":\"\"},{\"name\":\"oldest_input_event_time\",\"type\":{\"type\":\"long\",\"logicalType\":\"timestamp-micros\"},\"doc\":\"Earliest event_time among the prices actually used to price this snapshot's positions -- min over each position's underlying's last-known tick event_time at computation time. Equal to as_of when every input was priced off the triggering tick itself; smaller when at least one position's price is from an earlier tick on an instrument that hasn't updated since. Lets a consumer distinguish a live risk number from one resting on a feed that quietly stopped -- a dead feed and a quiet market otherwise look identical downstream. Added after this schema's first version; the BACKWARD-compatible default (epoch, 0) is a sentinel meaning 'unknown, written before this field existed,' never a real staleness value.\",\"default\":0},{\"name\":\"ingest_time\",\"type\":{\"type\":\"long\",\"logicalType\":\"timestamp-micros\"},\"doc\":\"UTC instant this snapshot was produced by the pricer.\"}]}");
   public static org.apache.avro.Schema getClassSchema() { return SCHEMA$; }
 
   private static final SpecificData MODEL$ = new SpecificData();
@@ -86,6 +86,8 @@ public class RiskSnapshot extends org.apache.avro.specific.SpecificRecordBase im
 
   /** Part of the identity tuple (ADR-0007). */
   private java.lang.String portfolio_id;
+  /** The reporting currency (ISO 4217) these figures are denominated in, copied from the portfolio's base_currency. An empty string means unknown -- the compatibility default for records written before this field existed -- and is never written by services/pricer (ADR-0028). */
+  private java.lang.String base_currency;
   /** Part of the identity tuple. Event time this snapshot values the portfolio as of -- distinct from ingest_time below, which is when the pricer produced this message. */
   private java.time.Instant as_of;
   /** Part of the identity tuple. Exact pricing model/code version used (ADR-0007). */
@@ -121,6 +123,7 @@ public class RiskSnapshot extends org.apache.avro.specific.SpecificRecordBase im
   /**
    * All-args constructor.
    * @param portfolio_id Part of the identity tuple (ADR-0007).
+   * @param base_currency The reporting currency (ISO 4217) these figures are denominated in, copied from the portfolio's base_currency. An empty string means unknown -- the compatibility default for records written before this field existed -- and is never written by services/pricer (ADR-0028).
    * @param as_of Part of the identity tuple. Event time this snapshot values the portfolio as of -- distinct from ingest_time below, which is when the pricer produced this message.
    * @param pricer_version Part of the identity tuple. Exact pricing model/code version used (ADR-0007).
    * @param price Total mark-to-market value of the portfolio, in the portfolio's base currency. Decimal (precision 38, scale 8) per ADR-0004/ADR-0013. Named to match quant_core.types.PricingResult.price (ADR-0014); this is a portfolio-level aggregate, not a single-instrument price.
@@ -134,8 +137,9 @@ public class RiskSnapshot extends org.apache.avro.specific.SpecificRecordBase im
    * @param oldest_input_event_time Earliest event_time among the prices actually used to price this snapshot's positions -- min over each position's underlying's last-known tick event_time at computation time. Equal to as_of when every input was priced off the triggering tick itself; smaller when at least one position's price is from an earlier tick on an instrument that hasn't updated since. Lets a consumer distinguish a live risk number from one resting on a feed that quietly stopped -- a dead feed and a quiet market otherwise look identical downstream. Added after this schema's first version; the BACKWARD-compatible default (epoch, 0) is a sentinel meaning 'unknown, written before this field existed,' never a real staleness value.
    * @param ingest_time UTC instant this snapshot was produced by the pricer.
    */
-  public RiskSnapshot(java.lang.String portfolio_id, java.time.Instant as_of, java.lang.String pricer_version, java.math.BigDecimal price, java.math.BigDecimal cash_delta, java.math.BigDecimal cash_gamma, java.math.BigDecimal cash_vega, java.math.BigDecimal cash_theta, java.math.BigDecimal cash_rho, java.lang.Double var_95, java.lang.String scenario_id, java.time.Instant oldest_input_event_time, java.time.Instant ingest_time) {
+  public RiskSnapshot(java.lang.String portfolio_id, java.lang.String base_currency, java.time.Instant as_of, java.lang.String pricer_version, java.math.BigDecimal price, java.math.BigDecimal cash_delta, java.math.BigDecimal cash_gamma, java.math.BigDecimal cash_vega, java.math.BigDecimal cash_theta, java.math.BigDecimal cash_rho, java.lang.Double var_95, java.lang.String scenario_id, java.time.Instant oldest_input_event_time, java.time.Instant ingest_time) {
     this.portfolio_id = portfolio_id;
+    this.base_currency = base_currency;
     this.as_of = as_of.truncatedTo(java.time.temporal.ChronoUnit.MICROS);
     this.pricer_version = pricer_version;
     this.price = price;
@@ -161,24 +165,26 @@ public class RiskSnapshot extends org.apache.avro.specific.SpecificRecordBase im
   public java.lang.Object get(int field$) {
     switch (field$) {
     case 0: return portfolio_id;
-    case 1: return as_of;
-    case 2: return pricer_version;
-    case 3: return price;
-    case 4: return cash_delta;
-    case 5: return cash_gamma;
-    case 6: return cash_vega;
-    case 7: return cash_theta;
-    case 8: return cash_rho;
-    case 9: return var_95;
-    case 10: return scenario_id;
-    case 11: return oldest_input_event_time;
-    case 12: return ingest_time;
+    case 1: return base_currency;
+    case 2: return as_of;
+    case 3: return pricer_version;
+    case 4: return price;
+    case 5: return cash_delta;
+    case 6: return cash_gamma;
+    case 7: return cash_vega;
+    case 8: return cash_theta;
+    case 9: return cash_rho;
+    case 10: return var_95;
+    case 11: return scenario_id;
+    case 12: return oldest_input_event_time;
+    case 13: return ingest_time;
     default: throw new IndexOutOfBoundsException("Invalid index: " + field$);
     }
   }
 
   private static final org.apache.avro.Conversion<?>[] conversions =
       new org.apache.avro.Conversion<?>[] {
+      null,
       null,
       new org.apache.avro.data.TimeConversions.TimestampMicrosConversion(),
       null,
@@ -206,18 +212,19 @@ public class RiskSnapshot extends org.apache.avro.specific.SpecificRecordBase im
   public void put(int field$, java.lang.Object value$) {
     switch (field$) {
     case 0: portfolio_id = value$ != null ? value$.toString() : null; break;
-    case 1: as_of = (java.time.Instant)value$; break;
-    case 2: pricer_version = value$ != null ? value$.toString() : null; break;
-    case 3: price = (java.math.BigDecimal)value$; break;
-    case 4: cash_delta = (java.math.BigDecimal)value$; break;
-    case 5: cash_gamma = (java.math.BigDecimal)value$; break;
-    case 6: cash_vega = (java.math.BigDecimal)value$; break;
-    case 7: cash_theta = (java.math.BigDecimal)value$; break;
-    case 8: cash_rho = (java.math.BigDecimal)value$; break;
-    case 9: var_95 = (java.lang.Double)value$; break;
-    case 10: scenario_id = value$ != null ? value$.toString() : null; break;
-    case 11: oldest_input_event_time = (java.time.Instant)value$; break;
-    case 12: ingest_time = (java.time.Instant)value$; break;
+    case 1: base_currency = value$ != null ? value$.toString() : null; break;
+    case 2: as_of = (java.time.Instant)value$; break;
+    case 3: pricer_version = value$ != null ? value$.toString() : null; break;
+    case 4: price = (java.math.BigDecimal)value$; break;
+    case 5: cash_delta = (java.math.BigDecimal)value$; break;
+    case 6: cash_gamma = (java.math.BigDecimal)value$; break;
+    case 7: cash_vega = (java.math.BigDecimal)value$; break;
+    case 8: cash_theta = (java.math.BigDecimal)value$; break;
+    case 9: cash_rho = (java.math.BigDecimal)value$; break;
+    case 10: var_95 = (java.lang.Double)value$; break;
+    case 11: scenario_id = value$ != null ? value$.toString() : null; break;
+    case 12: oldest_input_event_time = (java.time.Instant)value$; break;
+    case 13: ingest_time = (java.time.Instant)value$; break;
     default: throw new IndexOutOfBoundsException("Invalid index: " + field$);
     }
   }
@@ -238,6 +245,24 @@ public class RiskSnapshot extends org.apache.avro.specific.SpecificRecordBase im
    */
   public void setPortfolioId(java.lang.String value) {
     this.portfolio_id = value;
+  }
+
+  /**
+   * Gets the value of the 'base_currency' field.
+   * @return The reporting currency (ISO 4217) these figures are denominated in, copied from the portfolio's base_currency. An empty string means unknown -- the compatibility default for records written before this field existed -- and is never written by services/pricer (ADR-0028).
+   */
+  public java.lang.String getBaseCurrency() {
+    return base_currency;
+  }
+
+
+  /**
+   * Sets the value of the 'base_currency' field.
+   * The reporting currency (ISO 4217) these figures are denominated in, copied from the portfolio's base_currency. An empty string means unknown -- the compatibility default for records written before this field existed -- and is never written by services/pricer (ADR-0028).
+   * @param value the value to set.
+   */
+  public void setBaseCurrency(java.lang.String value) {
+    this.base_currency = value;
   }
 
   /**
@@ -499,6 +524,8 @@ public class RiskSnapshot extends org.apache.avro.specific.SpecificRecordBase im
 
     /** Part of the identity tuple (ADR-0007). */
     private java.lang.String portfolio_id;
+    /** The reporting currency (ISO 4217) these figures are denominated in, copied from the portfolio's base_currency. An empty string means unknown -- the compatibility default for records written before this field existed -- and is never written by services/pricer (ADR-0028). */
+    private java.lang.String base_currency;
     /** Part of the identity tuple. Event time this snapshot values the portfolio as of -- distinct from ingest_time below, which is when the pricer produced this message. */
     private java.time.Instant as_of;
     /** Part of the identity tuple. Exact pricing model/code version used (ADR-0007). */
@@ -539,53 +566,57 @@ public class RiskSnapshot extends org.apache.avro.specific.SpecificRecordBase im
         this.portfolio_id = data().deepCopy(fields()[0].schema(), other.portfolio_id);
         fieldSetFlags()[0] = other.fieldSetFlags()[0];
       }
-      if (isValidValue(fields()[1], other.as_of)) {
-        this.as_of = data().deepCopy(fields()[1].schema(), other.as_of);
+      if (isValidValue(fields()[1], other.base_currency)) {
+        this.base_currency = data().deepCopy(fields()[1].schema(), other.base_currency);
         fieldSetFlags()[1] = other.fieldSetFlags()[1];
       }
-      if (isValidValue(fields()[2], other.pricer_version)) {
-        this.pricer_version = data().deepCopy(fields()[2].schema(), other.pricer_version);
+      if (isValidValue(fields()[2], other.as_of)) {
+        this.as_of = data().deepCopy(fields()[2].schema(), other.as_of);
         fieldSetFlags()[2] = other.fieldSetFlags()[2];
       }
-      if (isValidValue(fields()[3], other.price)) {
-        this.price = data().deepCopy(fields()[3].schema(), other.price);
+      if (isValidValue(fields()[3], other.pricer_version)) {
+        this.pricer_version = data().deepCopy(fields()[3].schema(), other.pricer_version);
         fieldSetFlags()[3] = other.fieldSetFlags()[3];
       }
-      if (isValidValue(fields()[4], other.cash_delta)) {
-        this.cash_delta = data().deepCopy(fields()[4].schema(), other.cash_delta);
+      if (isValidValue(fields()[4], other.price)) {
+        this.price = data().deepCopy(fields()[4].schema(), other.price);
         fieldSetFlags()[4] = other.fieldSetFlags()[4];
       }
-      if (isValidValue(fields()[5], other.cash_gamma)) {
-        this.cash_gamma = data().deepCopy(fields()[5].schema(), other.cash_gamma);
+      if (isValidValue(fields()[5], other.cash_delta)) {
+        this.cash_delta = data().deepCopy(fields()[5].schema(), other.cash_delta);
         fieldSetFlags()[5] = other.fieldSetFlags()[5];
       }
-      if (isValidValue(fields()[6], other.cash_vega)) {
-        this.cash_vega = data().deepCopy(fields()[6].schema(), other.cash_vega);
+      if (isValidValue(fields()[6], other.cash_gamma)) {
+        this.cash_gamma = data().deepCopy(fields()[6].schema(), other.cash_gamma);
         fieldSetFlags()[6] = other.fieldSetFlags()[6];
       }
-      if (isValidValue(fields()[7], other.cash_theta)) {
-        this.cash_theta = data().deepCopy(fields()[7].schema(), other.cash_theta);
+      if (isValidValue(fields()[7], other.cash_vega)) {
+        this.cash_vega = data().deepCopy(fields()[7].schema(), other.cash_vega);
         fieldSetFlags()[7] = other.fieldSetFlags()[7];
       }
-      if (isValidValue(fields()[8], other.cash_rho)) {
-        this.cash_rho = data().deepCopy(fields()[8].schema(), other.cash_rho);
+      if (isValidValue(fields()[8], other.cash_theta)) {
+        this.cash_theta = data().deepCopy(fields()[8].schema(), other.cash_theta);
         fieldSetFlags()[8] = other.fieldSetFlags()[8];
       }
-      if (isValidValue(fields()[9], other.var_95)) {
-        this.var_95 = data().deepCopy(fields()[9].schema(), other.var_95);
+      if (isValidValue(fields()[9], other.cash_rho)) {
+        this.cash_rho = data().deepCopy(fields()[9].schema(), other.cash_rho);
         fieldSetFlags()[9] = other.fieldSetFlags()[9];
       }
-      if (isValidValue(fields()[10], other.scenario_id)) {
-        this.scenario_id = data().deepCopy(fields()[10].schema(), other.scenario_id);
+      if (isValidValue(fields()[10], other.var_95)) {
+        this.var_95 = data().deepCopy(fields()[10].schema(), other.var_95);
         fieldSetFlags()[10] = other.fieldSetFlags()[10];
       }
-      if (isValidValue(fields()[11], other.oldest_input_event_time)) {
-        this.oldest_input_event_time = data().deepCopy(fields()[11].schema(), other.oldest_input_event_time);
+      if (isValidValue(fields()[11], other.scenario_id)) {
+        this.scenario_id = data().deepCopy(fields()[11].schema(), other.scenario_id);
         fieldSetFlags()[11] = other.fieldSetFlags()[11];
       }
-      if (isValidValue(fields()[12], other.ingest_time)) {
-        this.ingest_time = data().deepCopy(fields()[12].schema(), other.ingest_time);
+      if (isValidValue(fields()[12], other.oldest_input_event_time)) {
+        this.oldest_input_event_time = data().deepCopy(fields()[12].schema(), other.oldest_input_event_time);
         fieldSetFlags()[12] = other.fieldSetFlags()[12];
+      }
+      if (isValidValue(fields()[13], other.ingest_time)) {
+        this.ingest_time = data().deepCopy(fields()[13].schema(), other.ingest_time);
+        fieldSetFlags()[13] = other.fieldSetFlags()[13];
       }
     }
 
@@ -599,53 +630,57 @@ public class RiskSnapshot extends org.apache.avro.specific.SpecificRecordBase im
         this.portfolio_id = data().deepCopy(fields()[0].schema(), other.portfolio_id);
         fieldSetFlags()[0] = true;
       }
-      if (isValidValue(fields()[1], other.as_of)) {
-        this.as_of = data().deepCopy(fields()[1].schema(), other.as_of);
+      if (isValidValue(fields()[1], other.base_currency)) {
+        this.base_currency = data().deepCopy(fields()[1].schema(), other.base_currency);
         fieldSetFlags()[1] = true;
       }
-      if (isValidValue(fields()[2], other.pricer_version)) {
-        this.pricer_version = data().deepCopy(fields()[2].schema(), other.pricer_version);
+      if (isValidValue(fields()[2], other.as_of)) {
+        this.as_of = data().deepCopy(fields()[2].schema(), other.as_of);
         fieldSetFlags()[2] = true;
       }
-      if (isValidValue(fields()[3], other.price)) {
-        this.price = data().deepCopy(fields()[3].schema(), other.price);
+      if (isValidValue(fields()[3], other.pricer_version)) {
+        this.pricer_version = data().deepCopy(fields()[3].schema(), other.pricer_version);
         fieldSetFlags()[3] = true;
       }
-      if (isValidValue(fields()[4], other.cash_delta)) {
-        this.cash_delta = data().deepCopy(fields()[4].schema(), other.cash_delta);
+      if (isValidValue(fields()[4], other.price)) {
+        this.price = data().deepCopy(fields()[4].schema(), other.price);
         fieldSetFlags()[4] = true;
       }
-      if (isValidValue(fields()[5], other.cash_gamma)) {
-        this.cash_gamma = data().deepCopy(fields()[5].schema(), other.cash_gamma);
+      if (isValidValue(fields()[5], other.cash_delta)) {
+        this.cash_delta = data().deepCopy(fields()[5].schema(), other.cash_delta);
         fieldSetFlags()[5] = true;
       }
-      if (isValidValue(fields()[6], other.cash_vega)) {
-        this.cash_vega = data().deepCopy(fields()[6].schema(), other.cash_vega);
+      if (isValidValue(fields()[6], other.cash_gamma)) {
+        this.cash_gamma = data().deepCopy(fields()[6].schema(), other.cash_gamma);
         fieldSetFlags()[6] = true;
       }
-      if (isValidValue(fields()[7], other.cash_theta)) {
-        this.cash_theta = data().deepCopy(fields()[7].schema(), other.cash_theta);
+      if (isValidValue(fields()[7], other.cash_vega)) {
+        this.cash_vega = data().deepCopy(fields()[7].schema(), other.cash_vega);
         fieldSetFlags()[7] = true;
       }
-      if (isValidValue(fields()[8], other.cash_rho)) {
-        this.cash_rho = data().deepCopy(fields()[8].schema(), other.cash_rho);
+      if (isValidValue(fields()[8], other.cash_theta)) {
+        this.cash_theta = data().deepCopy(fields()[8].schema(), other.cash_theta);
         fieldSetFlags()[8] = true;
       }
-      if (isValidValue(fields()[9], other.var_95)) {
-        this.var_95 = data().deepCopy(fields()[9].schema(), other.var_95);
+      if (isValidValue(fields()[9], other.cash_rho)) {
+        this.cash_rho = data().deepCopy(fields()[9].schema(), other.cash_rho);
         fieldSetFlags()[9] = true;
       }
-      if (isValidValue(fields()[10], other.scenario_id)) {
-        this.scenario_id = data().deepCopy(fields()[10].schema(), other.scenario_id);
+      if (isValidValue(fields()[10], other.var_95)) {
+        this.var_95 = data().deepCopy(fields()[10].schema(), other.var_95);
         fieldSetFlags()[10] = true;
       }
-      if (isValidValue(fields()[11], other.oldest_input_event_time)) {
-        this.oldest_input_event_time = data().deepCopy(fields()[11].schema(), other.oldest_input_event_time);
+      if (isValidValue(fields()[11], other.scenario_id)) {
+        this.scenario_id = data().deepCopy(fields()[11].schema(), other.scenario_id);
         fieldSetFlags()[11] = true;
       }
-      if (isValidValue(fields()[12], other.ingest_time)) {
-        this.ingest_time = data().deepCopy(fields()[12].schema(), other.ingest_time);
+      if (isValidValue(fields()[12], other.oldest_input_event_time)) {
+        this.oldest_input_event_time = data().deepCopy(fields()[12].schema(), other.oldest_input_event_time);
         fieldSetFlags()[12] = true;
+      }
+      if (isValidValue(fields()[13], other.ingest_time)) {
+        this.ingest_time = data().deepCopy(fields()[13].schema(), other.ingest_time);
+        fieldSetFlags()[13] = true;
       }
     }
 
@@ -694,6 +729,50 @@ public class RiskSnapshot extends org.apache.avro.specific.SpecificRecordBase im
     }
 
     /**
+      * Gets the value of the 'base_currency' field.
+      * The reporting currency (ISO 4217) these figures are denominated in, copied from the portfolio's base_currency. An empty string means unknown -- the compatibility default for records written before this field existed -- and is never written by services/pricer (ADR-0028).
+      * @return The value.
+      */
+    public java.lang.String getBaseCurrency() {
+      return base_currency;
+    }
+
+
+    /**
+      * Sets the value of the 'base_currency' field.
+      * The reporting currency (ISO 4217) these figures are denominated in, copied from the portfolio's base_currency. An empty string means unknown -- the compatibility default for records written before this field existed -- and is never written by services/pricer (ADR-0028).
+      * @param value The value of 'base_currency'.
+      * @return This builder.
+      */
+    public com.meridian.contracts.RiskSnapshot.Builder setBaseCurrency(java.lang.String value) {
+      validate(fields()[1], value);
+      this.base_currency = value;
+      fieldSetFlags()[1] = true;
+      return this;
+    }
+
+    /**
+      * Checks whether the 'base_currency' field has been set.
+      * The reporting currency (ISO 4217) these figures are denominated in, copied from the portfolio's base_currency. An empty string means unknown -- the compatibility default for records written before this field existed -- and is never written by services/pricer (ADR-0028).
+      * @return True if the 'base_currency' field has been set, false otherwise.
+      */
+    public boolean hasBaseCurrency() {
+      return fieldSetFlags()[1];
+    }
+
+
+    /**
+      * Clears the value of the 'base_currency' field.
+      * The reporting currency (ISO 4217) these figures are denominated in, copied from the portfolio's base_currency. An empty string means unknown -- the compatibility default for records written before this field existed -- and is never written by services/pricer (ADR-0028).
+      * @return This builder.
+      */
+    public com.meridian.contracts.RiskSnapshot.Builder clearBaseCurrency() {
+      base_currency = null;
+      fieldSetFlags()[1] = false;
+      return this;
+    }
+
+    /**
       * Gets the value of the 'as_of' field.
       * Part of the identity tuple. Event time this snapshot values the portfolio as of -- distinct from ingest_time below, which is when the pricer produced this message.
       * @return The value.
@@ -710,9 +789,9 @@ public class RiskSnapshot extends org.apache.avro.specific.SpecificRecordBase im
       * @return This builder.
       */
     public com.meridian.contracts.RiskSnapshot.Builder setAsOf(java.time.Instant value) {
-      validate(fields()[1], value);
+      validate(fields()[2], value);
       this.as_of = value.truncatedTo(java.time.temporal.ChronoUnit.MICROS);
-      fieldSetFlags()[1] = true;
+      fieldSetFlags()[2] = true;
       return this;
     }
 
@@ -722,7 +801,7 @@ public class RiskSnapshot extends org.apache.avro.specific.SpecificRecordBase im
       * @return True if the 'as_of' field has been set, false otherwise.
       */
     public boolean hasAsOf() {
-      return fieldSetFlags()[1];
+      return fieldSetFlags()[2];
     }
 
 
@@ -732,7 +811,7 @@ public class RiskSnapshot extends org.apache.avro.specific.SpecificRecordBase im
       * @return This builder.
       */
     public com.meridian.contracts.RiskSnapshot.Builder clearAsOf() {
-      fieldSetFlags()[1] = false;
+      fieldSetFlags()[2] = false;
       return this;
     }
 
@@ -753,9 +832,9 @@ public class RiskSnapshot extends org.apache.avro.specific.SpecificRecordBase im
       * @return This builder.
       */
     public com.meridian.contracts.RiskSnapshot.Builder setPricerVersion(java.lang.String value) {
-      validate(fields()[2], value);
+      validate(fields()[3], value);
       this.pricer_version = value;
-      fieldSetFlags()[2] = true;
+      fieldSetFlags()[3] = true;
       return this;
     }
 
@@ -765,7 +844,7 @@ public class RiskSnapshot extends org.apache.avro.specific.SpecificRecordBase im
       * @return True if the 'pricer_version' field has been set, false otherwise.
       */
     public boolean hasPricerVersion() {
-      return fieldSetFlags()[2];
+      return fieldSetFlags()[3];
     }
 
 
@@ -776,7 +855,7 @@ public class RiskSnapshot extends org.apache.avro.specific.SpecificRecordBase im
       */
     public com.meridian.contracts.RiskSnapshot.Builder clearPricerVersion() {
       pricer_version = null;
-      fieldSetFlags()[2] = false;
+      fieldSetFlags()[3] = false;
       return this;
     }
 
@@ -797,9 +876,9 @@ public class RiskSnapshot extends org.apache.avro.specific.SpecificRecordBase im
       * @return This builder.
       */
     public com.meridian.contracts.RiskSnapshot.Builder setPrice(java.math.BigDecimal value) {
-      validate(fields()[3], value);
+      validate(fields()[4], value);
       this.price = value;
-      fieldSetFlags()[3] = true;
+      fieldSetFlags()[4] = true;
       return this;
     }
 
@@ -809,7 +888,7 @@ public class RiskSnapshot extends org.apache.avro.specific.SpecificRecordBase im
       * @return True if the 'price' field has been set, false otherwise.
       */
     public boolean hasPrice() {
-      return fieldSetFlags()[3];
+      return fieldSetFlags()[4];
     }
 
 
@@ -820,7 +899,7 @@ public class RiskSnapshot extends org.apache.avro.specific.SpecificRecordBase im
       */
     public com.meridian.contracts.RiskSnapshot.Builder clearPrice() {
       price = null;
-      fieldSetFlags()[3] = false;
+      fieldSetFlags()[4] = false;
       return this;
     }
 
@@ -841,9 +920,9 @@ public class RiskSnapshot extends org.apache.avro.specific.SpecificRecordBase im
       * @return This builder.
       */
     public com.meridian.contracts.RiskSnapshot.Builder setCashDelta(java.math.BigDecimal value) {
-      validate(fields()[4], value);
+      validate(fields()[5], value);
       this.cash_delta = value;
-      fieldSetFlags()[4] = true;
+      fieldSetFlags()[5] = true;
       return this;
     }
 
@@ -853,7 +932,7 @@ public class RiskSnapshot extends org.apache.avro.specific.SpecificRecordBase im
       * @return True if the 'cash_delta' field has been set, false otherwise.
       */
     public boolean hasCashDelta() {
-      return fieldSetFlags()[4];
+      return fieldSetFlags()[5];
     }
 
 
@@ -864,7 +943,7 @@ public class RiskSnapshot extends org.apache.avro.specific.SpecificRecordBase im
       */
     public com.meridian.contracts.RiskSnapshot.Builder clearCashDelta() {
       cash_delta = null;
-      fieldSetFlags()[4] = false;
+      fieldSetFlags()[5] = false;
       return this;
     }
 
@@ -885,9 +964,9 @@ public class RiskSnapshot extends org.apache.avro.specific.SpecificRecordBase im
       * @return This builder.
       */
     public com.meridian.contracts.RiskSnapshot.Builder setCashGamma(java.math.BigDecimal value) {
-      validate(fields()[5], value);
+      validate(fields()[6], value);
       this.cash_gamma = value;
-      fieldSetFlags()[5] = true;
+      fieldSetFlags()[6] = true;
       return this;
     }
 
@@ -897,7 +976,7 @@ public class RiskSnapshot extends org.apache.avro.specific.SpecificRecordBase im
       * @return True if the 'cash_gamma' field has been set, false otherwise.
       */
     public boolean hasCashGamma() {
-      return fieldSetFlags()[5];
+      return fieldSetFlags()[6];
     }
 
 
@@ -908,7 +987,7 @@ public class RiskSnapshot extends org.apache.avro.specific.SpecificRecordBase im
       */
     public com.meridian.contracts.RiskSnapshot.Builder clearCashGamma() {
       cash_gamma = null;
-      fieldSetFlags()[5] = false;
+      fieldSetFlags()[6] = false;
       return this;
     }
 
@@ -929,9 +1008,9 @@ public class RiskSnapshot extends org.apache.avro.specific.SpecificRecordBase im
       * @return This builder.
       */
     public com.meridian.contracts.RiskSnapshot.Builder setCashVega(java.math.BigDecimal value) {
-      validate(fields()[6], value);
+      validate(fields()[7], value);
       this.cash_vega = value;
-      fieldSetFlags()[6] = true;
+      fieldSetFlags()[7] = true;
       return this;
     }
 
@@ -941,7 +1020,7 @@ public class RiskSnapshot extends org.apache.avro.specific.SpecificRecordBase im
       * @return True if the 'cash_vega' field has been set, false otherwise.
       */
     public boolean hasCashVega() {
-      return fieldSetFlags()[6];
+      return fieldSetFlags()[7];
     }
 
 
@@ -952,7 +1031,7 @@ public class RiskSnapshot extends org.apache.avro.specific.SpecificRecordBase im
       */
     public com.meridian.contracts.RiskSnapshot.Builder clearCashVega() {
       cash_vega = null;
-      fieldSetFlags()[6] = false;
+      fieldSetFlags()[7] = false;
       return this;
     }
 
@@ -973,9 +1052,9 @@ public class RiskSnapshot extends org.apache.avro.specific.SpecificRecordBase im
       * @return This builder.
       */
     public com.meridian.contracts.RiskSnapshot.Builder setCashTheta(java.math.BigDecimal value) {
-      validate(fields()[7], value);
+      validate(fields()[8], value);
       this.cash_theta = value;
-      fieldSetFlags()[7] = true;
+      fieldSetFlags()[8] = true;
       return this;
     }
 
@@ -985,7 +1064,7 @@ public class RiskSnapshot extends org.apache.avro.specific.SpecificRecordBase im
       * @return True if the 'cash_theta' field has been set, false otherwise.
       */
     public boolean hasCashTheta() {
-      return fieldSetFlags()[7];
+      return fieldSetFlags()[8];
     }
 
 
@@ -996,7 +1075,7 @@ public class RiskSnapshot extends org.apache.avro.specific.SpecificRecordBase im
       */
     public com.meridian.contracts.RiskSnapshot.Builder clearCashTheta() {
       cash_theta = null;
-      fieldSetFlags()[7] = false;
+      fieldSetFlags()[8] = false;
       return this;
     }
 
@@ -1017,9 +1096,9 @@ public class RiskSnapshot extends org.apache.avro.specific.SpecificRecordBase im
       * @return This builder.
       */
     public com.meridian.contracts.RiskSnapshot.Builder setCashRho(java.math.BigDecimal value) {
-      validate(fields()[8], value);
+      validate(fields()[9], value);
       this.cash_rho = value;
-      fieldSetFlags()[8] = true;
+      fieldSetFlags()[9] = true;
       return this;
     }
 
@@ -1029,7 +1108,7 @@ public class RiskSnapshot extends org.apache.avro.specific.SpecificRecordBase im
       * @return True if the 'cash_rho' field has been set, false otherwise.
       */
     public boolean hasCashRho() {
-      return fieldSetFlags()[8];
+      return fieldSetFlags()[9];
     }
 
 
@@ -1040,7 +1119,7 @@ public class RiskSnapshot extends org.apache.avro.specific.SpecificRecordBase im
       */
     public com.meridian.contracts.RiskSnapshot.Builder clearCashRho() {
       cash_rho = null;
-      fieldSetFlags()[8] = false;
+      fieldSetFlags()[9] = false;
       return this;
     }
 
@@ -1061,9 +1140,9 @@ public class RiskSnapshot extends org.apache.avro.specific.SpecificRecordBase im
       * @return This builder.
       */
     public com.meridian.contracts.RiskSnapshot.Builder setVar95(double value) {
-      validate(fields()[9], value);
+      validate(fields()[10], value);
       this.var_95 = value;
-      fieldSetFlags()[9] = true;
+      fieldSetFlags()[10] = true;
       return this;
     }
 
@@ -1073,7 +1152,7 @@ public class RiskSnapshot extends org.apache.avro.specific.SpecificRecordBase im
       * @return True if the 'var_95' field has been set, false otherwise.
       */
     public boolean hasVar95() {
-      return fieldSetFlags()[9];
+      return fieldSetFlags()[10];
     }
 
 
@@ -1083,7 +1162,7 @@ public class RiskSnapshot extends org.apache.avro.specific.SpecificRecordBase im
       * @return This builder.
       */
     public com.meridian.contracts.RiskSnapshot.Builder clearVar95() {
-      fieldSetFlags()[9] = false;
+      fieldSetFlags()[10] = false;
       return this;
     }
 
@@ -1104,9 +1183,9 @@ public class RiskSnapshot extends org.apache.avro.specific.SpecificRecordBase im
       * @return This builder.
       */
     public com.meridian.contracts.RiskSnapshot.Builder setScenarioId(java.lang.String value) {
-      validate(fields()[10], value);
+      validate(fields()[11], value);
       this.scenario_id = value;
-      fieldSetFlags()[10] = true;
+      fieldSetFlags()[11] = true;
       return this;
     }
 
@@ -1116,7 +1195,7 @@ public class RiskSnapshot extends org.apache.avro.specific.SpecificRecordBase im
       * @return True if the 'scenario_id' field has been set, false otherwise.
       */
     public boolean hasScenarioId() {
-      return fieldSetFlags()[10];
+      return fieldSetFlags()[11];
     }
 
 
@@ -1127,7 +1206,7 @@ public class RiskSnapshot extends org.apache.avro.specific.SpecificRecordBase im
       */
     public com.meridian.contracts.RiskSnapshot.Builder clearScenarioId() {
       scenario_id = null;
-      fieldSetFlags()[10] = false;
+      fieldSetFlags()[11] = false;
       return this;
     }
 
@@ -1148,9 +1227,9 @@ public class RiskSnapshot extends org.apache.avro.specific.SpecificRecordBase im
       * @return This builder.
       */
     public com.meridian.contracts.RiskSnapshot.Builder setOldestInputEventTime(java.time.Instant value) {
-      validate(fields()[11], value);
+      validate(fields()[12], value);
       this.oldest_input_event_time = value.truncatedTo(java.time.temporal.ChronoUnit.MICROS);
-      fieldSetFlags()[11] = true;
+      fieldSetFlags()[12] = true;
       return this;
     }
 
@@ -1160,7 +1239,7 @@ public class RiskSnapshot extends org.apache.avro.specific.SpecificRecordBase im
       * @return True if the 'oldest_input_event_time' field has been set, false otherwise.
       */
     public boolean hasOldestInputEventTime() {
-      return fieldSetFlags()[11];
+      return fieldSetFlags()[12];
     }
 
 
@@ -1170,7 +1249,7 @@ public class RiskSnapshot extends org.apache.avro.specific.SpecificRecordBase im
       * @return This builder.
       */
     public com.meridian.contracts.RiskSnapshot.Builder clearOldestInputEventTime() {
-      fieldSetFlags()[11] = false;
+      fieldSetFlags()[12] = false;
       return this;
     }
 
@@ -1191,9 +1270,9 @@ public class RiskSnapshot extends org.apache.avro.specific.SpecificRecordBase im
       * @return This builder.
       */
     public com.meridian.contracts.RiskSnapshot.Builder setIngestTime(java.time.Instant value) {
-      validate(fields()[12], value);
+      validate(fields()[13], value);
       this.ingest_time = value.truncatedTo(java.time.temporal.ChronoUnit.MICROS);
-      fieldSetFlags()[12] = true;
+      fieldSetFlags()[13] = true;
       return this;
     }
 
@@ -1203,7 +1282,7 @@ public class RiskSnapshot extends org.apache.avro.specific.SpecificRecordBase im
       * @return True if the 'ingest_time' field has been set, false otherwise.
       */
     public boolean hasIngestTime() {
-      return fieldSetFlags()[12];
+      return fieldSetFlags()[13];
     }
 
 
@@ -1213,7 +1292,7 @@ public class RiskSnapshot extends org.apache.avro.specific.SpecificRecordBase im
       * @return This builder.
       */
     public com.meridian.contracts.RiskSnapshot.Builder clearIngestTime() {
-      fieldSetFlags()[12] = false;
+      fieldSetFlags()[13] = false;
       return this;
     }
 
@@ -1223,18 +1302,19 @@ public class RiskSnapshot extends org.apache.avro.specific.SpecificRecordBase im
       try {
         RiskSnapshot record = new RiskSnapshot();
         record.portfolio_id = fieldSetFlags()[0] ? this.portfolio_id : (java.lang.String) defaultValue(fields()[0]);
-        record.as_of = fieldSetFlags()[1] ? this.as_of : (java.time.Instant) defaultValue(fields()[1]);
-        record.pricer_version = fieldSetFlags()[2] ? this.pricer_version : (java.lang.String) defaultValue(fields()[2]);
-        record.price = fieldSetFlags()[3] ? this.price : (java.math.BigDecimal) defaultValue(fields()[3]);
-        record.cash_delta = fieldSetFlags()[4] ? this.cash_delta : (java.math.BigDecimal) defaultValue(fields()[4]);
-        record.cash_gamma = fieldSetFlags()[5] ? this.cash_gamma : (java.math.BigDecimal) defaultValue(fields()[5]);
-        record.cash_vega = fieldSetFlags()[6] ? this.cash_vega : (java.math.BigDecimal) defaultValue(fields()[6]);
-        record.cash_theta = fieldSetFlags()[7] ? this.cash_theta : (java.math.BigDecimal) defaultValue(fields()[7]);
-        record.cash_rho = fieldSetFlags()[8] ? this.cash_rho : (java.math.BigDecimal) defaultValue(fields()[8]);
-        record.var_95 = fieldSetFlags()[9] ? this.var_95 : (java.lang.Double) defaultValue(fields()[9]);
-        record.scenario_id = fieldSetFlags()[10] ? this.scenario_id : (java.lang.String) defaultValue(fields()[10]);
-        record.oldest_input_event_time = fieldSetFlags()[11] ? this.oldest_input_event_time : (java.time.Instant) defaultValue(fields()[11]);
-        record.ingest_time = fieldSetFlags()[12] ? this.ingest_time : (java.time.Instant) defaultValue(fields()[12]);
+        record.base_currency = fieldSetFlags()[1] ? this.base_currency : (java.lang.String) defaultValue(fields()[1]);
+        record.as_of = fieldSetFlags()[2] ? this.as_of : (java.time.Instant) defaultValue(fields()[2]);
+        record.pricer_version = fieldSetFlags()[3] ? this.pricer_version : (java.lang.String) defaultValue(fields()[3]);
+        record.price = fieldSetFlags()[4] ? this.price : (java.math.BigDecimal) defaultValue(fields()[4]);
+        record.cash_delta = fieldSetFlags()[5] ? this.cash_delta : (java.math.BigDecimal) defaultValue(fields()[5]);
+        record.cash_gamma = fieldSetFlags()[6] ? this.cash_gamma : (java.math.BigDecimal) defaultValue(fields()[6]);
+        record.cash_vega = fieldSetFlags()[7] ? this.cash_vega : (java.math.BigDecimal) defaultValue(fields()[7]);
+        record.cash_theta = fieldSetFlags()[8] ? this.cash_theta : (java.math.BigDecimal) defaultValue(fields()[8]);
+        record.cash_rho = fieldSetFlags()[9] ? this.cash_rho : (java.math.BigDecimal) defaultValue(fields()[9]);
+        record.var_95 = fieldSetFlags()[10] ? this.var_95 : (java.lang.Double) defaultValue(fields()[10]);
+        record.scenario_id = fieldSetFlags()[11] ? this.scenario_id : (java.lang.String) defaultValue(fields()[11]);
+        record.oldest_input_event_time = fieldSetFlags()[12] ? this.oldest_input_event_time : (java.time.Instant) defaultValue(fields()[12]);
+        record.ingest_time = fieldSetFlags()[13] ? this.ingest_time : (java.time.Instant) defaultValue(fields()[13]);
         return record;
       } catch (org.apache.avro.AvroMissingFieldException e) {
         throw e;

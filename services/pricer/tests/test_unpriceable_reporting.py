@@ -78,6 +78,7 @@ def test_no_reference_data_reported_at_tick_time(kafka_stack, caplog) -> None:
     t0 = datetime(2026, 1, 1, tzinfo=UTC)
     fixture = PortfolioFixture(
         portfolio_id="P",
+        base_currency="USD",
         positions=[
             Position(
                 portfolio_id="P",
@@ -138,6 +139,7 @@ def test_no_reference_data_reported_at_portfolio_update_time(kafka_stack, caplog
     t0 = datetime(2026, 1, 1, tzinfo=UTC)
     fixture = PortfolioFixture(
         portfolio_id="P",
+        base_currency="USD",
         positions=[
             Position(
                 portfolio_id="P",
@@ -191,6 +193,7 @@ def test_instrument_not_priceable_reported_at_tick_time(kafka_stack, caplog) -> 
     t0 = datetime(2026, 1, 1, tzinfo=UTC)
     fixture = PortfolioFixture(
         portfolio_id="P",
+        base_currency="USD",
         positions=[
             Position(
                 portfolio_id="P",
@@ -266,6 +269,7 @@ def test_no_reference_data_reports_every_missing_instrument(kafka_stack, caplog)
     t0 = datetime(2026, 1, 1, tzinfo=UTC)
     fixture = PortfolioFixture(
         portfolio_id="P",
+        base_currency="USD",
         positions=[
             Position(
                 portfolio_id="P",
@@ -362,6 +366,7 @@ def test_no_price_reports_every_unpriced_underlying(kafka_stack, caplog) -> None
     t0 = datetime(2026, 1, 1, tzinfo=UTC)
     fixture = PortfolioFixture(
         portfolio_id="P",
+        base_currency="USD",
         positions=[
             Position(
                 portfolio_id="P",

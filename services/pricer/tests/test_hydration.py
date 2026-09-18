@@ -45,6 +45,7 @@ def test_ticks_produced_before_hydration_are_not_lost_or_priced_early(kafka_stac
     t0 = datetime(2026, 1, 1, tzinfo=UTC)
     fixture = PortfolioFixture(
         portfolio_id="P",
+        base_currency="USD",
         positions=[
             Position(
                 portfolio_id="P",

@@ -51,6 +51,16 @@ nothing for the dashboard to talk to.
   a blank currency and a missing row is an `IllegalStateException`; core-service
   never writes the empty default. No conversion here; that is the pricer's,
   in a later session. Owner: Eng-D, Q2.
+- `risk_snapshots` records the reporting currency (ADR-0028 Decision 6): V5
+  adds `base_currency TEXT NOT NULL DEFAULT ''` (existing rows predate the
+  field, so their currency is genuinely unknown), and it is carried through
+  `RiskSnapshotRecord`, the upsert SQL, `RiskSnapshotDtoMapper` and the REST
+  and SSE `RiskSnapshotDto`. The same change fixes a pre-existing gap: the
+  DTO and mapper never carried `oldest_input_event_time`, which the OpenAPI
+  spec requires and the dashboard's staleness rendering reads. A
+  `/risk` response is now validated against `service-api.yaml` with
+  `OPENAPI_FILTER` (`MoneyAsStringTest`), the guard that would have caught
+  it. Owner: Eng-D, Q2.
 
 ## Boundaries
 - **Owns:** `services/core-service/**`.
@@ -356,3 +366,11 @@ booking.
   `TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE=/var/run/docker.sock` and
   `-DargLine="-Dapi.version=1.44"`. No repo change; a Testcontainers bump is
   not made here.
+- 2026-09-18 (risk-snapshot currency session): `RiskSnapshot` gained
+  `base_currency` end to end: Avro, OpenAPI, V5 migration, repository,
+  DTO/mapper, TypeScript bindings. New tests: a repository round trip that
+  also asserts a redelivery overwrites the currency
+  (`RiskSnapshotUpsertTest`), and the `/risk` OpenAPI conformance test
+  described above. Same local-run workaround as the prior session
+  (`DOCKER_HOST`, `TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE`,
+  `-DargLine="-Dapi.version=1.44"`; no repo change).

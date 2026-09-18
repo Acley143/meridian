@@ -28,6 +28,7 @@ class PortfolioFixture:
     portfolio_id: str
     positions: list[Position]
     event_time: datetime
+    base_currency: str
 
 
 def load_portfolio_fixtures(path: Path = FIXTURES_DIR / "portfolios.yaml") -> list[PortfolioFixture]:
@@ -46,7 +47,12 @@ def load_portfolio_fixtures(path: Path = FIXTURES_DIR / "portfolios.yaml") -> li
             for p in cfg["positions"]
         ]
         fixtures.append(
-            PortfolioFixture(portfolio_id=portfolio_id, positions=positions, event_time=event_time)
+            PortfolioFixture(
+                portfolio_id=portfolio_id,
+                positions=positions,
+                event_time=event_time,
+                base_currency=cfg["base_currency"],
+            )
         )
     return fixtures
 

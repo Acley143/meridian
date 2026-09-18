@@ -42,6 +42,7 @@ class UnpriceableReason(str, Enum):
     """Stable reason codes for structured unpriceable-portfolio reporting
     (ADR-0018) -- see `pricer.service.PricerService._report_unpriceable`."""
 
+    UNKNOWN_BASE_CURRENCY = "UNKNOWN_BASE_CURRENCY"
     NO_REFERENCE_DATA = "NO_REFERENCE_DATA"
     NO_PRICE = "NO_PRICE"
     MISSING_CURVE = "MISSING_CURVE"

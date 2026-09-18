@@ -12,6 +12,7 @@ import java.time.Instant;
  */
 public record RiskSnapshotRecord(
     String portfolioId,
+    String baseCurrency,
     Instant asOf,
     String pricerVersion,
     BigDecimal price,

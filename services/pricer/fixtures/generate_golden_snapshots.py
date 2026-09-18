@@ -7,15 +7,18 @@ plain linear scan (not the reverse index) and re-derives each cash Greek by
 writing the ADR-0014/ADR-0017 formulas out again inline (not calling
 `pricer.pricing.aggregate_position`/`aggregate_portfolio`). It shares only
 `quant_core` (the pricer under test doesn't reimplement Black-Scholes
-either) and fixture *loading* (`fixtures/loader.py` -- parsing YAML isn't
-the logic being checked). The golden-pipeline test in
+either) and fixture *loading* of portfolios and ticks (`fixtures/loader.py`
+-- parsing YAML isn't the logic being checked). Market inputs (volatility,
+risk-free rate, dividend yield) come from `fixtures/curves.yaml`, parsed
+inline here with `yaml.safe_load` rather than through the loader's curve
+helper or any pricer code (ADR-0027). The golden-pipeline test in
 `services/pricer/tests/test_golden_pipeline.py` runs the real
 `PricerService` against these same fixtures and asserts its output matches
 this file -- if the two independently-written aggregation implementations
 ever agree on a wrong answer, that would be a remarkable coincidence, not a
 silent tautology.
 
-Run after changing any of fixtures/{instruments,portfolios,ticks}.yaml:
+Run after changing any of fixtures/{instruments,portfolios,ticks,curves}.yaml:
     python3 services/pricer/fixtures/generate_golden_snapshots.py
 """
 from __future__ import annotations
@@ -45,9 +48,6 @@ class _Instrument:
     option_type: str | None
     strike: Decimal | None
     expiry: str | None
-    volatility: float | None
-    risk_free_rate: float | None
-    dividend_yield: float | None
 
 
 def _load_instruments() -> dict[str, _Instrument]:
@@ -62,14 +62,41 @@ def _load_instruments() -> dict[str, _Instrument]:
             option_type=cfg.get("option_type"),
             strike=Decimal(str(cfg["strike"])) if cfg.get("strike") is not None else None,
             expiry=cfg.get("expiry"),
-            volatility=cfg.get("volatility"),
-            risk_free_rate=cfg.get("risk_free_rate"),
-            dividend_yield=cfg.get("dividend_yield"),
         )
     return out
 
 
-def _price_per_unit(instrument: _Instrument, spot: Decimal, valuation_time: datetime):
+def _load_curves() -> dict[tuple[str, str], float]:
+    """(kind, curve_id) -> value, parsed straight from curves.yaml."""
+    raw = yaml.safe_load((_FIXTURES_DIR / "curves.yaml").read_text())
+    out: dict[tuple[str, str], float] = {}
+    for curve in raw["curves"]:
+        key = (curve["kind"], curve["curve_id"])
+        value = curve["value"]
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            raise TypeError(
+                f"curves.yaml: value for {key[0]}:{key[1]} must be a number, "
+                f"got {type(value).__name__} {value!r}"
+            )
+        if key in out:
+            raise ValueError(f"curves.yaml: duplicate curve {key[0]}:{key[1]}")
+        out[key] = float(value)
+    return out
+
+
+def _curve(curves: dict[tuple[str, str], float], kind: str, curve_id: str) -> float:
+    try:
+        return curves[(kind, curve_id)]
+    except KeyError:
+        raise KeyError(f"curves.yaml has no curve {kind}:{curve_id}") from None
+
+
+def _price_per_unit(
+    instrument: _Instrument,
+    spot: Decimal,
+    valuation_time: datetime,
+    curves: dict[tuple[str, str], float],
+):
     if instrument.instrument_type == "EQUITY":
         return spot, 1.0, 0.0, 0.0, 0.0, 0.0  # price, delta, gamma, vega, theta, rho
 
@@ -81,9 +108,9 @@ def _price_per_unit(instrument: _Instrument, spot: Decimal, valuation_time: date
     )
     market = MarketState(
         spot=spot,
-        volatility=instrument.volatility,
-        risk_free_rate=instrument.risk_free_rate,
-        dividend_yield=instrument.dividend_yield,
+        volatility=_curve(curves, "VOLATILITY", instrument.underlying_id),
+        risk_free_rate=_curve(curves, "RISK_FREE_RATE", instrument.currency),
+        dividend_yield=_curve(curves, "DIVIDEND_YIELD", instrument.underlying_id),
         valuation_time=valuation_time,
     )
     result = black_scholes_price(option, market)
@@ -105,6 +132,7 @@ def _affected_portfolios(
 
 def main() -> None:
     instruments = _load_instruments()
+    curves = _load_curves()
     portfolios = load_portfolio_fixtures()
     scenario_id, ticks = load_tick_fixtures()
 
@@ -135,7 +163,7 @@ def main() -> None:
                 spot = last_price[underlying_id]
 
                 pr_price, pr_delta, pr_gamma, pr_vega, pr_theta, pr_rho = _price_per_unit(
-                    instrument, spot, tick.event_time
+                    instrument, spot, tick.event_time, curves
                 )
 
                 q = to_model(position.quantity)

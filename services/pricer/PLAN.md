@@ -181,7 +181,9 @@ Consumes ticks and portfolio state, prices every position using
   `dividend_yield` fields and `fixtures/generate_golden_snapshots.py` are
   retired -- both were kept this session only so the golden pipeline could
   prove curve-sourced inputs equal the fixture-sourced ones it already
-  pinned. Open decision (not implemented this session, recommendation only
+  pinned. Done: the fields and their `InstrumentReference` attributes are
+  gone, and the golden generator now reads `fixtures/curves.yaml`
+  (regenerating `golden_snapshots.json` is byte-identical). Open decision (not implemented this session, recommendation only
   -- see session log): the last-price cache (`_last_price`) is not
   scenario-scoped, so a portfolio can combine one scenario's prices with
   another scenario's curves.
@@ -263,21 +265,23 @@ Consumes `market.ticks` and `portfolio.state`. Produces `risk.snapshots`, schema
   blocking Q1's "prove the pipe connects").
 - **New.** Instrument static reference data (strike, expiry, option_type,
   contract_size, currency, underlying_id per `docs/domain-model.md
-  #Instrument`) and the market-rate assumptions Black-Scholes needs
-  (volatility, risk_free_rate, dividend_yield) have no wire representation
-  anywhere in `contracts/avro/` — `portfolio.state`'s `Position` carries
-  only `instrument_id`/`quantity`/`average_cost`/`as_of_event_time`, and
-  `market.ticks` carries only a price. No ADR covers where this should come
-  from. This session's judgment call: a checked-in static YAML fixture
+  #Instrument`) has no wire representation anywhere in `contracts/avro/` --
+  `portfolio.state`'s `Position` carries only `instrument_id`/`quantity`/
+  `average_cost`/`as_of_event_time`, and `market.ticks` carries only a
+  price. No ADR covers where this should come from. This session's judgment
+  call: a checked-in static YAML fixture
   (`services/pricer/fixtures/instruments.yaml`, loaded by
   `pricer/reference_data.py`), narrow and reversible, standing in for a
   real reference-data feed. Flagged per root `CLAUDE.md`'s "if a decision
-  should exist and doesn't, stop and say so" — this workstream could not
+  should exist and doesn't, stop and say so" -- this workstream could not
   literally stop (there is no pricer without *some* answer), so the
   decision is surfaced here instead, for Eng-A to turn into a real ADR
   before `core-service` needs to actually publish this data. Owner: Eng-A,
   by-when: before Q2 (when a second portfolio/instrument-consuming service
-  would otherwise duplicate this same judgment call independently).
+  would otherwise duplicate this same judgment call independently). The
+  market-rate assumptions Black-Scholes needs (volatility, risk_free_rate,
+  dividend_yield) *do* now have a wire representation: `market.curves`,
+  ADR-0027, which this service consumes (see Extended scope, Q2).
 - Currency: cash Greeks are summable across underlyings, not across
   currencies. A EUR position aggregated into a USD portfolio total without
   conversion is silently wrong. Deliberately NOT owned here — see root

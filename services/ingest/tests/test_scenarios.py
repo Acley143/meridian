@@ -171,7 +171,7 @@ def test_small_deterministic_v2_curves_match_pricer_curve_fixture() -> None:
     """Permanent guard: small-deterministic-v2's curves must match the curve
     values services/pricer prices with (services/pricer/fixtures/curves.yaml,
     ADR-0027), not services/pricer/fixtures/instruments.yaml's market fields,
-    which are retired in a later session."""
+    which are retired by the commit that introduced this note."""
     scenario = load_scenario(_SMALL_DETERMINISTIC_V2)
     curves_by_key = {(c.kind, c.curve_id): c for c in scenario.curves}
 

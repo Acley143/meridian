@@ -1,24 +1,27 @@
-"""Static instrument reference data and market-rate assumptions.
+"""Static instrument reference data.
 
 **This module is a stand-in for a real feed that doesn't exist yet, and is
 called out explicitly in `services/pricer/PLAN.md`'s open questions.**
 `docs/domain-model.md#Instrument` defines the static fields a pricer needs
-(strike, expiry, option_type, contract_size, currency, underlying_id), and
-Black-Scholes additionally needs volatility/risk_free_rate/dividend_yield
-per `quant_core.types.MarketState` -- but nothing in `contracts/avro/`
-publishes either over Kafka. `portfolio.state`'s `Position` carries only
-`instrument_id`, `quantity`, `average_cost`, `as_of_event_time` (see
-`docs/domain-model.md#position`); `market.ticks` carries only a price.
+(strike, expiry, option_type, contract_size, currency, underlying_id), but
+nothing in `contracts/avro/` publishes them over Kafka. `portfolio.state`'s
+`Position` carries only `instrument_id`, `quantity`, `average_cost`,
+`as_of_event_time` (see `docs/domain-model.md#position`); `market.ticks`
+carries only a price.
 
 There is no ADR covering where this data should come from. Per root
-`CLAUDE.md`: "If [a decision] should exist and doesn't, stop and say so —
+`CLAUDE.md`: "If [a decision] should exist and doesn't, stop and say so --
 don't decide by writing code." This session cannot literally stop (there
 is no pricer without *some* answer), so the judgment call made here is
 narrow and reversible: a checked-in static YAML fixture
 (`services/pricer/fixtures/instruments.yaml`), loaded once at startup,
-standing in for what should eventually be either a real reference-data
-topic or a market-data-assumptions service. Flagged in `PLAN.md` open
-questions for Eng-A to turn into a real ADR-backed decision.
+standing in for what should eventually be a real reference-data topic.
+Flagged in `PLAN.md` open questions for Eng-A to turn into a real
+ADR-backed decision.
+
+This module carries instrument statics only. The market inputs Black-Scholes
+needs (volatility, risk_free_rate, dividend_yield) arrive on `market.curves`
+per ADR-0027 and are never read from here.
 """
 from __future__ import annotations
 
@@ -32,9 +35,7 @@ from quant_core.types import OptionRight
 
 @dataclass(frozen=True)
 class InstrumentReference:
-    """Static definition of one instrument, per docs/domain-model.md#Instrument,
-    plus the market-rate assumptions Black-Scholes needs that have no other
-    source this quarter (see module docstring)."""
+    """Static definition of one instrument, per docs/domain-model.md#Instrument."""
 
     instrument_id: str
     instrument_type: str  # "EQUITY" | "VANILLA_EUROPEAN_OPTION" | "VANILLA_AMERICAN_OPTION"
@@ -44,9 +45,6 @@ class InstrumentReference:
     option_type: OptionRight | None = None
     strike: Decimal | None = None
     expiry_iso: str | None = None
-    volatility: float | None = None
-    risk_free_rate: float | None = None
-    dividend_yield: float | None = None
 
     def __post_init__(self) -> None:
         if self.instrument_type not in ("EQUITY", "VANILLA_EUROPEAN_OPTION", "VANILLA_AMERICAN_OPTION"):
@@ -58,9 +56,6 @@ class InstrumentReference:
                     ("option_type", self.option_type),
                     ("strike", self.strike),
                     ("expiry_iso", self.expiry_iso),
-                    ("volatility", self.volatility),
-                    ("risk_free_rate", self.risk_free_rate),
-                    ("dividend_yield", self.dividend_yield),
                 )
                 if value is None
             ]
@@ -105,8 +100,5 @@ def load_reference_data(path: Path) -> ReferenceData:
             option_type=option_type,
             strike=Decimal(str(cfg["strike"])) if cfg.get("strike") is not None else None,
             expiry_iso=cfg.get("expiry"),
-            volatility=cfg.get("volatility"),
-            risk_free_rate=cfg.get("risk_free_rate"),
-            dividend_yield=cfg.get("dividend_yield"),
         )
     return ReferenceData(instruments)

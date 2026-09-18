@@ -38,7 +38,7 @@ class PortfolioMutationPublishesStateTest extends AbstractKafkaIntegrationTest {
         "INSERT INTO portfolios (portfolio_id, name, base_currency, owner) VALUES (?, ?, ?, ?)",
         "PF-STATE-TEST",
         "State Publish Test",
-        "USD",
+        "EUR",
         "desk-1");
     jdbcTemplate.update(
         "INSERT INTO instruments (instrument_id, underlying_id, instrument_type, currency,"
@@ -89,6 +89,9 @@ class PortfolioMutationPublishesStateTest extends AbstractKafkaIntegrationTest {
       assertThat(found.key().getPortfolioId()).isEqualTo("PF-STATE-TEST");
       PortfolioState value = found.value();
       assertThat(value.getPortfolioId()).isEqualTo("PF-STATE-TEST");
+      // ADR-0028: the reporting currency is copied from the portfolios row on every republish. A
+      // non-USD value so a hard-coded default cannot pass.
+      assertThat(value.getBaseCurrency()).isEqualTo("EUR");
       assertThat(value.getPositions()).hasSize(1);
       assertThat(value.getPositions().get(0).getInstrumentId()).isEqualTo("AAPL");
       assertThat(value.getPositions().get(0).getQuantity())

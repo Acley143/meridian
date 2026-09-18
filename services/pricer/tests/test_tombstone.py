@@ -26,6 +26,7 @@ def test_tombstone_mid_stream_stops_snapshots(kafka_stack) -> None:
     portfolio_producer.produce_state(
         PortfolioState(
             portfolio_id="P",
+            base_currency="USD",
             positions=[
                 Position(
                     portfolio_id="P",

@@ -21,10 +21,10 @@ import org.apache.avro.message.SchemaStore;
 /** Materialized current positions for a portfolio, published to the log-compacted portfolio.state topic. See docs/domain-model.md#portfoliostate and ADR-0003. TOMBSTONE CONVENTION: this schema describes the VALUE when a portfolio exists. A Kafka message on this topic with a portfolio_id key and a NULL value is a tombstone (standard Kafka log-compaction semantics) meaning that portfolio has been deleted -- a null message has no Avro payload, so this cannot be a field in the schema below; it is a producer-side convention. services/core-service (the sole producer, ADR-0003) must publish a null-valued message keyed on portfolio_id on deletion, and every consumer (services/pricer) must treat a null value as a delete, not a decode failure. See docs/domain-model.md#portfoliostate for the same note. */
 @org.apache.avro.specific.AvroGenerated
 public class PortfolioState extends org.apache.avro.specific.SpecificRecordBase implements org.apache.avro.specific.SpecificRecord {
-  private static final long serialVersionUID = 1022670570123939248L;
+  private static final long serialVersionUID = -3012841609450777807L;
 
 
-  public static final org.apache.avro.Schema SCHEMA$ = new org.apache.avro.Schema.Parser().parse("{\"type\":\"record\",\"name\":\"PortfolioState\",\"namespace\":\"com.meridian.contracts\",\"doc\":\"Materialized current positions for a portfolio, published to the log-compacted portfolio.state topic. See docs/domain-model.md#portfoliostate and ADR-0003. TOMBSTONE CONVENTION: this schema describes the VALUE when a portfolio exists. A Kafka message on this topic with a portfolio_id key and a NULL value is a tombstone (standard Kafka log-compaction semantics) meaning that portfolio has been deleted -- a null message has no Avro payload, so this cannot be a field in the schema below; it is a producer-side convention. services/core-service (the sole producer, ADR-0003) must publish a null-valued message keyed on portfolio_id on deletion, and every consumer (services/pricer) must treat a null value as a delete, not a decode failure. See docs/domain-model.md#portfoliostate for the same note.\",\"fields\":[{\"name\":\"portfolio_id\",\"type\":{\"type\":\"string\",\"avro.java.string\":\"String\"},\"doc\":\"Kafka message key. Portfolio this state belongs to.\"},{\"name\":\"positions\",\"type\":{\"type\":\"array\",\"items\":{\"type\":\"record\",\"name\":\"Position\",\"doc\":\"See docs/domain-model.md#position.\",\"fields\":[{\"name\":\"portfolio_id\",\"type\":{\"type\":\"string\",\"avro.java.string\":\"String\"}},{\"name\":\"instrument_id\",\"type\":{\"type\":\"string\",\"avro.java.string\":\"String\"}},{\"name\":\"quantity\",\"type\":{\"type\":\"bytes\",\"logicalType\":\"decimal\",\"precision\":38,\"scale\":8},\"doc\":\"Signed quantity: positive is long, negative is short.\"},{\"name\":\"average_cost\",\"type\":{\"type\":\"bytes\",\"logicalType\":\"decimal\",\"precision\":38,\"scale\":8},\"doc\":\"Volume-weighted average price paid per unit of quantity.\"},{\"name\":\"as_of_event_time\",\"type\":{\"type\":\"long\",\"logicalType\":\"timestamp-micros\"},\"doc\":\"Event time of the last trade applied to this position.\"}]}},\"doc\":\"Full current set of positions for this portfolio. Not a delta against the previous message.\",\"default\":[]},{\"name\":\"event_time\",\"type\":{\"type\":\"long\",\"logicalType\":\"timestamp-micros\"},\"doc\":\"Event time of the trade that produced this state.\"},{\"name\":\"ingest_time\",\"type\":{\"type\":\"long\",\"logicalType\":\"timestamp-micros\"},\"doc\":\"UTC instant the core service produced this message.\"}]}");
+  public static final org.apache.avro.Schema SCHEMA$ = new org.apache.avro.Schema.Parser().parse("{\"type\":\"record\",\"name\":\"PortfolioState\",\"namespace\":\"com.meridian.contracts\",\"doc\":\"Materialized current positions for a portfolio, published to the log-compacted portfolio.state topic. See docs/domain-model.md#portfoliostate and ADR-0003. TOMBSTONE CONVENTION: this schema describes the VALUE when a portfolio exists. A Kafka message on this topic with a portfolio_id key and a NULL value is a tombstone (standard Kafka log-compaction semantics) meaning that portfolio has been deleted -- a null message has no Avro payload, so this cannot be a field in the schema below; it is a producer-side convention. services/core-service (the sole producer, ADR-0003) must publish a null-valued message keyed on portfolio_id on deletion, and every consumer (services/pricer) must treat a null value as a delete, not a decode failure. See docs/domain-model.md#portfoliostate for the same note.\",\"fields\":[{\"name\":\"portfolio_id\",\"type\":{\"type\":\"string\",\"avro.java.string\":\"String\"},\"doc\":\"Kafka message key. Portfolio this state belongs to.\"},{\"name\":\"base_currency\",\"type\":{\"type\":\"string\",\"avro.java.string\":\"String\"},\"doc\":\"The portfolio's reporting currency (ISO 4217) as of this message, copied from the portfolios row by services/core-service. An empty string means unknown -- the compatibility default for messages written before this field existed -- and consumers must treat it as an error rather than assuming a currency (ADR-0028).\",\"default\":\"\"},{\"name\":\"positions\",\"type\":{\"type\":\"array\",\"items\":{\"type\":\"record\",\"name\":\"Position\",\"doc\":\"See docs/domain-model.md#position.\",\"fields\":[{\"name\":\"portfolio_id\",\"type\":{\"type\":\"string\",\"avro.java.string\":\"String\"}},{\"name\":\"instrument_id\",\"type\":{\"type\":\"string\",\"avro.java.string\":\"String\"}},{\"name\":\"quantity\",\"type\":{\"type\":\"bytes\",\"logicalType\":\"decimal\",\"precision\":38,\"scale\":8},\"doc\":\"Signed quantity: positive is long, negative is short.\"},{\"name\":\"average_cost\",\"type\":{\"type\":\"bytes\",\"logicalType\":\"decimal\",\"precision\":38,\"scale\":8},\"doc\":\"Volume-weighted average price paid per unit of quantity.\"},{\"name\":\"as_of_event_time\",\"type\":{\"type\":\"long\",\"logicalType\":\"timestamp-micros\"},\"doc\":\"Event time of the last trade applied to this position.\"}]}},\"doc\":\"Full current set of positions for this portfolio. Not a delta against the previous message.\",\"default\":[]},{\"name\":\"event_time\",\"type\":{\"type\":\"long\",\"logicalType\":\"timestamp-micros\"},\"doc\":\"Event time of the trade that produced this state.\"},{\"name\":\"ingest_time\",\"type\":{\"type\":\"long\",\"logicalType\":\"timestamp-micros\"},\"doc\":\"UTC instant the core service produced this message.\"}]}");
   public static org.apache.avro.Schema getClassSchema() { return SCHEMA$; }
 
   private static final SpecificData MODEL$ = new SpecificData();
@@ -86,6 +86,8 @@ public class PortfolioState extends org.apache.avro.specific.SpecificRecordBase 
 
   /** Kafka message key. Portfolio this state belongs to. */
   private java.lang.String portfolio_id;
+  /** The portfolio's reporting currency (ISO 4217) as of this message, copied from the portfolios row by services/core-service. An empty string means unknown -- the compatibility default for messages written before this field existed -- and consumers must treat it as an error rather than assuming a currency (ADR-0028). */
+  private java.lang.String base_currency;
   /** Full current set of positions for this portfolio. Not a delta against the previous message. */
   private java.util.List<com.meridian.contracts.Position> positions;
   /** Event time of the trade that produced this state. */
@@ -103,12 +105,14 @@ public class PortfolioState extends org.apache.avro.specific.SpecificRecordBase 
   /**
    * All-args constructor.
    * @param portfolio_id Kafka message key. Portfolio this state belongs to.
+   * @param base_currency The portfolio's reporting currency (ISO 4217) as of this message, copied from the portfolios row by services/core-service. An empty string means unknown -- the compatibility default for messages written before this field existed -- and consumers must treat it as an error rather than assuming a currency (ADR-0028).
    * @param positions Full current set of positions for this portfolio. Not a delta against the previous message.
    * @param event_time Event time of the trade that produced this state.
    * @param ingest_time UTC instant the core service produced this message.
    */
-  public PortfolioState(java.lang.String portfolio_id, java.util.List<com.meridian.contracts.Position> positions, java.time.Instant event_time, java.time.Instant ingest_time) {
+  public PortfolioState(java.lang.String portfolio_id, java.lang.String base_currency, java.util.List<com.meridian.contracts.Position> positions, java.time.Instant event_time, java.time.Instant ingest_time) {
     this.portfolio_id = portfolio_id;
+    this.base_currency = base_currency;
     this.positions = positions;
     this.event_time = event_time.truncatedTo(java.time.temporal.ChronoUnit.MICROS);
     this.ingest_time = ingest_time.truncatedTo(java.time.temporal.ChronoUnit.MICROS);
@@ -125,15 +129,17 @@ public class PortfolioState extends org.apache.avro.specific.SpecificRecordBase 
   public java.lang.Object get(int field$) {
     switch (field$) {
     case 0: return portfolio_id;
-    case 1: return positions;
-    case 2: return event_time;
-    case 3: return ingest_time;
+    case 1: return base_currency;
+    case 2: return positions;
+    case 3: return event_time;
+    case 4: return ingest_time;
     default: throw new IndexOutOfBoundsException("Invalid index: " + field$);
     }
   }
 
   private static final org.apache.avro.Conversion<?>[] conversions =
       new org.apache.avro.Conversion<?>[] {
+      null,
       null,
       null,
       new org.apache.avro.data.TimeConversions.TimestampMicrosConversion(),
@@ -152,9 +158,10 @@ public class PortfolioState extends org.apache.avro.specific.SpecificRecordBase 
   public void put(int field$, java.lang.Object value$) {
     switch (field$) {
     case 0: portfolio_id = value$ != null ? value$.toString() : null; break;
-    case 1: positions = (java.util.List<com.meridian.contracts.Position>)value$; break;
-    case 2: event_time = (java.time.Instant)value$; break;
-    case 3: ingest_time = (java.time.Instant)value$; break;
+    case 1: base_currency = value$ != null ? value$.toString() : null; break;
+    case 2: positions = (java.util.List<com.meridian.contracts.Position>)value$; break;
+    case 3: event_time = (java.time.Instant)value$; break;
+    case 4: ingest_time = (java.time.Instant)value$; break;
     default: throw new IndexOutOfBoundsException("Invalid index: " + field$);
     }
   }
@@ -175,6 +182,24 @@ public class PortfolioState extends org.apache.avro.specific.SpecificRecordBase 
    */
   public void setPortfolioId(java.lang.String value) {
     this.portfolio_id = value;
+  }
+
+  /**
+   * Gets the value of the 'base_currency' field.
+   * @return The portfolio's reporting currency (ISO 4217) as of this message, copied from the portfolios row by services/core-service. An empty string means unknown -- the compatibility default for messages written before this field existed -- and consumers must treat it as an error rather than assuming a currency (ADR-0028).
+   */
+  public java.lang.String getBaseCurrency() {
+    return base_currency;
+  }
+
+
+  /**
+   * Sets the value of the 'base_currency' field.
+   * The portfolio's reporting currency (ISO 4217) as of this message, copied from the portfolios row by services/core-service. An empty string means unknown -- the compatibility default for messages written before this field existed -- and consumers must treat it as an error rather than assuming a currency (ADR-0028).
+   * @param value the value to set.
+   */
+  public void setBaseCurrency(java.lang.String value) {
+    this.base_currency = value;
   }
 
   /**
@@ -274,6 +299,8 @@ public class PortfolioState extends org.apache.avro.specific.SpecificRecordBase 
 
     /** Kafka message key. Portfolio this state belongs to. */
     private java.lang.String portfolio_id;
+    /** The portfolio's reporting currency (ISO 4217) as of this message, copied from the portfolios row by services/core-service. An empty string means unknown -- the compatibility default for messages written before this field existed -- and consumers must treat it as an error rather than assuming a currency (ADR-0028). */
+    private java.lang.String base_currency;
     /** Full current set of positions for this portfolio. Not a delta against the previous message. */
     private java.util.List<com.meridian.contracts.Position> positions;
     /** Event time of the trade that produced this state. */
@@ -296,17 +323,21 @@ public class PortfolioState extends org.apache.avro.specific.SpecificRecordBase 
         this.portfolio_id = data().deepCopy(fields()[0].schema(), other.portfolio_id);
         fieldSetFlags()[0] = other.fieldSetFlags()[0];
       }
-      if (isValidValue(fields()[1], other.positions)) {
-        this.positions = data().deepCopy(fields()[1].schema(), other.positions);
+      if (isValidValue(fields()[1], other.base_currency)) {
+        this.base_currency = data().deepCopy(fields()[1].schema(), other.base_currency);
         fieldSetFlags()[1] = other.fieldSetFlags()[1];
       }
-      if (isValidValue(fields()[2], other.event_time)) {
-        this.event_time = data().deepCopy(fields()[2].schema(), other.event_time);
+      if (isValidValue(fields()[2], other.positions)) {
+        this.positions = data().deepCopy(fields()[2].schema(), other.positions);
         fieldSetFlags()[2] = other.fieldSetFlags()[2];
       }
-      if (isValidValue(fields()[3], other.ingest_time)) {
-        this.ingest_time = data().deepCopy(fields()[3].schema(), other.ingest_time);
+      if (isValidValue(fields()[3], other.event_time)) {
+        this.event_time = data().deepCopy(fields()[3].schema(), other.event_time);
         fieldSetFlags()[3] = other.fieldSetFlags()[3];
+      }
+      if (isValidValue(fields()[4], other.ingest_time)) {
+        this.ingest_time = data().deepCopy(fields()[4].schema(), other.ingest_time);
+        fieldSetFlags()[4] = other.fieldSetFlags()[4];
       }
     }
 
@@ -320,17 +351,21 @@ public class PortfolioState extends org.apache.avro.specific.SpecificRecordBase 
         this.portfolio_id = data().deepCopy(fields()[0].schema(), other.portfolio_id);
         fieldSetFlags()[0] = true;
       }
-      if (isValidValue(fields()[1], other.positions)) {
-        this.positions = data().deepCopy(fields()[1].schema(), other.positions);
+      if (isValidValue(fields()[1], other.base_currency)) {
+        this.base_currency = data().deepCopy(fields()[1].schema(), other.base_currency);
         fieldSetFlags()[1] = true;
       }
-      if (isValidValue(fields()[2], other.event_time)) {
-        this.event_time = data().deepCopy(fields()[2].schema(), other.event_time);
+      if (isValidValue(fields()[2], other.positions)) {
+        this.positions = data().deepCopy(fields()[2].schema(), other.positions);
         fieldSetFlags()[2] = true;
       }
-      if (isValidValue(fields()[3], other.ingest_time)) {
-        this.ingest_time = data().deepCopy(fields()[3].schema(), other.ingest_time);
+      if (isValidValue(fields()[3], other.event_time)) {
+        this.event_time = data().deepCopy(fields()[3].schema(), other.event_time);
         fieldSetFlags()[3] = true;
+      }
+      if (isValidValue(fields()[4], other.ingest_time)) {
+        this.ingest_time = data().deepCopy(fields()[4].schema(), other.ingest_time);
+        fieldSetFlags()[4] = true;
       }
     }
 
@@ -379,6 +414,50 @@ public class PortfolioState extends org.apache.avro.specific.SpecificRecordBase 
     }
 
     /**
+      * Gets the value of the 'base_currency' field.
+      * The portfolio's reporting currency (ISO 4217) as of this message, copied from the portfolios row by services/core-service. An empty string means unknown -- the compatibility default for messages written before this field existed -- and consumers must treat it as an error rather than assuming a currency (ADR-0028).
+      * @return The value.
+      */
+    public java.lang.String getBaseCurrency() {
+      return base_currency;
+    }
+
+
+    /**
+      * Sets the value of the 'base_currency' field.
+      * The portfolio's reporting currency (ISO 4217) as of this message, copied from the portfolios row by services/core-service. An empty string means unknown -- the compatibility default for messages written before this field existed -- and consumers must treat it as an error rather than assuming a currency (ADR-0028).
+      * @param value The value of 'base_currency'.
+      * @return This builder.
+      */
+    public com.meridian.contracts.PortfolioState.Builder setBaseCurrency(java.lang.String value) {
+      validate(fields()[1], value);
+      this.base_currency = value;
+      fieldSetFlags()[1] = true;
+      return this;
+    }
+
+    /**
+      * Checks whether the 'base_currency' field has been set.
+      * The portfolio's reporting currency (ISO 4217) as of this message, copied from the portfolios row by services/core-service. An empty string means unknown -- the compatibility default for messages written before this field existed -- and consumers must treat it as an error rather than assuming a currency (ADR-0028).
+      * @return True if the 'base_currency' field has been set, false otherwise.
+      */
+    public boolean hasBaseCurrency() {
+      return fieldSetFlags()[1];
+    }
+
+
+    /**
+      * Clears the value of the 'base_currency' field.
+      * The portfolio's reporting currency (ISO 4217) as of this message, copied from the portfolios row by services/core-service. An empty string means unknown -- the compatibility default for messages written before this field existed -- and consumers must treat it as an error rather than assuming a currency (ADR-0028).
+      * @return This builder.
+      */
+    public com.meridian.contracts.PortfolioState.Builder clearBaseCurrency() {
+      base_currency = null;
+      fieldSetFlags()[1] = false;
+      return this;
+    }
+
+    /**
       * Gets the value of the 'positions' field.
       * Full current set of positions for this portfolio. Not a delta against the previous message.
       * @return The value.
@@ -395,9 +474,9 @@ public class PortfolioState extends org.apache.avro.specific.SpecificRecordBase 
       * @return This builder.
       */
     public com.meridian.contracts.PortfolioState.Builder setPositions(java.util.List<com.meridian.contracts.Position> value) {
-      validate(fields()[1], value);
+      validate(fields()[2], value);
       this.positions = value;
-      fieldSetFlags()[1] = true;
+      fieldSetFlags()[2] = true;
       return this;
     }
 
@@ -407,7 +486,7 @@ public class PortfolioState extends org.apache.avro.specific.SpecificRecordBase 
       * @return True if the 'positions' field has been set, false otherwise.
       */
     public boolean hasPositions() {
-      return fieldSetFlags()[1];
+      return fieldSetFlags()[2];
     }
 
 
@@ -418,7 +497,7 @@ public class PortfolioState extends org.apache.avro.specific.SpecificRecordBase 
       */
     public com.meridian.contracts.PortfolioState.Builder clearPositions() {
       positions = null;
-      fieldSetFlags()[1] = false;
+      fieldSetFlags()[2] = false;
       return this;
     }
 
@@ -439,9 +518,9 @@ public class PortfolioState extends org.apache.avro.specific.SpecificRecordBase 
       * @return This builder.
       */
     public com.meridian.contracts.PortfolioState.Builder setEventTime(java.time.Instant value) {
-      validate(fields()[2], value);
+      validate(fields()[3], value);
       this.event_time = value.truncatedTo(java.time.temporal.ChronoUnit.MICROS);
-      fieldSetFlags()[2] = true;
+      fieldSetFlags()[3] = true;
       return this;
     }
 
@@ -451,7 +530,7 @@ public class PortfolioState extends org.apache.avro.specific.SpecificRecordBase 
       * @return True if the 'event_time' field has been set, false otherwise.
       */
     public boolean hasEventTime() {
-      return fieldSetFlags()[2];
+      return fieldSetFlags()[3];
     }
 
 
@@ -461,7 +540,7 @@ public class PortfolioState extends org.apache.avro.specific.SpecificRecordBase 
       * @return This builder.
       */
     public com.meridian.contracts.PortfolioState.Builder clearEventTime() {
-      fieldSetFlags()[2] = false;
+      fieldSetFlags()[3] = false;
       return this;
     }
 
@@ -482,9 +561,9 @@ public class PortfolioState extends org.apache.avro.specific.SpecificRecordBase 
       * @return This builder.
       */
     public com.meridian.contracts.PortfolioState.Builder setIngestTime(java.time.Instant value) {
-      validate(fields()[3], value);
+      validate(fields()[4], value);
       this.ingest_time = value.truncatedTo(java.time.temporal.ChronoUnit.MICROS);
-      fieldSetFlags()[3] = true;
+      fieldSetFlags()[4] = true;
       return this;
     }
 
@@ -494,7 +573,7 @@ public class PortfolioState extends org.apache.avro.specific.SpecificRecordBase 
       * @return True if the 'ingest_time' field has been set, false otherwise.
       */
     public boolean hasIngestTime() {
-      return fieldSetFlags()[3];
+      return fieldSetFlags()[4];
     }
 
 
@@ -504,7 +583,7 @@ public class PortfolioState extends org.apache.avro.specific.SpecificRecordBase 
       * @return This builder.
       */
     public com.meridian.contracts.PortfolioState.Builder clearIngestTime() {
-      fieldSetFlags()[3] = false;
+      fieldSetFlags()[4] = false;
       return this;
     }
 
@@ -514,9 +593,10 @@ public class PortfolioState extends org.apache.avro.specific.SpecificRecordBase 
       try {
         PortfolioState record = new PortfolioState();
         record.portfolio_id = fieldSetFlags()[0] ? this.portfolio_id : (java.lang.String) defaultValue(fields()[0]);
-        record.positions = fieldSetFlags()[1] ? this.positions : (java.util.List<com.meridian.contracts.Position>) defaultValue(fields()[1]);
-        record.event_time = fieldSetFlags()[2] ? this.event_time : (java.time.Instant) defaultValue(fields()[2]);
-        record.ingest_time = fieldSetFlags()[3] ? this.ingest_time : (java.time.Instant) defaultValue(fields()[3]);
+        record.base_currency = fieldSetFlags()[1] ? this.base_currency : (java.lang.String) defaultValue(fields()[1]);
+        record.positions = fieldSetFlags()[2] ? this.positions : (java.util.List<com.meridian.contracts.Position>) defaultValue(fields()[2]);
+        record.event_time = fieldSetFlags()[3] ? this.event_time : (java.time.Instant) defaultValue(fields()[3]);
+        record.ingest_time = fieldSetFlags()[4] ? this.ingest_time : (java.time.Instant) defaultValue(fields()[4]);
         return record;
       } catch (org.apache.avro.AvroMissingFieldException e) {
         throw e;

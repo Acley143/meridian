@@ -6,6 +6,12 @@
   "fields": [
     { "name": "portfolio_id", "type": "string", "doc": "Kafka message key. Portfolio this state belongs to." },
     {
+      "name": "base_currency",
+      "type": "string",
+      "default": "",
+      "doc": "The portfolio's reporting currency (ISO 4217) as of this message, copied from the portfolios row by services/core-service. An empty string means unknown -- the compatibility default for messages written before this field existed -- and consumers must treat it as an error rather than assuming a currency (ADR-0028)."
+    },
+    {
       "name": "positions",
       "type": {
         "type": "array",

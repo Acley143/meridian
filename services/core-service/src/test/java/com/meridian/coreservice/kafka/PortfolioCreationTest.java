@@ -132,7 +132,7 @@ class PortfolioCreationTest extends AbstractRestIntegrationTest {
           .filter(OPENAPI_FILTER)
           .baseUri(baseUrl())
           .contentType("application/json")
-          .body(requestBody(portfolioId, "Create State Test", "USD", "desk-1"))
+          .body(requestBody(portfolioId, "Create State Test", "EUR", "desk-1"))
           .when()
           .post("/api/v1/portfolios")
           .then()
@@ -147,6 +147,9 @@ class PortfolioCreationTest extends AbstractRestIntegrationTest {
       PortfolioState value = found.value();
       assertThat(value).as("portfolio.state value must not be a tombstone").isNotNull();
       assertThat(value.getPortfolioId()).isEqualTo(portfolioId);
+      assertThat(value.getBaseCurrency())
+          .as("base_currency is copied from the created portfolio (ADR-0028)")
+          .isEqualTo("EUR");
       assertThat(value.getPositions()).as("positions must be present and empty").isEmpty();
     }
   }

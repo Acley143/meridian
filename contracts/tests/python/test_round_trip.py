@@ -96,6 +96,7 @@ def test_portfolio_state_round_trips_including_nested_positions() -> None:
     )
     state = PortfolioState(
         portfolio_id="portfolio-1",
+        base_currency="USD",
         positions=[position],
         event_time=_NOW,
         ingest_time=_NOW,
@@ -110,7 +111,13 @@ def test_portfolio_state_round_trips_including_nested_positions() -> None:
 
 
 def test_portfolio_state_empty_positions_round_trips() -> None:
-    state = PortfolioState(portfolio_id="portfolio-1", positions=[], event_time=_NOW, ingest_time=_NOW)
+    state = PortfolioState(
+        portfolio_id="portfolio-1",
+        base_currency="USD",
+        positions=[],
+        event_time=_NOW,
+        ingest_time=_NOW,
+    )
     back = PortfolioState.from_dict(_round_trip(state.to_dict(), PORTFOLIO_STATE_SCHEMA_JSON))
     assert back == state
 

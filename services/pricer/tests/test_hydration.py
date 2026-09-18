@@ -104,6 +104,7 @@ def test_tombstone_present_before_hydration_nets_to_deleted(kafka_stack) -> None
     producer.produce_state(
         PortfolioState(
             portfolio_id="P",
+            base_currency="USD",
             positions=[
                 Position(
                     portfolio_id="P",

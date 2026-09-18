@@ -43,6 +43,14 @@ nothing for the dashboard to talk to.
   partition count on startup, refusing to start on a mismatch instead of
   silently accepting a misconfigured pre-existing topic (ADR-0003,
   ADR-0016, ADR-0019). Owner: Eng-D, Q2.
+- `portfolio.state` now carries the portfolio's `base_currency` (ADR-0028),
+  copied from the `portfolios` row by `PortfolioStateProducer` on both
+  publish paths: creation (already in scope) and the republish after a
+  trade (`PortfolioMutationService.republishPortfolioState` reads it with
+  `findPortfolioRow`, inside the trade's transaction). The producer rejects
+  a blank currency and a missing row is an `IllegalStateException`; core-service
+  never writes the empty default. No conversion here; that is the pricer's,
+  in a later session. Owner: Eng-D, Q2.
 
 ## Boundaries
 - **Owns:** `services/core-service/**`.
@@ -336,3 +344,15 @@ booking.
   scope for this session): `services/pricer`'s tombstone test failed
   nondeterministically on a master CI run investigated at the top of this
   session — see root `PLAN.md`'s open questions.
+- 2026-09-18 (ADR-0028 session): `portfolio.state` gained `base_currency`
+  (defaulted string, after `portfolio_id`) and `PortfolioStateProducer.publish`
+  takes it; both call sites in `PortfolioMutationService` updated. New
+  assertions on both paths (`PortfolioCreationTest`,
+  `PortfolioMutationPublishesStateTest`) use EUR so a hard-coded USD cannot
+  pass. The full suite, 79 tests, runs locally only with an environment
+  workaround: Docker Desktop's server (min API 1.44) rejects Testcontainers
+  1.20.1's default docker-java API version, so the Java tests were run with
+  `DOCKER_HOST=unix://$HOME/.docker/run/docker.sock`,
+  `TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE=/var/run/docker.sock` and
+  `-DargLine="-Dapi.version=1.44"`. No repo change; a Testcontainers bump is
+  not made here.

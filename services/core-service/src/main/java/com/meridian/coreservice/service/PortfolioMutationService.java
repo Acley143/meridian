@@ -131,7 +131,7 @@ public class PortfolioMutationService {
     }
 
     recordPortfolioCreatedAuditEntry(portfolioId, name, baseCurrency, owner, now);
-    portfolioStateProducer.publish(portfolioId, List.of(), now);
+    portfolioStateProducer.publish(portfolioId, baseCurrency, List.of(), now);
 
     return new PortfolioCreationOutcome.Created(
         new PortfolioDto(portfolioId, name, baseCurrency, owner));
@@ -380,7 +380,22 @@ public class PortfolioMutationService {
   }
 
   private void republishPortfolioState(String portfolioId, Instant eventTime) {
+    // Read the positions first: the auto-flush of this query is where an unknown portfolio_id or
+    // instrument_id surfaces as a DataIntegrityViolationException, which GlobalExceptionHandler
+    // maps to 400. The currency lookup below must come after it so that path is unchanged.
     List<PositionEntity> positions = positionRepository.findByPortfolioId(portfolioId);
+
+    // portfolio.state carries the portfolio's reporting currency (ADR-0028), read from the
+    // portfolios row inside this transaction. A missing row is an error, never an empty default.
+    String baseCurrency =
+        findPortfolioRow(portfolioId)
+            .orElseThrow(
+                () ->
+                    new IllegalStateException(
+                        "no portfolios row for portfolio_id="
+                            + portfolioId
+                            + " while republishing portfolio.state"))
+            .baseCurrency();
 
     List<Position> wirePositions =
         positions.stream()
@@ -394,6 +409,6 @@ public class PortfolioMutationService {
                         p.getAsOfEventTime()))
             .toList();
 
-    portfolioStateProducer.publish(portfolioId, wirePositions, eventTime);
+    portfolioStateProducer.publish(portfolioId, baseCurrency, wirePositions, eventTime);
   }
 }

@@ -13,6 +13,7 @@ _SMALL_DETERMINISTIC_V2 = _SCENARIOS_DIR / "small-deterministic-v2.yaml"
 _INSTRUMENTS_FIXTURE = (
     Path(__file__).resolve().parents[2] / "pricer" / "fixtures" / "instruments.yaml"
 )
+_CURVES_FIXTURE = Path(__file__).resolve().parents[2] / "pricer" / "fixtures" / "curves.yaml"
 
 _SCENARIO_HEADER = """\
 scenario_id: {scenario_id}
@@ -166,18 +167,23 @@ def test_curve_loading_rejects_unparseable_fx_rate_value(tmp_path: Path) -> None
         load_scenario(path)
 
 
-def test_small_deterministic_v2_curves_match_pricer_fixture_exactly() -> None:
-    """Guards fixture parity between small-deterministic-v2's curves and
-    services/pricer/fixtures/instruments.yaml until services/pricer consumes
-    market.curves directly (ADR-0027 Consequences) -- this test is retired
-    in that session, once the fixture's volatility/risk_free_rate/
-    dividend_yield fields are retired too."""
+def test_small_deterministic_v2_curves_match_pricer_curve_fixture() -> None:
+    """Permanent guard: small-deterministic-v2's curves must match the curve
+    values services/pricer prices with (services/pricer/fixtures/curves.yaml,
+    ADR-0027), not services/pricer/fixtures/instruments.yaml's market fields,
+    which are retired in a later session."""
     scenario = load_scenario(_SMALL_DETERMINISTIC_V2)
     curves_by_key = {(c.kind, c.curve_id): c for c in scenario.curves}
 
-    fixture = yaml.safe_load(_INSTRUMENTS_FIXTURE.read_text())
-    expected_keys: set[tuple[str, str]] = set()
-    for instrument in fixture["instruments"].values():
+    curves_fixture = yaml.safe_load(_CURVES_FIXTURE.read_text())
+    expected_by_key = {
+        (curve["kind"], curve["curve_id"]): curve["value"]
+        for curve in curves_fixture["curves"]
+    }
+
+    instruments_fixture = yaml.safe_load(_INSTRUMENTS_FIXTURE.read_text())
+    required_keys: set[tuple[str, str]] = set()
+    for instrument in instruments_fixture["instruments"].values():
         if instrument["instrument_type"] != "VANILLA_EUROPEAN_OPTION":
             continue
         currency = instrument["currency"]
@@ -186,16 +192,18 @@ def test_small_deterministic_v2_curves_match_pricer_fixture_exactly() -> None:
         rate_key = ("RISK_FREE_RATE", currency)
         vol_key = ("VOLATILITY", underlying_id)
         div_key = ("DIVIDEND_YIELD", underlying_id)
-        expected_keys |= {rate_key, vol_key, div_key}
+        required_keys |= {rate_key, vol_key, div_key}
 
-        assert rate_key in curves_by_key, f"missing {rate_key} for {instrument}"
-        assert curves_by_key[rate_key].value_float == instrument["risk_free_rate"]
-        assert vol_key in curves_by_key, f"missing {vol_key} for {instrument}"
-        assert curves_by_key[vol_key].value_float == instrument["volatility"]
-        assert div_key in curves_by_key, f"missing {div_key} for {instrument}"
-        assert curves_by_key[div_key].value_float == instrument["dividend_yield"]
+    for key in required_keys:
+        assert key in curves_by_key, f"missing {key} in {_SMALL_DETERMINISTIC_V2}"
+        assert key in expected_by_key, f"missing {key} in {_CURVES_FIXTURE}"
+        assert curves_by_key[key].value_float == expected_by_key[key]
 
-    assert set(curves_by_key) == expected_keys, (
-        f"small-deterministic-v2 declares curves beyond fixture parity: "
-        f"{set(curves_by_key) - expected_keys}"
+    assert set(curves_by_key) == required_keys, (
+        f"small-deterministic-v2 declares curves beyond the required set: "
+        f"{set(curves_by_key) - required_keys}"
+    )
+    assert set(expected_by_key) == required_keys, (
+        f"{_CURVES_FIXTURE} declares curves beyond the required set: "
+        f"{set(expected_by_key) - required_keys}"
     )

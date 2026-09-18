@@ -6,6 +6,7 @@ from decimal import Decimal
 from pathlib import Path
 
 from pricer.pricing import (
+    OptionMarketInputs,
     aggregate_portfolio,
     aggregate_position,
     price_instrument,
@@ -76,8 +77,14 @@ def test_cash_gamma_is_not_a_naive_sum_of_raw_per_unit_gammas_across_underlyings
     call_quantity = Decimal(10)
     put_quantity = Decimal(-5)
 
-    call_pricing = price_instrument(call_ref, call_spot, _VALUATION_TIME)
-    put_pricing = price_instrument(put_ref, put_spot, _VALUATION_TIME)
+    # Values taken from fixtures/curves.yaml, which mirrors these
+    # instruments' curve inputs (ADR-0027).
+    call_pricing = price_instrument(
+        call_ref, call_spot, _VALUATION_TIME, OptionMarketInputs(0.25, 0.04, 0.0)
+    )
+    put_pricing = price_instrument(
+        put_ref, put_spot, _VALUATION_TIME, OptionMarketInputs(0.35, 0.04, 0.0)
+    )
 
     # The mistake this test exists to catch: summing raw per-unit gammas
     # directly, ignoring spot/basis/contract_size/quantity entirely.

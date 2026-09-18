@@ -1,32 +1,38 @@
 """Orchestrates hydration, tick-driven repricing, and snapshot production.
 
-Startup sequence (Task 1): `hydrate()` blocks, consuming `portfolio.state`
-to the end of every assigned partition, before `start_tick_consumption()`
-ever subscribes to `market.ticks`. Nothing in this class touches the tick
-topic until hydration is complete -- a tick "arriving" before then is not
-buffered or specially handled, it simply isn't fetched yet, because the
-consumer group for it doesn't exist yet. This is the "paused" strategy
-Task 1 allows, chosen over in-memory buffering because it can't leak: there
-is no buffer to overflow or lose on a crash between hydration and the first
-tick.
+Startup sequence (Task 1, extended by ADR-0027): `hydrate()` blocks,
+consuming `portfolio.state` to the end of every assigned partition, then
+`market.curves` to the end of every assigned partition, before
+`start_tick_consumption()` ever subscribes to `market.ticks`. Nothing in
+this class touches the tick topic until hydration is complete -- a tick
+"arriving" before then is not buffered or specially handled, it simply
+isn't fetched yet, because the consumer group for it doesn't exist yet.
+This is the "paused" strategy Task 1 allows, chosen over in-memory
+buffering because it can't leak: there is no buffer to overflow or lose on
+a crash between hydration and the first tick. `market.curves` hydration
+uses a fresh consumer group every run, exactly like `portfolio.state`, so
+its compacted history is replayed from the start rather than resumed.
 
 Per-tick flow (Tasks 3, 5, 6, 7): update the last-known price/event_time for
 the ticked instrument, find every portfolio holding it (the reverse index,
 keyed by underlying_id -- see `pricer.portfolio_view`), price and aggregate
 each one (one snapshot per affected portfolio, Task 6's Q1 fan-out policy),
 flush all of them to the broker, and only then commit the tick's offset --
-never before every snapshot it produced is durably delivered.
+never before every snapshot it produced is durably delivered. Pending
+`market.curves` updates are drained the same way pending `portfolio.state`
+updates are, before polling for the next tick.
 
-Unpriceable-portfolio reporting (ADR-0018): a portfolio that cannot be
-priced -- missing reference data, no observed price yet for an underlying,
-or an instrument type with no pricer -- is never silently skipped. Every
-skip goes through `_report_unpriceable`, which logs a structured WARNING
+Unpriceable-portfolio reporting (ADR-0018, extended by ADR-0027): a
+portfolio that cannot be priced -- missing reference data, no observed
+price yet for an underlying, missing a required `market.curves` value, or
+an instrument type with no pricer -- is never silently skipped. Every skip
+goes through `_report_unpriceable`, which logs a structured WARNING
 (`event=portfolio_unpriceable`) and increments `unpriceable_counts`.
 `_price_portfolio` evaluates the whole portfolio before reporting: at most
 one event is reported per portfolio per tick, in fixed precedence --
-missing reference data first, then unpriced underlyings, then per-position
-pricing failures -- each naming every affected id, not just the first one
-found.
+`NO_REFERENCE_DATA`, then `NO_PRICE`, then `MISSING_CURVE`, then
+`INSTRUMENT_NOT_PRICEABLE` (ADR-0027 Decision 9) -- each naming every
+affected id, not just the first one found.
 """
 from __future__ import annotations
 
@@ -37,11 +43,13 @@ from datetime import datetime
 from decimal import Decimal
 from logging import Logger
 
+from meridian_contracts.market_curves import CurveKind
 from meridian_contracts.risk_snapshot import RiskSnapshot
 from meridian_contracts.tick import Tick
 from quant_core import PRICER_VERSION
 from quant_io.clock import now_utc
 from quant_io.consumer import PartitionEOF
+from quant_io.market_curve_io import MARKET_CURVES_TOPIC, make_market_curve_consumer
 from quant_io.portfolio_state_io import (
     PORTFOLIO_STATE_TOPIC,
     make_portfolio_state_consumer,
@@ -49,9 +57,11 @@ from quant_io.portfolio_state_io import (
 from quant_io.risk_snapshot_io import RISK_SNAPSHOTS_TOPIC, RiskSnapshotProducer
 from quant_io.tick_producer import MARKET_TICKS_TOPIC, make_tick_consumer
 
+from pricer.curve_view import CurveView
 from pricer.logging_config import get_logger
 from pricer.portfolio_view import PortfolioView
 from pricer.pricing import (
+    OptionMarketInputs,
     UnpricableInstrumentError,
     UnpriceableReason,
     aggregate_portfolio,
@@ -75,6 +85,7 @@ class PricerService:
         portfolio_state_topic: str = PORTFOLIO_STATE_TOPIC,
         tick_topic: str = MARKET_TICKS_TOPIC,
         risk_snapshot_topic: str = RISK_SNAPSHOTS_TOPIC,
+        market_curve_topic: str = MARKET_CURVES_TOPIC,
         logger: Logger | None = None,
     ) -> None:
         self._bootstrap_servers = bootstrap_servers
@@ -83,15 +94,19 @@ class PricerService:
         self._tick_group_id = tick_group_id
         self._portfolio_state_topic = portfolio_state_topic
         self._tick_topic = tick_topic
+        self._market_curve_topic = market_curve_topic
         self._log = logger or get_logger()
 
         self.view = PortfolioView(reference_data)
+        self.curves = CurveView()
         self._last_price: dict[str, Decimal] = {}
         self._last_event_time: dict[str, datetime] = {}
         self._unpriceable_counts: Counter[UnpriceableReason] = Counter()
+        self._rejected_curve_count = 0
         self.ready = False
 
         self._portfolio_consumer = None
+        self._curve_consumer = None
         self._tick_consumer = None
         self._risk_producer = RiskSnapshotProducer(
             bootstrap_servers=bootstrap_servers,
@@ -106,6 +121,12 @@ class PricerService:
         portfolios -- a portfolio skipped on every tick increments its
         reason's count once per tick, not once total."""
         return Counter(self._unpriceable_counts)
+
+    @property
+    def rejected_curve_count(self) -> int:
+        """A count of `market.curves` messages rejected by `CurveView.apply`
+        (ADR-0027 Decision 3) -- invalid records, or a key/value mismatch."""
+        return self._rejected_curve_count
 
     def _report_unpriceable(
         self,
@@ -140,48 +161,100 @@ class PricerService:
 
     # -- Task 1: hydration gate ------------------------------------------
 
-    def hydrate(self, timeout: float = _DEFAULT_HYDRATION_TIMEOUT_SECONDS) -> None:
-        """Block until `portfolio.state` has been read to the end of every
-        assigned partition. Must be called before `start_tick_consumption`."""
+    def _hydrate_to_end(
+        self,
+        *,
+        topic_name: str,
+        timeout: float,
+        make_consumer,
+        apply_message,
+    ) -> None:
+        """Shared hydration loop: consume `make_consumer`'s consumer to the
+        end of every partition it gets assigned, applying each message
+        through `apply_message`, against one deadline. `make_consumer` is
+        responsible for stashing the consumer it builds wherever the caller
+        needs it (e.g. `self._portfolio_consumer`) *before* returning, since
+        `apply_message` callbacks may need it (to `commit()`) while this
+        loop is still running."""
         state: dict[str, object] = {"assigned": False, "pending": set()}
 
         def on_assign(_consumer: object, partitions: list) -> None:
             state["pending"] = {(p.topic, p.partition) for p in partitions}
             state["assigned"] = True
-            self._log.info(
-                "hydration: assigned %d partition(s) of portfolio.state", len(partitions)
-            )
+            self._log.info("hydration: assigned %d partition(s) of %s", len(partitions), topic_name)
 
-        self._log.info("hydration: starting (readiness=HYDRATING)")
-        # A fresh group id every hydration run: the local view is rebuilt
-        # from scratch each start (ADR-0003 -- "a new pricer instance can
-        # rebuild its view by replaying the topic from the start"), never
-        # resumed from a previously committed offset.
-        self._portfolio_consumer = make_portfolio_state_consumer(
-            bootstrap_servers=self._bootstrap_servers,
-            schema_registry_url=self._schema_registry_url,
-            group_id=f"pricer-portfolio-view-{uuid.uuid4()}",
-            topic=self._portfolio_state_topic,
-            enable_partition_eof=True,
-            on_assign=on_assign,
-        )
+        consumer = make_consumer(on_assign)
 
         deadline = time.monotonic() + timeout
         while not (state["assigned"] and not state["pending"]):
             if time.monotonic() > deadline:
+                if not state["assigned"]:
+                    raise TimeoutError(
+                        f"{topic_name} hydration did not complete within {timeout}s: "
+                        "no partitions were assigned (topic may not exist)"
+                    )
                 raise TimeoutError(
-                    f"portfolio.state hydration did not complete within {timeout}s "
+                    f"{topic_name} hydration did not complete within {timeout}s "
                     f"(still pending: {state['pending']})"
                 )
-            msg = self._portfolio_consumer.poll(1.0)
+            msg = consumer.poll(1.0)
             if isinstance(msg, PartitionEOF):
                 state["pending"].discard((msg.topic, msg.partition))
             elif msg is not None:
-                self._apply_portfolio_message(msg)
+                apply_message(msg)
+
+    def hydrate(self, timeout: float = _DEFAULT_HYDRATION_TIMEOUT_SECONDS) -> None:
+        """Block until `portfolio.state`, then `market.curves`, have each
+        been read to the end of every assigned partition (ADR-0018,
+        ADR-0027 Decision 9). Must be called before
+        `start_tick_consumption`."""
+        self._log.info("hydration: starting (readiness=HYDRATING)")
+
+        # A fresh group id every hydration run, for both topics: the local
+        # view is rebuilt from scratch each start (ADR-0003 -- "a new
+        # pricer instance can rebuild its view by replaying the topic from
+        # the start"), never resumed from a previously committed offset.
+        def make_portfolio_consumer(on_assign):
+            self._portfolio_consumer = make_portfolio_state_consumer(
+                bootstrap_servers=self._bootstrap_servers,
+                schema_registry_url=self._schema_registry_url,
+                group_id=f"pricer-portfolio-view-{uuid.uuid4()}",
+                topic=self._portfolio_state_topic,
+                enable_partition_eof=True,
+                on_assign=on_assign,
+            )
+            return self._portfolio_consumer
+
+        self._hydrate_to_end(
+            topic_name=self._portfolio_state_topic,
+            timeout=timeout,
+            make_consumer=make_portfolio_consumer,
+            apply_message=self._apply_portfolio_message,
+        )
+
+        def make_curve_consumer(on_assign):
+            self._curve_consumer = make_market_curve_consumer(
+                bootstrap_servers=self._bootstrap_servers,
+                schema_registry_url=self._schema_registry_url,
+                group_id=f"pricer-curve-view-{uuid.uuid4()}",
+                topic=self._market_curve_topic,
+                enable_partition_eof=True,
+                on_assign=on_assign,
+            )
+            return self._curve_consumer
+
+        self._hydrate_to_end(
+            topic_name=self._market_curve_topic,
+            timeout=timeout,
+            make_consumer=make_curve_consumer,
+            apply_message=self._apply_curve_message,
+        )
 
         self.ready = True
         self._log.info(
-            "hydration: complete (readiness=READY), %d portfolio(s) in view", len(self.view)
+            "hydration: complete (readiness=READY), %d portfolio(s) in view, %d curve(s) in view",
+            len(self.view),
+            len(self.curves),
         )
 
     def _apply_portfolio_message(self, msg: object) -> None:
@@ -220,6 +293,35 @@ class PricerService:
                 return
             self._apply_portfolio_message(msg)
 
+    def _apply_curve_message(self, msg: object) -> None:
+        key = msg.key()
+        value = msg.value()
+        error = self.curves.apply(key, value)
+        if error is not None:
+            self._rejected_curve_count += 1
+            self._log.warning(
+                "market_curve_rejected scenario_id=%s kind=%s curve_id=%s error=%s",
+                key.scenario_id,
+                key.kind.value,
+                key.curve_id,
+                error,
+                extra={
+                    "event": "market_curve_rejected",
+                    "scenario_id": key.scenario_id,
+                    "kind": key.kind.value,
+                    "curve_id": key.curve_id,
+                    "error": error,
+                },
+            )
+        self._curve_consumer.commit(msg)
+
+    def _drain_curve_updates(self) -> None:
+        while True:
+            msg = self._curve_consumer.poll(0.0)
+            if msg is None or isinstance(msg, PartitionEOF):
+                return
+            self._apply_curve_message(msg)
+
     # -- Tasks 3/5/6/7: tick-driven repricing ----------------------------
 
     def start_tick_consumption(self) -> None:
@@ -243,6 +345,7 @@ class PricerService:
             raise RuntimeError("start_tick_consumption() was not called")
 
         self._drain_portfolio_updates()
+        self._drain_curve_updates()
 
         msg = self._tick_consumer.poll(timeout)
         if msg is None or isinstance(msg, PartitionEOF):
@@ -309,7 +412,34 @@ class PricerService:
             )
             return None
 
-        # (c) Price every position, collecting every pricing failure (not
+        # (c) Every VANILLA_EUROPEAN_OPTION position must have its required
+        # market.curves values present under the triggering tick's
+        # scenario_id (ADR-0027 Decisions 6, 8, 9) -- every missing key,
+        # not just the first.
+        required_curves: dict[tuple[CurveKind, str], None] = {}
+        for position in positions:
+            reference = self.reference_data.get(position.instrument_id)
+            if reference.instrument_type != "VANILLA_EUROPEAN_OPTION":
+                continue
+            required_curves[(CurveKind.RISK_FREE_RATE, reference.currency)] = None
+            required_curves[(CurveKind.VOLATILITY, reference.underlying_id)] = None
+            required_curves[(CurveKind.DIVIDEND_YIELD, reference.underlying_id)] = None
+
+        missing_curves = sorted(
+            f"{kind.value}:{curve_id}"
+            for kind, curve_id in required_curves
+            if self.curves.get(triggering_tick.scenario_id, kind, curve_id) is None
+        )
+        if missing_curves:
+            self._report_unpriceable(
+                portfolio_id=portfolio_id,
+                reason=UnpriceableReason.MISSING_CURVE,
+                trigger="tick",
+                missing=missing_curves,
+            )
+            return None
+
+        # (d) Price every position, collecting every pricing failure (not
         # just the first) before reporting.
         contributions = []
         underlyings_used: set[str] = set()
@@ -319,8 +449,26 @@ class PricerService:
             reference = self.reference_data.get(position.instrument_id)
             underlying_id = reference.underlying_id
             spot = self._last_price[underlying_id]
+
+            market = None
+            if reference.instrument_type == "VANILLA_EUROPEAN_OPTION":
+                rate_curve = self.curves.get(
+                    triggering_tick.scenario_id, CurveKind.RISK_FREE_RATE, reference.currency
+                )
+                vol_curve = self.curves.get(
+                    triggering_tick.scenario_id, CurveKind.VOLATILITY, underlying_id
+                )
+                div_curve = self.curves.get(
+                    triggering_tick.scenario_id, CurveKind.DIVIDEND_YIELD, underlying_id
+                )
+                market = OptionMarketInputs(
+                    volatility=vol_curve.value_float,
+                    risk_free_rate=rate_curve.value_float,
+                    dividend_yield=div_curve.value_float,
+                )
+
             try:
-                pricing_result = price_instrument(reference, spot, triggering_tick.event_time)
+                pricing_result = price_instrument(reference, spot, triggering_tick.event_time, market)
             except UnpricableInstrumentError as exc:
                 failures.append((position.instrument_id, str(exc)))
                 continue
@@ -369,5 +517,7 @@ class PricerService:
     def close(self) -> None:
         if self._portfolio_consumer is not None:
             self._portfolio_consumer.close()
+        if self._curve_consumer is not None:
+            self._curve_consumer.close()
         if self._tick_consumer is not None:
             self._tick_consumer.close()

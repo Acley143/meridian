@@ -13,6 +13,7 @@ from decimal import Decimal
 from pathlib import Path
 
 import yaml
+from meridian_contracts.market_curves import CurveKind, MarketCurve
 from meridian_contracts.portfolio_state import Position
 
 FIXTURES_DIR = Path(__file__).resolve().parent
@@ -70,3 +71,21 @@ def load_tick_fixtures(path: Path = FIXTURES_DIR / "ticks.yaml") -> tuple[str, l
         for t in raw["ticks"]
     ]
     return raw["scenario_id"], ticks
+
+
+def load_curve_fixtures(path: Path = FIXTURES_DIR / "curves.yaml") -> list[MarketCurve]:
+    raw = yaml.safe_load(path.read_text())
+    scenario_id = raw["scenario_id"]
+    event_time = parse_dt(raw["event_time"])
+    return [
+        MarketCurve(
+            scenario_id=scenario_id,
+            kind=CurveKind(c["kind"]),
+            curve_id=c["curve_id"],
+            value_float=float(c["value"]),
+            value_decimal=None,
+            event_time=event_time,
+            ingest_time=event_time,
+        )
+        for c in raw["curves"]
+    ]

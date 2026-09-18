@@ -1,0 +1,22 @@
+# Values mirror instruments.yaml's volatility/risk_free_rate/dividend_yield
+# fields until session 2 retires those fields (ADR-0027's consequences).
+# scenario_id matches ticks.yaml's scenario_id -- curve lookup is keyed by
+# the triggering tick's scenario_id (ADR-0027 Decision 6).
+scenario_id: pricer-fixture-v1
+event_time: "2026-01-02T00:00:00Z"
+curves:
+  - kind: RISK_FREE_RATE
+    curve_id: USD
+    value: 0.04
+  - kind: VOLATILITY
+    curve_id: AAPL
+    value: 0.25
+  - kind: DIVIDEND_YIELD
+    curve_id: AAPL
+    value: 0.0
+  - kind: VOLATILITY
+    curve_id: MSFT
+    value: 0.35
+  - kind: DIVIDEND_YIELD
+    curve_id: MSFT
+    value: 0.0

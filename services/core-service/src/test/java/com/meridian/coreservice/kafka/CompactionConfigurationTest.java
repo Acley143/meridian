@@ -85,10 +85,18 @@ class CompactionConfigurationTest extends AbstractKafkaIntegrationTest {
     PortfolioStateKey key = new PortfolioStateKey("PF-COMPACTION-TEST");
     PortfolioState first =
         new PortfolioState(
-            "PF-COMPACTION-TEST", List.of(), Instant.parse("2026-08-31T12:00:00Z"), Instant.now());
+            "PF-COMPACTION-TEST",
+            "USD",
+            List.of(),
+            Instant.parse("2026-08-31T12:00:00Z"),
+            Instant.now());
     PortfolioState second =
         new PortfolioState(
-            "PF-COMPACTION-TEST", List.of(), Instant.parse("2026-08-31T12:01:00Z"), Instant.now());
+            "PF-COMPACTION-TEST",
+            "USD",
+            List.of(),
+            Instant.parse("2026-08-31T12:01:00Z"),
+            Instant.now());
 
     Properties consumerProps = new Properties();
     consumerProps.put(

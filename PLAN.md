@@ -48,24 +48,22 @@ to pass.
 
 ## Open questions
 
-- **Cross-currency portfolio aggregation (Q2 blocker).** Per ADR-0014,
-  `libs/quant-core` prices each instrument in that instrument's own
-  currency and has no visibility into a portfolio's `base_currency`
-  (`docs/domain-model.md#Portfolio`) — it cannot detect or prevent a
-  currency mismatch by construction. ADR-0017 (cash Greeks) makes this
-  concrete: cash Greeks are summable across a portfolio's different
-  underlyings *within one currency*, not across currencies — aggregating a
-  EUR-denominated position into a USD portfolio total without conversion
-  is silently wrong, and nothing in ADR-0017 solves it (deliberately —
-  see that ADR's Consequences). Q2's portfolio VaR is the first
-  deliverable that aggregates positions across a portfolio; if any two
-  positions in a book are quoted in different currencies, summing them
-  without conversion is silently wrong and no existing component catches
-  it. Needs a decision on where FX conversion happens (`services/pricer` at
-  aggregation time is the natural place, but that's not yet decided) before
-  VaR aggregation is implemented. Owner: TBD (spans `services/pricer` and
-  `services/core-service`, not a single workstream), by-when: before Q2
-  VaR work starts.
+- **Cross-currency portfolio aggregation (Q2 blocker).** Decided in
+  `docs/adr/0028-cross-currency-aggregation.md` (reporting currency travels
+  on `portfolio.state`; conversion per position in `services/pricer` using
+  direct `FX_RATE` curves; decimal throughout; the snapshot records
+  `base_currency`). Done: `portfolio.state` carries `base_currency`, copied
+  by `services/core-service` from the `portfolios` row. Still outstanding,
+  each a later session: the pricer's `UNKNOWN_BASE_CURRENCY` reason; the
+  per-position conversion with its `quant_core.numeric` helper, required
+  `FX_RATE` curves for every position type and `MISSING_CURVE` reporting;
+  `base_currency` on `RiskSnapshot` across Avro, Postgres, the REST DTO and
+  the TypeScript binding (an ADR-0026 paired change); the tick-currency
+  mismatch check; FX curves for `services/ingest`'s multi-currency scenario.
+  Until the conversion session lands, a mixed-currency portfolio still
+  publishes a sum across currencies, so portfolio VaR must not start before
+  it. Owner: TBD (spans `services/pricer`, `services/core-service`,
+  `contracts/`), by-when: before Q2 VaR work starts.
 - **Avro/OpenAPI field parity (Q2).** `oldest_input_event_time` existed in
   `contracts/avro/risk-snapshot.avsc` since Session 04a but was missing from
   `contracts/openapi/service-api.yaml`'s `RiskSnapshot` until the dashboard

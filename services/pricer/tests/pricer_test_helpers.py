@@ -70,6 +70,9 @@ def seed_portfolios(kafka_stack, topics: TestTopics, fixtures: list[PortfolioFix
         producer.produce_state(
             PortfolioState(
                 portfolio_id=fixture.portfolio_id,
+                # Pricer fixtures are single-currency today; mixed-currency fixtures arrive
+                # with the conversion session (ADR-0028).
+                base_currency="USD",
                 positions=fixture.positions,
                 event_time=fixture.event_time,
                 ingest_time=fixture.event_time,

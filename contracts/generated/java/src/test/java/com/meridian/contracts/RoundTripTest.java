@@ -116,6 +116,7 @@ class RoundTripTest {
     PortfolioState state =
         new PortfolioState(
             "portfolio-1",
+            "USD",
             List.of(position),
             Instant.parse("2026-01-01T00:00:00.000002Z"),
             Instant.parse("2026-01-01T00:00:00.000003Z"));

@@ -151,6 +151,7 @@ same note at the point a schema author will actually see it.
 | name | type | unit | nullable | precision | meaning |
 |---|---|---|---|---|---|
 | portfolio_id | string | — | no | — | Kafka message key. `Portfolio` this state belongs to. |
+| base_currency | string (ISO 4217) | — | no (empty string default) | — | The portfolio's reporting currency as of this message, copied by `services/core-service` from `Portfolio.base_currency` (ADR-0028). Empty string means unknown — the compatibility default for messages written before this field existed — and consumers must treat it as an error, never as any particular currency. Not on `Position`: it is a portfolio-level fact, and `Position` is paired with OpenAPI (ADR-0026). |
 | positions | array\<Position\> | — | no (may be empty array) | — | The full current set of positions for this portfolio. Not a delta/diff against the previous message — each message is the complete state, which is what makes log compaction on `portfolio_id` correct. |
 | event_time | timestamp | — | no | microsecond | UTC instant of the trade that produced this state (i.e. the triggering `Trade.event_time`). |
 | ingest_time | timestamp | — | no | microsecond | UTC instant the core service produced this message. |

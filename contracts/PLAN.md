@@ -94,6 +94,15 @@ number three components downstream, not a compile error here.
   "Rates and volatilities" wording (extended to name dividend yield
   alongside the risk-free rate and volatility) are recorded here too.
   Owner: Acley, Quarter: Q2.
+- `docs/adr/0028-cross-currency-aggregation.md` landed, and
+  `portfolio-state.avsc` gained a top-level `base_currency` string field
+  (`"default": ""`, after `portfolio_id`) with regenerated bindings, updated
+  `test_round_trip.py` constructions and `RoundTripTest.java`, and a
+  `docs/domain-model.md` `PortfolioState` row. `Position` and every other
+  schema are untouched; `PortfolioState` stays declared-unpaired
+  (ADR-0026), so no OpenAPI change. Adding `base_currency` to `RiskSnapshot`
+  is a later session and will be an ADR-0026 paired change. Owner: Acley,
+  Quarter: Q2.
 
 ## Boundaries
 - **Owns:** `contracts/**`, `tools/codegen/**`, `tools/schema-lint/**`.
@@ -134,8 +143,9 @@ interface, not a second one. Every other Q1 workstream imports
   open (see `services/core-service/PLAN.md`) — the OpenAPI contract
   reflects the Q1 REST decision but isn't load-bearing if that changes.
 - Currency: cash Greeks (ADR-0017) are summable across underlyings, not
-  across currencies. Deliberately not solved here or in ADR-0017 — owned
-  at root `PLAN.md` for Q2, ahead of portfolio VaR.
+  across currencies. Decided in ADR-0028; the wire plumbing
+  (`portfolio.state.base_currency`) is done, and `RiskSnapshot` recording its
+  currency is still outstanding — see root `PLAN.md`.
 
 ## Session log
 - 2026-08-31 (Eng-A session): Q1 contracts work — ADR-0015 (build

@@ -47,10 +47,22 @@ public class PortfolioStateProducer {
     this.producer = new KafkaProducer<>(props);
   }
 
-  /** Publishes the full current position set for one portfolio. Not a delta. */
+  /**
+   * Publishes the full current position set for one portfolio, with its reporting currency copied
+   * from the {@code portfolios} row (ADR-0028). Not a delta. A blank {@code baseCurrency} is
+   * rejected: the empty string on the wire means "unknown", and this producer must never write it.
+   */
   public void publish(
-      String portfolioId, List<com.meridian.contracts.Position> positions, Instant eventTime) {
-    PortfolioState value = new PortfolioState(portfolioId, positions, eventTime, Instant.now());
+      String portfolioId,
+      String baseCurrency,
+      List<com.meridian.contracts.Position> positions,
+      Instant eventTime) {
+    if (baseCurrency == null || baseCurrency.isBlank()) {
+      throw new IllegalArgumentException(
+          "refusing to publish portfolio.state for " + portfolioId + " without a base_currency");
+    }
+    PortfolioState value =
+        new PortfolioState(portfolioId, baseCurrency, positions, eventTime, Instant.now());
     send(portfolioId, value);
   }
 

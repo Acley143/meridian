@@ -10,6 +10,7 @@ final class RiskSnapshotDtoMapper {
   static RiskSnapshotDto toDto(RiskSnapshotRecord r) {
     return new RiskSnapshotDto(
         r.portfolioId(),
+        r.baseCurrency(),
         r.asOf(),
         r.pricerVersion(),
         r.price(),
@@ -20,6 +21,7 @@ final class RiskSnapshotDtoMapper {
         r.cashRho(),
         r.var95(),
         r.scenarioId(),
+        r.oldestInputEventTime(),
         r.ingestTime());
   }
 }

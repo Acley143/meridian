@@ -23,6 +23,7 @@ class RiskSnapshotUpsertTest extends AbstractPostgresIntegrationTest {
   private RiskSnapshotRecord snapshot(BigDecimal price) {
     return new RiskSnapshotRecord(
         PORTFOLIO_ID,
+        "USD",
         AS_OF,
         PRICER_VERSION,
         price,
@@ -65,6 +66,7 @@ class RiskSnapshotUpsertTest extends AbstractPostgresIntegrationTest {
     RiskSnapshotRecord first =
         new RiskSnapshotRecord(
             "PF-UPSERT-TEST-2",
+            "USD",
             AS_OF,
             PRICER_VERSION,
             new BigDecimal("100.00000000"),
@@ -80,6 +82,7 @@ class RiskSnapshotUpsertTest extends AbstractPostgresIntegrationTest {
     RiskSnapshotRecord revised =
         new RiskSnapshotRecord(
             "PF-UPSERT-TEST-2",
+            "USD",
             AS_OF,
             PRICER_VERSION,
             new BigDecimal("101.50000000"),
@@ -107,5 +110,44 @@ class RiskSnapshotUpsertTest extends AbstractPostgresIntegrationTest {
             java.sql.Timestamp.from(AS_OF),
             PRICER_VERSION);
     assertThat(storedPrice).isEqualByComparingTo("101.50000000");
+  }
+
+  // ADR-0028 Decision 6: the reporting currency is persisted and read back, and a redelivery of
+  // the same identity with a different value overwrites it like every other non-identity column.
+  @Test
+  void baseCurrencyRoundTripsThroughTheRepositoryAndIsOverwrittenOnRedelivery() {
+    String portfolioId = "PF-UPSERT-CURRENCY";
+    jdbcTemplate.update(
+        "INSERT INTO portfolios (portfolio_id, name, base_currency, owner) VALUES (?, ?, ?, ?)",
+        portfolioId,
+        "Currency Round Trip",
+        "EUR",
+        "desk-1");
+
+    RiskSnapshotRecord eur = withCurrency(portfolioId, "EUR");
+    repository.upsert(eur);
+    assertThat(repository.findLatest(portfolioId).orElseThrow().baseCurrency()).isEqualTo("EUR");
+
+    repository.upsert(withCurrency(portfolioId, "GBP"));
+    assertThat(repository.countByIdentity(portfolioId, AS_OF, PRICER_VERSION)).isEqualTo(1);
+    assertThat(repository.findLatest(portfolioId).orElseThrow().baseCurrency()).isEqualTo("GBP");
+  }
+
+  private static RiskSnapshotRecord withCurrency(String portfolioId, String baseCurrency) {
+    return new RiskSnapshotRecord(
+        portfolioId,
+        baseCurrency,
+        AS_OF,
+        PRICER_VERSION,
+        new BigDecimal("100.00000000"),
+        BigDecimal.ONE,
+        BigDecimal.ONE,
+        BigDecimal.ONE,
+        BigDecimal.ONE,
+        BigDecimal.ONE,
+        0.05,
+        "scenario-1",
+        AS_OF,
+        Instant.parse("2026-08-31T12:00:01Z"));
   }
 }

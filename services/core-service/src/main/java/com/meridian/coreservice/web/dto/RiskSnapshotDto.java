@@ -7,6 +7,7 @@ import java.time.Instant;
 /** contracts/openapi/service-api.yaml#/components/schemas/RiskSnapshot. */
 public record RiskSnapshotDto(
     String portfolioId,
+    String baseCurrency,
     Instant asOf,
     String pricerVersion,
     BigDecimal price,
@@ -19,4 +20,5 @@ public record RiskSnapshotDto(
     // between a word and a trailing digit ("var95" would stay "var95", not "var_95").
     @JsonProperty("var_95") double var95,
     String scenarioId,
+    Instant oldestInputEventTime,
     Instant ingestTime) {}

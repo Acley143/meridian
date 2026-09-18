@@ -48,6 +48,7 @@ class OffsetCommitFailureTest extends AbstractKafkaIntegrationTest {
   private RiskSnapshot sampleSnapshot(String portfolioId, Instant asOf) {
     return new RiskSnapshot(
         portfolioId,
+        "USD",
         asOf,
         "v1.0.0",
         new BigDecimal("100.00000000"),
@@ -84,6 +85,7 @@ class OffsetCommitFailureTest extends AbstractKafkaIntegrationTest {
           riskSnapshotRepository.upsert(
               new com.meridian.coreservice.persistence.domain.RiskSnapshotRecord(
                   snapshot.getPortfolioId(),
+                  snapshot.getBaseCurrency(),
                   snapshot.getAsOf(),
                   snapshot.getPricerVersion(),
                   snapshot.getPrice(),

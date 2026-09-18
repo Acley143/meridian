@@ -67,6 +67,7 @@ class RoundTripTest {
     RiskSnapshot snap =
         new RiskSnapshot(
             "portfolio-1",
+            "USD",
             Instant.parse("2026-01-01T00:00:00.123456Z"),
             "0.1.0",
             new BigDecimal("1234567.87654321"),
@@ -83,6 +84,7 @@ class RoundTripTest {
     RiskSnapshot back = roundTrip(snap, RiskSnapshot.class);
 
     assertEquals(snap.getPortfolioId(), back.getPortfolioId());
+    assertEquals(snap.getBaseCurrency(), back.getBaseCurrency());
     assertEquals(snap.getAsOf(), back.getAsOf());
     assertEquals(snap.getPricerVersion(), back.getPricerVersion());
     assertEquals(snap.getPrice(), back.getPrice());

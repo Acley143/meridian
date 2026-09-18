@@ -30,9 +30,14 @@ goes through `_report_unpriceable`, which logs a structured WARNING
 (`event=portfolio_unpriceable`) and increments `unpriceable_counts`.
 `_price_portfolio` evaluates the whole portfolio before reporting: at most
 one event is reported per portfolio per tick, in fixed precedence --
+`UNKNOWN_BASE_CURRENCY` (ADR-0028 Decision 2: a portfolio-wide fact, so it
+comes before anything per-position; an empty `base_currency` on
+`portfolio.state` is never treated as any particular currency), then
 `NO_REFERENCE_DATA`, then `NO_PRICE`, then `MISSING_CURVE`, then
 `INSTRUMENT_NOT_PRICEABLE` (ADR-0027 Decision 9) -- each naming every
-affected id, not just the first one found.
+affected id, not just the first one found. The published `RiskSnapshot`
+carries the portfolio's `base_currency`; no FX conversion happens yet
+(ADR-0028 Decision 3 lands in a later session).
 """
 from __future__ import annotations
 
@@ -264,7 +269,9 @@ class PricerService:
             removed = self.view.remove(key.portfolio_id)
             self._log.info("portfolio.state tombstone: portfolio_id=%s removed=%s", key.portfolio_id, removed)
         else:
-            self.view.apply(key.portfolio_id, value.positions, value.event_time)
+            self.view.apply(
+                key.portfolio_id, value.positions, value.event_time, value.base_currency
+            )
             self._log.info(
                 "portfolio.state applied: portfolio_id=%s positions=%d",
                 key.portfolio_id,
@@ -378,6 +385,20 @@ class PricerService:
 
     def _price_portfolio(self, portfolio_id: str, triggering_tick: Tick) -> RiskSnapshot | None:
         positions = self.view.positions(portfolio_id)
+
+        # (0) The portfolio's reporting currency must be known (ADR-0028
+        # Decision 2). An empty value is the wire default for a message
+        # written before the field existed, never "USD"; it is a fact about
+        # the whole portfolio, so it is checked before anything per-position.
+        base_currency = self.view.base_currency(portfolio_id)
+        if not base_currency:
+            self._report_unpriceable(
+                portfolio_id=portfolio_id,
+                reason=UnpriceableReason.UNKNOWN_BASE_CURRENCY,
+                trigger="tick",
+                missing=[portfolio_id],
+            )
+            return None
 
         # (a) Every held instrument must have reference data before anything
         # else is checked -- collected across all positions, not just the
@@ -494,6 +515,7 @@ class PricerService:
 
         return RiskSnapshot(
             portfolio_id=portfolio_id,
+            base_currency=base_currency,
             as_of=triggering_tick.event_time,
             pricer_version=PRICER_VERSION,
             price=aggregate.price,

@@ -29,6 +29,7 @@ from pricer.reference_data import ReferenceData
 class _PortfolioRecord:
     positions: list[Position]
     event_time: datetime
+    base_currency: str
 
 
 @dataclass
@@ -44,17 +45,25 @@ class PortfolioView:
                 result.add(self.reference_data.get(position.instrument_id).underlying_id)
         return result
 
-    def apply(self, portfolio_id: str, positions: list[Position], event_time: datetime) -> None:
-        """Replace `portfolio_id`'s positions wholesale and update the
-        reverse index for exactly the underlyings that changed -- added,
-        removed, or unchanged."""
+    def apply(
+        self,
+        portfolio_id: str,
+        positions: list[Position],
+        event_time: datetime,
+        base_currency: str,
+    ) -> None:
+        """Replace `portfolio_id`'s positions and reporting currency
+        wholesale and update the reverse index for exactly the underlyings
+        that changed -- added, removed, or unchanged. `base_currency` is
+        stored as received (the empty string means unknown, ADR-0028);
+        this view never substitutes a default."""
         old_underlyings = (
             self._underlyings(self._portfolios[portfolio_id].positions)
             if portfolio_id in self._portfolios
             else set()
         )
         self._portfolios[portfolio_id] = _PortfolioRecord(
-            positions=list(positions), event_time=event_time
+            positions=list(positions), event_time=event_time, base_currency=base_currency
         )
         new_underlyings = self._underlyings(positions)
         self._reindex(portfolio_id, old_underlyings, new_underlyings)
@@ -82,6 +91,11 @@ class PortfolioView:
 
     def positions(self, portfolio_id: str) -> list[Position]:
         return self._portfolios[portfolio_id].positions
+
+    def base_currency(self, portfolio_id: str) -> str:
+        """The portfolio's reporting currency as last received on
+        `portfolio.state`; empty means unknown (ADR-0028)."""
+        return self._portfolios[portfolio_id].base_currency
 
     def portfolio_ids(self) -> set[str]:
         return set(self._portfolios)

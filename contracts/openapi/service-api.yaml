@@ -510,10 +510,13 @@ components:
     RiskSnapshot:
       type: object
       description: See docs/domain-model.md#risksnapshot, ADR-0007, and contracts/avro/risk-snapshot.avsc (this is the same shape as the wire schema).
-      required: [portfolio_id, as_of, pricer_version, price, cash_delta, cash_gamma, cash_vega, cash_theta, cash_rho, var_95, scenario_id, oldest_input_event_time, ingest_time]
+      required: [portfolio_id, base_currency, as_of, pricer_version, price, cash_delta, cash_gamma, cash_vega, cash_theta, cash_rho, var_95, scenario_id, oldest_input_event_time, ingest_time]
       properties:
         portfolio_id:
           type: string
+        base_currency:
+          type: string
+          description: The reporting currency (ISO 4217) these figures are denominated in, copied from the portfolio's base_currency (ADR-0028). An empty string means unknown and is never written by services/pricer.
         as_of:
           type: string
           format: date-time

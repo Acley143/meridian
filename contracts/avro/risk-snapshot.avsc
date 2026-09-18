@@ -6,6 +6,12 @@
   "fields": [
     { "name": "portfolio_id", "type": "string", "doc": "Part of the identity tuple (ADR-0007)." },
     {
+      "name": "base_currency",
+      "type": "string",
+      "default": "",
+      "doc": "The reporting currency (ISO 4217) these figures are denominated in, copied from the portfolio's base_currency. An empty string means unknown -- the compatibility default for records written before this field existed -- and is never written by services/pricer (ADR-0028)."
+    },
+    {
       "name": "as_of",
       "type": { "type": "long", "logicalType": "timestamp-micros" },
       "doc": "Part of the identity tuple. Event time this snapshot values the portfolio as of -- distinct from ingest_time below, which is when the pricer produced this message."

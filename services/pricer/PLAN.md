@@ -187,6 +187,24 @@ Consumes ticks and portfolio state, prices every position using
   -- see session log): the last-price cache (`_last_price`) is not
   scenario-scoped, so a portfolio can combine one scenario's prices with
   another scenario's curves.
+- [x] Reporting currency (ADR-0028 Decisions 1, 2 and 6), owner Eng-B, Q2:
+  `PortfolioView` now stores each portfolio's `base_currency` from the
+  `PortfolioState` message (`view.base_currency(portfolio_id)`), and
+  `_price_portfolio` checks it first: an empty value is reported
+  `UNKNOWN_BASE_CURRENCY` (`UnpriceableReason`, trigger `tick`, `missing` =
+  `[portfolio_id]`), ranked ahead of `NO_REFERENCE_DATA`, and produces no
+  snapshot -- an empty currency is never treated as USD. Every published
+  `RiskSnapshot` carries the portfolio's `base_currency`, so it is never
+  empty. **No conversion yet:** FX is not in the required-curve set, and a
+  mixed-currency portfolio is still summed across currencies until ADR-0028
+  Decision 3 lands in a later session. Fixtures: `portfolios.yaml` gained
+  `base_currency` (USD) per portfolio, `PortfolioFixture` carries it as a
+  required field with no default (all twelve test constructions pass an
+  explicit USD), `seed_portfolios` uses it, and the golden generator writes
+  it from the fixture -- `golden_snapshots.json` changed only by the added
+  key, no numeric value moved. Tests: `tests/test_base_currency.py` (an
+  empty-currency portfolio is refused despite being otherwise priceable,
+  and a normal portfolio's consumed snapshots carry USD).
 
 ## Boundaries
 - **Owns:** `services/pricer/**`.

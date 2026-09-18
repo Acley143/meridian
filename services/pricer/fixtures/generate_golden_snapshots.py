@@ -186,6 +186,7 @@ def main() -> None:
             golden.append(
                 {
                     "portfolio_id": portfolio.portfolio_id,
+                    "base_currency": portfolio.base_currency,
                     "as_of": tick.event_time.isoformat(),
                     "pricer_version": PRICER_VERSION,
                     "price": str(price_total),

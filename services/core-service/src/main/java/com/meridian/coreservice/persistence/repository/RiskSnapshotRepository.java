@@ -32,10 +32,12 @@ public class RiskSnapshotRepository {
   private static final String UPSERT_SQL =
       """
       INSERT INTO risk_snapshots (
-        portfolio_id, as_of, pricer_version, price, cash_delta, cash_gamma, cash_vega,
-        cash_theta, cash_rho, var_95, scenario_id, oldest_input_event_time, ingest_time
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        portfolio_id, base_currency, as_of, pricer_version, price, cash_delta, cash_gamma,
+        cash_vega, cash_theta, cash_rho, var_95, scenario_id, oldest_input_event_time,
+        ingest_time
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT (portfolio_id, as_of, pricer_version) DO UPDATE SET
+        base_currency = EXCLUDED.base_currency,
         price = EXCLUDED.price,
         cash_delta = EXCLUDED.cash_delta,
         cash_gamma = EXCLUDED.cash_gamma,
@@ -65,6 +67,7 @@ public class RiskSnapshotRepository {
     jdbcTemplate.update(
         UPSERT_SQL,
         snapshot.portfolioId(),
+        snapshot.baseCurrency(),
         Timestamp.from(snapshot.asOf()),
         snapshot.pricerVersion(),
         snapshot.price(),
@@ -92,6 +95,7 @@ public class RiskSnapshotRepository {
   private static RiskSnapshotRecord mapRow(ResultSet rs, int rowNum) throws SQLException {
     return new RiskSnapshotRecord(
         rs.getString("portfolio_id"),
+        rs.getString("base_currency"),
         rs.getTimestamp("as_of").toInstant(),
         rs.getString("pricer_version"),
         rs.getBigDecimal("price"),

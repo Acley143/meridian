@@ -23,6 +23,7 @@ class SseResumeTest extends AbstractRestIntegrationTest {
   private RiskSnapshotRecord snap(String portfolioId, Instant asOf) {
     return new RiskSnapshotRecord(
         portfolioId,
+        "USD",
         asOf,
         "v1.0.0",
         new BigDecimal("100.00000000"),

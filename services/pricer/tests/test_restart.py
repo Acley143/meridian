@@ -136,6 +136,7 @@ def test_price_cache_does_not_survive_restart(kafka_stack) -> None:
     t0 = datetime(2026, 1, 1, tzinfo=UTC)
     portfolio = PortfolioFixture(
         portfolio_id="MULTI",
+        base_currency="USD",
         positions=[
             Position(
                 portfolio_id="MULTI",

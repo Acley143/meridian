@@ -65,6 +65,7 @@ def test_tick_round_trips() -> None:
 def test_risk_snapshot_round_trips() -> None:
     snap = RiskSnapshot(
         portfolio_id="portfolio-1",
+        base_currency="USD",
         as_of=_NOW,
         pricer_version="0.1.0",
         price=Decimal("1234567.87654321"),
@@ -80,6 +81,7 @@ def test_risk_snapshot_round_trips() -> None:
     )
     back = RiskSnapshot.from_dict(_round_trip(snap.to_dict(), RISK_SNAPSHOT_SCHEMA_JSON))
     assert back == snap
+    assert back.base_currency == "USD"
 
     key = RiskSnapshotKey(portfolio_id="portfolio-1")
     back_key = RiskSnapshotKey.from_dict(_round_trip(key.to_dict(), RISK_SNAPSHOT_KEY_SCHEMA_JSON))

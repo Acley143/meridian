@@ -73,7 +73,7 @@ def test_ticks_produced_before_hydration_are_not_lost_or_priced_early(kafka_stac
             currency="USD",
             event_time=t0,
             ingest_time=t0,
-            scenario_id="s",
+            scenario_id="pricer-fixture-v1",
         )
     )
     tick_producer.flush()

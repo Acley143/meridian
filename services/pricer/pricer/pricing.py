@@ -15,6 +15,13 @@ Order of operations per ADR-0014/ADR-0017, in this exact sequence:
    value, at the very end -- never before step 2's multiplications
    (ADR-0017: "the 1%/1.00 basis multiplications themselves happen in
    float64 ... before that one conversion at the boundary, not before it").
+
+`oldest_input_event_time` does not include any `market.curves` event_time.
+Curves are constant for the lifetime of a scenario, with event_time equal
+to the scenario's start_time (ADR-0027 Decisions 4 and 5) -- including them
+would pin this field to the scenario start on every snapshot, which removes
+its actual purpose: signalling how stale the *prices* feeding a snapshot
+are.
 """
 from __future__ import annotations
 
@@ -37,6 +44,7 @@ class UnpriceableReason(str, Enum):
 
     NO_REFERENCE_DATA = "NO_REFERENCE_DATA"
     NO_PRICE = "NO_PRICE"
+    MISSING_CURVE = "MISSING_CURVE"
     INSTRUMENT_NOT_PRICEABLE = "INSTRUMENT_NOT_PRICEABLE"
 
 
@@ -61,11 +69,27 @@ def _price_equity(spot: Decimal) -> PricingResult:
     )
 
 
+@dataclass(frozen=True)
+class OptionMarketInputs:
+    """The market-rate assumptions an option pricer needs, sourced from
+    `market.curves` (ADR-0027) rather than from `InstrumentReference`."""
+
+    volatility: float
+    risk_free_rate: float
+    dividend_yield: float
+
+
 def price_instrument(
-    reference: InstrumentReference, spot: Decimal, valuation_time: datetime
+    reference: InstrumentReference,
+    spot: Decimal,
+    valuation_time: datetime,
+    market: OptionMarketInputs | None = None,
 ) -> PricingResult:
     """Price one instrument per unit of underlying. `valuation_time` is the
-    triggering tick's event_time (Task 3) -- never `datetime.now()`."""
+    triggering tick's event_time (Task 3) -- never `datetime.now()`. `market`
+    carries the market-rate assumptions a `VANILLA_EUROPEAN_OPTION` needs
+    (ADR-0027); this function never reads `reference.volatility`,
+    `reference.risk_free_rate`, or `reference.dividend_yield`."""
     if reference.instrument_type == "EQUITY":
         return _price_equity(spot)
 
@@ -76,9 +100,7 @@ def price_instrument(
                 ("option_type", reference.option_type),
                 ("strike", reference.strike),
                 ("expiry_iso", reference.expiry_iso),
-                ("volatility", reference.volatility),
-                ("risk_free_rate", reference.risk_free_rate),
-                ("dividend_yield", reference.dividend_yield),
+                ("market inputs", market),
             )
             if value is None
         ]
@@ -92,14 +114,14 @@ def price_instrument(
             expiry=datetime.fromisoformat(reference.expiry_iso.replace("Z", "+00:00")),
             right=reference.option_type,
         )
-        market = MarketState(
+        market_state = MarketState(
             spot=spot,
-            volatility=reference.volatility,
-            risk_free_rate=reference.risk_free_rate,
-            dividend_yield=reference.dividend_yield,
+            volatility=market.volatility,
+            risk_free_rate=market.risk_free_rate,
+            dividend_yield=market.dividend_yield,
             valuation_time=valuation_time,
         )
-        return black_scholes_price(option, market)
+        return black_scholes_price(option, market_state)
 
     raise UnpricableInstrumentError(
         f"{reference.instrument_id}: instrument_type={reference.instrument_type!r} "

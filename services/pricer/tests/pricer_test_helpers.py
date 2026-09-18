@@ -16,15 +16,22 @@ from pathlib import Path
 from loader import (
     PortfolioFixture,
     TickFixture,
+    load_curve_fixtures,
     load_portfolio_fixtures,
     load_tick_fixtures,
 )
+from meridian_contracts import market_curves as market_curve_schema
+from meridian_contracts import market_curves_key as market_curve_key_schema
+from meridian_contracts.market_curves import MarketCurve
+from meridian_contracts.market_curves_key import MarketCurveKey
 from meridian_contracts.portfolio_state import PortfolioState
 from meridian_contracts.tick import Tick
 from pricer.reference_data import ReferenceData, load_reference_data
 from pricer.service import PricerService
 from quant_io.consumer import PartitionEOF
+from quant_io.market_curve_io import MarketCurveProducer
 from quant_io.portfolio_state_io import PortfolioStateProducer
+from quant_io.producer import AvroProducer
 from quant_io.risk_snapshot_io import make_risk_snapshot_consumer
 from quant_io.tick_producer import TickProducer
 
@@ -36,6 +43,7 @@ class TestTopics:
     portfolio_state: str
     market_ticks: str
     risk_snapshots: str
+    market_curves: str
 
 
 def unique_topics() -> TestTopics:
@@ -44,6 +52,7 @@ def unique_topics() -> TestTopics:
         portfolio_state=f"test.portfolio.state.{suffix}",
         market_ticks=f"test.market.ticks.{suffix}",
         risk_snapshots=f"test.risk.snapshots.{suffix}",
+        market_curves=f"test.market.curves.{suffix}",
     )
 
 
@@ -91,12 +100,45 @@ def produce_ticks(
     producer.flush()
 
 
+def seed_curves(kafka_stack, topics: TestTopics, curves: list[MarketCurve]) -> None:
+    """Constructs a `MarketCurveProducer` on `topics.market_curves` (which
+    creates the topic per ADR-0027 Decision 10, even for an empty batch)
+    and, if `curves` is non-empty, publishes it as one scenario batch."""
+    producer = MarketCurveProducer(
+        bootstrap_servers=kafka_stack.bootstrap_servers,
+        schema_registry_url=kafka_stack.schema_registry_url,
+        topic=topics.market_curves,
+    )
+    if curves:
+        producer.publish_scenario_curves(curves)
+
+
+def produce_raw_curve(kafka_stack, topics: TestTopics, key: MarketCurveKey, value: MarketCurve) -> None:
+    """Publishes `value` under `key` to `topics.market_curves`, bypassing
+    `validate_market_curve` entirely -- for tests exercising the consumer's
+    own rejection path (ADR-0027 Decision 3). Mirrors how
+    `MarketCurveProducer` builds its underlying `AvroProducer`."""
+    producer = AvroProducer(
+        bootstrap_servers=kafka_stack.bootstrap_servers,
+        schema_registry_url=kafka_stack.schema_registry_url,
+        topic=topics.market_curves,
+        value_schema_str=market_curve_schema.SCHEMA_JSON,
+        value_to_dict=MarketCurve.to_dict,
+        key_schema_str=market_curve_key_schema.SCHEMA_JSON,
+        key_to_dict=MarketCurveKey.to_dict,
+    )
+    producer.produce(key=key, value=value)
+    producer.flush()
+
+
 def make_service(
     kafka_stack,
     topics: TestTopics,
     reference_data: ReferenceData | None = None,
     tick_group_id: str | None = None,
+    curves: list[MarketCurve] | None = None,
 ) -> PricerService:
+    seed_curves(kafka_stack, topics, load_curve_fixtures() if curves is None else curves)
     return PricerService(
         bootstrap_servers=kafka_stack.bootstrap_servers,
         schema_registry_url=kafka_stack.schema_registry_url,
@@ -105,6 +147,7 @@ def make_service(
         portfolio_state_topic=topics.portfolio_state,
         tick_topic=topics.market_ticks,
         risk_snapshot_topic=topics.risk_snapshots,
+        market_curve_topic=topics.market_curves,
     )
 
 

@@ -148,6 +148,43 @@ Consumes ticks and portfolio state, prices every position using
   fixture-loading path this service uses. Untested for that reason -- there
   is no way to construct the failing input without bypassing
   `InstrumentReference` itself.
+- [x] Consume `market.curves` for option market inputs (ADR-0027), owner
+  Eng-B, Q2: `pricer/curve_view.py`'s `CurveView` materializes
+  `(scenario_id, kind, curve_id) -> MarketCurve`, hydrated in `hydrate()`
+  alongside `portfolio.state` (a shared private helper,
+  `PricerService._hydrate_to_end`, drives both, against one deadline each)
+  and kept current the same way `portfolio.state` updates are drained
+  before each tick. An invalid or key/value-mismatched record supersedes
+  and removes the previous value rather than leaving it in place -- the
+  producer has already superseded it, and pricing from a stale value would
+  be a wrong number (ADR-0018, ADR-0027 Decision 3) -- logged as a
+  structured WARNING (`event=market_curve_rejected`) and counted via
+  `PricerService.rejected_curve_count`. `_price_portfolio` gained a new
+  precedence step, `MISSING_CURVE` (ADR-0027 Decision 9): a
+  `VANILLA_EUROPEAN_OPTION` position missing any of its three required
+  curves (`RISK_FREE_RATE` for currency, `VOLATILITY`/`DIVIDEND_YIELD` for
+  underlying_id), looked up under the triggering tick's `scenario_id`, is
+  reported with every missing key as `KIND:curve_id`, ranked between
+  `NO_PRICE` and `INSTRUMENT_NOT_PRICEABLE`. `pricer/pricing.py`'s
+  `price_instrument` no longer reads
+  `reference.volatility`/`risk_free_rate`/`dividend_yield` at all --
+  `OptionMarketInputs`, built from the looked-up curves, is now the sole
+  source. `oldest_input_event_time` deliberately still excludes curve
+  event_times: curves are constant per scenario with event_time equal to
+  the scenario start (ADR-0027 Decisions 4/5), so including them would pin
+  the field to the scenario start and remove its staleness meaning for
+  prices. Tests: `services/pricer/tests/test_market_curves.py` (missing
+  single curve, wrong-scenario curves, NO_PRICE/MISSING_CURVE precedence,
+  hydration-time rejection, key/value mismatch, a live curve update before
+  ticks, and a hydration-timeout case naming the topic). Follow-up, next
+  session: `instruments.yaml`'s now-unused `volatility`/`risk_free_rate`/
+  `dividend_yield` fields and `fixtures/generate_golden_snapshots.py` are
+  retired -- both were kept this session only so the golden pipeline could
+  prove curve-sourced inputs equal the fixture-sourced ones it already
+  pinned. Open decision (not implemented this session, recommendation only
+  -- see session log): the last-price cache (`_last_price`) is not
+  scenario-scoped, so a portfolio can combine one scenario's prices with
+  another scenario's curves.
 
 ## Boundaries
 - **Owns:** `services/pricer/**`.

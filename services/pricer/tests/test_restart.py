@@ -175,7 +175,9 @@ def test_price_cache_does_not_survive_restart(kafka_stack) -> None:
                 currency="USD",
                 event_time=event_time,
                 ingest_time=event_time,
-                scenario_id="s",
+                # Curves are scenario-scoped (ADR-0027 Decision 6): a tick's
+                # scenario_id must match the seeded curves' scenario_id.
+                scenario_id="pricer-fixture-v1",
             )
         )
         tick_producer.flush()

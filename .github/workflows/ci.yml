@@ -200,7 +200,10 @@ jobs:
         if: steps.probe.outputs.ready == 'true'
         run: |
           npm ci
-          npx tsc --noEmit
+          # tsconfig.json is solution-style ("files": [] plus references), so a plain
+          # `tsc --noEmit` compiles nothing and always exits 0. This must stay in build mode
+          # (-b), which follows the references, or check each project explicitly with -p.
+          npx tsc -b --noEmit
           npx eslint .
           npx vitest run
       - name: No absolute core-service URL under src (ADR-0020)

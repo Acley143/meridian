@@ -101,3 +101,16 @@ flagged as such in the PR.
   whether `PLAINTEXT_HOST`/`9093` are the names/numbers Eng-A would
   actually want, or whether `make up`/`README.md` need updating to mention
   the new port).
+- 2026-09-18 (dashboard typecheck session, Eng-A, Q2): the dashboard's
+  TypeScript check never typechecked anything. `apps/dashboard/tsconfig.json`
+  is solution-style (`"files": []` plus references to `tsconfig.app.json` and
+  `tsconfig.node.json`), so the `npx tsc --noEmit` that both the Makefile
+  `lint` target and `ci.yml`'s TypeScript job ran compiled nothing and always
+  exited 0; it was found when a missing required field failed
+  `tsc -p tsconfig.app.json` but passed the CI command. Both now run
+  `npx tsc -b --noEmit` (TypeScript 5.9.3 supports build mode with
+  `--noEmit`), which was shown, with deliberate type errors, to fail on an
+  error in `src` and on one in `vite.config.ts`, i.e. it covers both referenced
+  projects; each site carries a comment saying it must stay in build mode. Build
+  mode writes `.tsbuildinfo` files, already ignored by `.gitignore`. No
+  tsconfig was changed. Owner: Eng-A, Quarter: Q2.

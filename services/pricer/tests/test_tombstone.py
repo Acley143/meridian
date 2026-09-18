@@ -60,7 +60,7 @@ def test_tombstone_mid_stream_stops_snapshots(kafka_stack) -> None:
                 currency="USD",
                 event_time=event_time,
                 ingest_time=event_time,
-                scenario_id="s",
+                scenario_id="pricer-fixture-v1",
             )
         )
         tick_producer.flush()

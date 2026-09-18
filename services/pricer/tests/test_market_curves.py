@@ -50,8 +50,8 @@ def test_missing_single_curve_reports_missing_curve_and_skips_only_that_portfoli
     PF-1 is reported MISSING_CURVE (trigger "tick", missing ==
     ["VOLATILITY:MSFT"]) and produces no snapshot on that tick; PF-2 (an
     equity-only portfolio, no curve requirement) still produces snapshots.
-    This proves pricing no longer reads instruments.yaml's volatility,
-    which still holds 0.35 for MSFT-PUT-280."""
+    This proves pricing comes solely from market.curves: with the curve
+    absent there is no other source of volatility to fall back on."""
     caplog.set_level(logging.WARNING, logger="pricer")
     topics = unique_topics()
     service = make_service(

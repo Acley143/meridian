@@ -1,15 +1,14 @@
-# Static instrument reference data + market-rate assumptions.
+# Static instrument reference data: instrument statics only.
 #
 # Q1 STAND-IN, see ADR-0019 (docs/adr/0019-reference-data-and-market-curves.md):
-#   - The instrument-shape fields (instrument_type, underlying_id,
-#     option_type, strike, expiry, currency, contract_size) are a stand-in
-#     for the reference.instruments topic, produced by services/core-service,
-#     landing this session -- this file will be retired for those fields
-#     once services/pricer consumes that topic instead.
-#   - The market-assumption fields (volatility, risk_free_rate,
-#     dividend_yield) are a stand-in for the market.curves topic (ADR-0019),
-#     which is Q2 and not implemented yet -- these fields stay here until
-#     market.curves ships.
+# the instrument-shape fields (instrument_type, underlying_id, option_type,
+# strike, expiry, currency, contract_size) are a stand-in for the
+# reference.instruments topic, produced by services/core-service -- this
+# file will be retired once services/pricer consumes that topic instead.
+#
+# This file carries no market inputs. Volatility, risk-free rate and
+# dividend yield arrive on market.curves (ADR-0027) and, for fixtures, come
+# from curves.yaml.
 #
 # See pricer/reference_data.py's module docstring for the loader-side note.
 instruments:
@@ -34,9 +33,6 @@ instruments:
     expiry: "2026-06-01T00:00:00Z"
     currency: USD
     contract_size: 100
-    volatility: 0.25
-    risk_free_rate: 0.04
-    dividend_yield: 0.0
 
   # Deep ITM at the fixture's MSFT tick (200.00, strike 280) -> low gamma.
   # Deliberately far from AAPL-CALL-150's gamma magnitude: this pair is
@@ -50,6 +46,3 @@ instruments:
     expiry: "2026-06-01T00:00:00Z"
     currency: USD
     contract_size: 100
-    volatility: 0.35
-    risk_free_rate: 0.04
-    dividend_yield: 0.0

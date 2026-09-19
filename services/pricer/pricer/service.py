@@ -46,9 +46,12 @@ pair `<position currency><base currency>` (never inverted), decimal
 throughout and rounded once per field at scale 8. A same-currency position
 is untouched: no curve lookup, no multiplication, no re-rounding. Every
 position type needs its FX curve, not only options; a missing one is
-`MISSING_CURVE` listing `FX_RATE:<pair>`, and a published rate that is not
-finite and strictly positive fails that position as
-`INSTRUMENT_NOT_PRICEABLE` with a detail naming the pair and value. A tick
+`MISSING_CURVE` listing `FX_RATE:<pair>`. A non-positive `FX_RATE` never
+enters the view: the shared validator rejects it at the producer and again
+in `CurveView.apply` (`market_curve_rejected`), so the pair is simply
+missing; the per-position `ValueError` catch in `_price_portfolio` is defence
+in depth (it fails that position as `INSTRUMENT_NOT_PRICEABLE` naming the
+pair and value) rather than a path reachable through Kafka. A tick
 whose currency disagrees with its instrument's reference currency is
 rejected before it is cached (`tick_currency_mismatch`). `var_95` is still
 0.0; its currency treatment is decided when VaR is built.
@@ -566,9 +569,16 @@ class PricerService:
                 try:
                     contribution = convert_contribution(contribution, fx_curve.value_decimal)
                 except ValueError:
-                    # A published rate that is not finite and strictly
-                    # positive must not escape and kill the tick loop: it is
-                    # this position's failure, reported like any other.
+                    # A rate that is not finite and strictly positive must
+                    # not escape and kill the tick loop: it is this
+                    # position's failure, reported like any other. With
+                    # validation at both the producer and the consumer
+                    # (`validate_market_curve`, ADR-0027 Decision 3), a
+                    # non-positive FX_RATE can no longer reach this point
+                    # through Kafka; the catch remains for any future caller
+                    # that puts a curve into the view another way, and is
+                    # covered by the `convert_contribution` unit test in
+                    # `tests/test_aggregation.py`.
                     detail = (
                         f"the FX rate for {pair} is invalid: {fx_curve.value_decimal} "
                         "(must be finite and strictly positive)"

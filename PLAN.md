@@ -49,26 +49,27 @@ to pass.
 ## Open questions
 
 - **Cross-currency portfolio aggregation (Q2 blocker).** Decided in
-  `docs/adr/0028-cross-currency-aggregation.md` (reporting currency travels
-  on `portfolio.state`; conversion per position in `services/pricer` using
-  direct `FX_RATE` curves; decimal throughout; the snapshot records
-  `base_currency`). Done: `portfolio.state` and `RiskSnapshot` both carry
-  `base_currency` (Avro, OpenAPI, Postgres, REST and SSE, TypeScript
-  bindings), and the pricer refuses a portfolio whose currency is unknown
-  (`UNKNOWN_BASE_CURRENCY`, ADR-0018) rather than assuming one; existing
-  rows and old `portfolio.state` messages carry the empty "unknown" default
-  until rewritten. Still outstanding, each a later session: the FX
-  conversion itself (ADR-0028 Decision 3: per-position, in `services/pricer`,
-  with its `quant_core.numeric` helper, `FX_RATE` required for every
-  position type, and `MISSING_CURVE` reporting for a missing pair); VaR's
-  currency treatment (`var_95` is a float64 hard-coded to 0.0 and how it
-  converts is decided when VaR is built); the tick-currency mismatch check
-  (Decision 7); FX curves for `services/ingest`'s multi-currency scenario.
-  Until the conversion session lands, a mixed-currency portfolio still
-  publishes a sum across currencies under a recorded reporting currency it
-  is not yet converted into, so portfolio VaR must not start before it.
-  Owner: TBD (spans `services/pricer`, `services/core-service`,
-  `contracts/`), by-when: before Q2 VaR work starts.
+  `docs/adr/0028-cross-currency-aggregation.md` and now implemented:
+  `portfolio.state` and `RiskSnapshot` both carry `base_currency`; the pricer
+  refuses a portfolio whose currency is unknown (`UNKNOWN_BASE_CURRENCY`,
+  ADR-0018); every position not in the portfolio's base currency is
+  converted per position, before the sum, with the direct `FX_RATE` curve for
+  `<position currency><base currency>` (never inverted), decimal throughout
+  via `quant_core.numeric.convert_money`; `FX_RATE` is required for every
+  position type, and a missing pair is `MISSING_CURVE` listing
+  `FX_RATE:<pair>`; a tick whose currency disagrees with its instrument's
+  reference currency is rejected before it is cached; and the shared curve
+  validator rejects a non-positive `FX_RATE` at both the producer and the
+  consumer. **A mixed-currency portfolio is now converted**, so the earlier
+  warning that portfolio VaR must not start before conversion no longer
+  applies. Existing `risk_snapshots` rows and old `portfolio.state` messages
+  still carry the empty "unknown" `base_currency` until rewritten. Still
+  outstanding: VaR's currency treatment (`var_95` is a float64 hard-coded to
+  0.0, and how it converts is decided when VaR is built), and FX curves for
+  `services/ingest`'s multi-currency scenario (`throughput-1000` has EUR and
+  GBP instruments and declares no curves, so it cannot be priced yet).
+  Owner: TBD (spans `services/pricer` and `services/ingest`), by-when: before
+  Q2 VaR work starts.
 - **Avro/OpenAPI field parity (Q2).** `oldest_input_event_time` existed in
   `contracts/avro/risk-snapshot.avsc` since Session 04a but was missing from
   `contracts/openapi/service-api.yaml`'s `RiskSnapshot` until the dashboard

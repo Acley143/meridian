@@ -2,8 +2,8 @@
 the portfolio's reporting currency per position, before they are summed, with
 the direct FX_RATE curve for `<position currency><base currency>`; every
 position type needs its FX curve, a same-currency position needs none, a
-published rate that cannot be applied fails that position rather than the
-pricer, and a tick quoted in a currency other than its instrument's reference
+non-positive rate is rejected at consume time (so the pair is simply missing),
+and a tick quoted in a currency other than its instrument's reference
 currency is rejected before it is cached.
 
 Mixed-currency reference data is built in the test, in the same style as
@@ -17,6 +17,8 @@ from decimal import ROUND_HALF_EVEN, Decimal
 
 from loader import PortfolioFixture, TickFixture
 from meridian_contracts.market_curves import CurveKind, MarketCurve
+from meridian_contracts.market_curves_key import CurveKind as KeyCurveKind
+from meridian_contracts.market_curves_key import MarketCurveKey
 from meridian_contracts.portfolio_state import Position
 from pricer.pricing import UnpriceableReason
 from pricer.reference_data import InstrumentReference, ReferenceData
@@ -24,6 +26,7 @@ from pricer_test_helpers import (
     consume_all_snapshots,
     make_service,
     process_n_real_ticks,
+    produce_raw_curve,
     produce_ticks,
     seed_portfolios,
     unique_topics,
@@ -361,15 +364,18 @@ def test_tick_with_the_wrong_currency_is_rejected_and_the_cached_price_is_unchan
         service.close()
 
 
-def test_a_non_positive_published_fx_rate_fails_that_position_but_the_loop_survives(
+def test_a_zero_fx_rate_is_rejected_at_consume_so_the_pair_is_missing_and_the_loop_survives(
     kafka_stack, caplog
 ) -> None:
-    """A published EURUSD of 0 (the shared validator permits any finite
-    decimal) must not escape and kill the tick loop: PF (USD AAPL + EUR SAP)
-    is reported INSTRUMENT_NOT_PRICEABLE with a detail naming the pair and the
-    value, no snapshot is produced for it, and later ticks are still
-    processed -- P2 (AAPL only, USD, no FX involved) keeps producing
-    snapshots on the AAPL ticks either side of it."""
+    """A zero EURUSD published raw (bypassing the producer's validation, which
+    now refuses it) is rejected when the pricer consumes it: one
+    market_curve_rejected record for that key and rejected_curve_count == 1,
+    and the curve never enters the view. PF (USD AAPL + EUR SAP) then has no
+    EURUSD, so it is reported MISSING_CURVE listing FX_RATE:EURUSD and
+    produces no snapshot -- never a conversion by zero. The loop survives: P2
+    (AAPL only, USD, no FX involved) keeps producing snapshots on the AAPL
+    ticks either side of the SAP tick, and PF is reported again on the later
+    AAPL tick."""
     caplog.set_level(logging.WARNING, logger="pricer")
     reference_data = ReferenceData({"AAPL": _equity("AAPL", "USD"), "SAP": _equity("SAP", "EUR")})
     portfolios = [
@@ -381,27 +387,49 @@ def test_a_non_positive_published_fx_rate_fails_that_position_but_the_loop_survi
         TickFixture("SAP", Decimal("100.03"), "EUR", _at(1)),
         TickFixture("AAPL", Decimal("151.00"), "USD", _at(2)),
     ]
-    service, _t, per_tick = _drive(
-        kafka_stack, reference_data, portfolios, [_fx_curve("EURUSD", "0")], ticks
+
+    topics = unique_topics()
+    seed_portfolios(kafka_stack, topics, portfolios)
+    service = make_service(kafka_stack, topics, reference_data, curves=[])
+    produce_raw_curve(
+        kafka_stack,
+        topics,
+        MarketCurveKey(scenario_id=_SCENARIO, kind=KeyCurveKind.FX_RATE, curve_id="EURUSD"),
+        _fx_curve("EURUSD", "0"),
     )
+    service.hydrate()
+    service.start_tick_consumption()
+    produce_ticks(kafka_stack, topics, _SCENARIO, ticks)
     try:
+        # (a) rejected at consume time, exactly once, and counted.
+        rejected = [
+            r for r in caplog.records if getattr(r, "event", None) == "market_curve_rejected"
+        ]
+        assert len(rejected) == 1
+        assert rejected[0].kind == "FX_RATE"
+        assert rejected[0].curve_id == "EURUSD"
+        assert "strictly positive" in rejected[0].error
+        assert service.rejected_curve_count == 1
+        assert service.curves.get(_SCENARIO, CurveKind.FX_RATE, "EURUSD") is None
+
+        per_tick = process_n_real_ticks(service, len(ticks))
+
+        # (b) PF is missing the pair and produces no snapshot; (c) the loop
+        # survived, so P2 is still priced on both AAPL ticks.
         assert [s.portfolio_id for s in per_tick[0]] == ["P2"]
-        assert per_tick[1] == [], "SAP tick: PF is unpriceable, P2 is not affected"
+        assert per_tick[1] == [], "SAP tick: PF has no EURUSD, P2 is not affected"
         assert [s.portfolio_id for s in per_tick[2]] == ["P2"], "the loop survived"
         assert per_tick[2][0].price == Decimal("151.00000000")
 
-        records = [
-            r
-            for r in _unpriceable_records(caplog)
-            if r.portfolio_id == "PF" and r.reason == UnpriceableReason.INSTRUMENT_NOT_PRICEABLE
+        pf_records = [r for r in _unpriceable_records(caplog) if r.portfolio_id == "PF"]
+        assert [r.reason for r in pf_records] == [
+            UnpriceableReason.NO_PRICE,
+            UnpriceableReason.MISSING_CURVE,
+            UnpriceableReason.MISSING_CURVE,
         ]
-        assert len(records) == 2, "reported on the SAP tick and again on the later AAPL tick"
-        for record in records:
-            assert record.missing == ["SAP"]
-            assert "EURUSD" in record.detail
-            assert "0E-8" in record.detail
-            assert "invalid" in record.detail
-        assert service.unpriceable_counts[UnpriceableReason.NO_PRICE] == 1
-        assert service.unpriceable_counts[UnpriceableReason.INSTRUMENT_NOT_PRICEABLE] == 2
+        assert pf_records[1].missing == ["FX_RATE:EURUSD"]
+        assert pf_records[2].missing == ["FX_RATE:EURUSD"]
+        assert service.unpriceable_counts[UnpriceableReason.MISSING_CURVE] == 2
+        assert service.unpriceable_counts[UnpriceableReason.INSTRUMENT_NOT_PRICEABLE] == 0
     finally:
         service.close()

@@ -217,14 +217,22 @@ Consumes ticks and portfolio state, prices every position using
   `(FX_RATE, pair)` for any position not in the base currency, and a missing
   pair is `MISSING_CURVE` listing `FX_RATE:<pair>` with the other missing
   keys. A same-currency position is untouched: no lookup, no multiplication,
-  no re-rounding. A published rate that is not finite and strictly positive
-  (the shared validator permits any finite decimal) does not escape and kill
-  the tick loop: that position fails as `INSTRUMENT_NOT_PRICEABLE` with a
-  detail saying the FX rate for the pair is invalid and giving the value.
-  Tightening the validator in `libs/quant-io` to reject a non-positive
-  `FX_RATE` at publish and consume time is the deeper fix and is deliberately
-  left for a later session, since it would widen this change to a third
-  package. Tick currency (Decision 7): a tick whose currency differs from
+  no re-rounding. A rate that is not finite and strictly positive does not
+  escape and kill the tick loop: that position fails as
+  `INSTRUMENT_NOT_PRICEABLE` with a detail saying the FX rate for the pair is
+  invalid and giving the value. *Update (quant-io session, Q2, Eng-B):* the
+  shared validator in `libs/quant-io` now rejects a non-positive `FX_RATE` at
+  the producer and again in `CurveView.apply`, so such a rate can no longer
+  reach the pricer through Kafka -- it is rejected at consume time
+  (`market_curve_rejected`, `rejected_curve_count`) and the pair is simply
+  missing, reported `MISSING_CURVE` listing `FX_RATE:<pair>`. The per-position
+  catch stays as defence in depth for any future caller that puts a curve into
+  the view another way, and is covered by a `convert_contribution` unit test
+  in `tests/test_aggregation.py`; the earlier end-to-end bad-rate test in
+  `tests/test_fx_conversion.py` was replaced by one of the real behaviour
+  (a raw-published zero rate rejected at consume, the pair reported missing,
+  the loop surviving), because the state the old test simulated is now
+  unreachable. Tick currency (Decision 7): a tick whose currency differs from
   its instrument's reference-data currency is rejected before its price or
   event time is cached (logged WARNING `tick_currency_mismatch`, counted in
   `PricerService.tick_currency_mismatch_count`, offset committed, no

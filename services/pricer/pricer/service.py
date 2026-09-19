@@ -36,8 +36,22 @@ comes before anything per-position; an empty `base_currency` on
 `NO_REFERENCE_DATA`, then `NO_PRICE`, then `MISSING_CURVE`, then
 `INSTRUMENT_NOT_PRICEABLE` (ADR-0027 Decision 9) -- each naming every
 affected id, not just the first one found. The published `RiskSnapshot`
-carries the portfolio's `base_currency`; no FX conversion happens yet
-(ADR-0028 Decision 3 lands in a later session).
+carries the portfolio's `base_currency`.
+
+Currency conversion (ADR-0028 Decisions 3 to 5, 7): each position's cash
+contribution is computed in its instrument's own currency and, when that
+differs from the portfolio's `base_currency`, converted per position --
+before contributions are summed -- with the direct `FX_RATE` curve for the
+pair `<position currency><base currency>` (never inverted), decimal
+throughout and rounded once per field at scale 8. A same-currency position
+is untouched: no curve lookup, no multiplication, no re-rounding. Every
+position type needs its FX curve, not only options; a missing one is
+`MISSING_CURVE` listing `FX_RATE:<pair>`, and a published rate that is not
+finite and strictly positive fails that position as
+`INSTRUMENT_NOT_PRICEABLE` with a detail naming the pair and value. A tick
+whose currency disagrees with its instrument's reference currency is
+rejected before it is cached (`tick_currency_mismatch`). `var_95` is still
+0.0; its currency treatment is decided when VaR is built.
 """
 from __future__ import annotations
 
@@ -71,6 +85,7 @@ from pricer.pricing import (
     UnpriceableReason,
     aggregate_portfolio,
     aggregate_position,
+    convert_contribution,
     oldest_input_event_time,
     price_instrument,
 )
@@ -108,6 +123,7 @@ class PricerService:
         self._last_event_time: dict[str, datetime] = {}
         self._unpriceable_counts: Counter[UnpriceableReason] = Counter()
         self._rejected_curve_count = 0
+        self._tick_currency_mismatch_count = 0
         self.ready = False
 
         self._portfolio_consumer = None
@@ -132,6 +148,12 @@ class PricerService:
         """A count of `market.curves` messages rejected by `CurveView.apply`
         (ADR-0027 Decision 3) -- invalid records, or a key/value mismatch."""
         return self._rejected_curve_count
+
+    @property
+    def tick_currency_mismatch_count(self) -> int:
+        """A count of ticks rejected because their currency disagrees with
+        their instrument's reference-data currency (ADR-0028 Decision 7)."""
+        return self._tick_currency_mismatch_count
 
     def _report_unpriceable(
         self,
@@ -359,6 +381,21 @@ class PricerService:
             return None
 
         tick: Tick = msg.value()
+
+        # ADR-0028 Decision 7: reference data is authoritative for an
+        # instrument's currency, so a tick quoted in a different one is the
+        # suspect value. Its price and event time are never cached, so
+        # nothing is priced from it; the offset is still committed, or the
+        # same tick would be redelivered forever. A tick for an instrument
+        # reference data does not know is cached as before -- there is no
+        # basis to judge it.
+        if tick.instrument_id in self.reference_data:
+            reference_currency = self.reference_data.get(tick.instrument_id).currency
+            if tick.currency != reference_currency:
+                self._reject_tick_currency_mismatch(tick, reference_currency)
+                self._tick_consumer.commit(msg)
+                return []
+
         self._last_price[tick.instrument_id] = tick.price
         self._last_event_time[tick.instrument_id] = tick.event_time
 
@@ -382,6 +419,21 @@ class PricerService:
             len(produced),
         )
         return produced
+
+    def _reject_tick_currency_mismatch(self, tick: Tick, reference_currency: str) -> None:
+        self._tick_currency_mismatch_count += 1
+        self._log.warning(
+            "tick_currency_mismatch instrument_id=%s tick_currency=%s reference_currency=%s",
+            tick.instrument_id,
+            tick.currency,
+            reference_currency,
+            extra={
+                "event": "tick_currency_mismatch",
+                "instrument_id": tick.instrument_id,
+                "tick_currency": tick.currency,
+                "reference_currency": reference_currency,
+            },
+        )
 
     def _price_portfolio(self, portfolio_id: str, triggering_tick: Tick) -> RiskSnapshot | None:
         positions = self.view.positions(portfolio_id)
@@ -433,13 +485,19 @@ class PricerService:
             )
             return None
 
-        # (c) Every VANILLA_EUROPEAN_OPTION position must have its required
-        # market.curves values present under the triggering tick's
-        # scenario_id (ADR-0027 Decisions 6, 8, 9) -- every missing key,
-        # not just the first.
+        # (c) Every required market.curves value must be present under the
+        # triggering tick's scenario_id (ADR-0027 Decisions 6, 8, 9) -- every
+        # missing key, not just the first. A VANILLA_EUROPEAN_OPTION needs its
+        # three option curves; and EVERY position, of any type, whose currency
+        # differs from the portfolio's base currency needs the direct FX_RATE
+        # pair (position currency followed by base currency, e.g. EURUSD --
+        # ADR-0028 Decisions 3 and 4). A same-currency position needs no FX
+        # curve. A rate is never inverted or derived (ADR-0027 Decision 2).
         required_curves: dict[tuple[CurveKind, str], None] = {}
         for position in positions:
             reference = self.reference_data.get(position.instrument_id)
+            if reference.currency != base_currency:
+                required_curves[(CurveKind.FX_RATE, reference.currency + base_currency)] = None
             if reference.instrument_type != "VANILLA_EUROPEAN_OPTION":
                 continue
             required_curves[(CurveKind.RISK_FREE_RATE, reference.currency)] = None
@@ -494,9 +552,31 @@ class PricerService:
                 failures.append((position.instrument_id, str(exc)))
                 continue
 
-            contributions.append(
-                aggregate_position(pricing_result, position.quantity, reference.contract_size, spot)
+            contribution = aggregate_position(
+                pricing_result, position.quantity, reference.contract_size, spot
             )
+
+            # ADR-0028 Decisions 3 and 5: convert this position into the
+            # reporting currency now, before contributions are summed. A
+            # same-currency position is left exactly as computed: no lookup,
+            # no multiplication, no re-rounding.
+            if reference.currency != base_currency:
+                pair = reference.currency + base_currency
+                fx_curve = self.curves.get(triggering_tick.scenario_id, CurveKind.FX_RATE, pair)
+                try:
+                    contribution = convert_contribution(contribution, fx_curve.value_decimal)
+                except ValueError:
+                    # A published rate that is not finite and strictly
+                    # positive must not escape and kill the tick loop: it is
+                    # this position's failure, reported like any other.
+                    detail = (
+                        f"the FX rate for {pair} is invalid: {fx_curve.value_decimal} "
+                        "(must be finite and strictly positive)"
+                    )
+                    failures.append((position.instrument_id, detail))
+                    continue
+
+            contributions.append(contribution)
             underlyings_used.add(underlying_id)
 
         if failures:

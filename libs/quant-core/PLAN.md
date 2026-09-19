@@ -115,3 +115,19 @@ one.
   exercised, not just accidentally never triggered. Added ADR-0014 pinning
   quant-core to per-unit-of-underlying pricing and giving `services/pricer`
   sole ownership of the `contract_size` multiplier.
+- 2026-09-19 (ADR-0028 conversion session, Eng-B, Q2): `quant_core.numeric`
+  gained `convert_money(amount, rate)`, the one place a `Decimal` cash amount
+  is converted between currencies: multiply and quantise once to scale 8 with
+  `ROUND_HALF_EVEN` (the quantum `to_money` uses), decimal throughout with no
+  float round trip (ADR-0028 Decision 5, ADR-0004). It raises `ValueError`
+  naming the rate for one that is not finite or not strictly positive, as the
+  last line of defence -- the curve validator in `libs/quant-io` permits any
+  finite decimal, and tightening it is deliberately left for a later session.
+  It lives in `numeric.py` so `check_quant_core_boundary.py` needs no change
+  (it needs no bare `Decimal()`/`float()` call anyway). Nothing in
+  `quant-core` knows about currencies or FX rates as domain concepts: the
+  pricer chooses the rate and calls this; ADR-0014's per-unit pricing is
+  unchanged. Unit tests in `tests/unit/test_numeric.py`: a hand-summed
+  representative value, scale 8, half-even at a tie, rate 1, and rejection of
+  0, negative, NaN and infinity. `PRICER_VERSION` was not bumped: no
+  pricing-model behaviour changed. Owner: Eng-B, Quarter: Q2.

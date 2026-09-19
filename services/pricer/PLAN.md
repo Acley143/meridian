@@ -205,6 +205,37 @@ Consumes ticks and portfolio state, prices every position using
   key, no numeric value moved. Tests: `tests/test_base_currency.py` (an
   empty-currency portfolio is refused despite being otherwise priceable,
   and a normal portfolio's consumed snapshots carry USD).
+- [x] FX conversion at aggregation (ADR-0028 Decisions 3, 4, 5 and 7), owner
+  Eng-B, Q2: after `aggregate_position`, a position whose currency differs
+  from the portfolio's `base_currency` is converted with
+  `pricing.convert_contribution` (each of the six fields through
+  `quant_core.numeric.convert_money`, decimal throughout, rounded once at
+  scale 8 per position, before `aggregate_portfolio` sums) using the direct
+  `FX_RATE` curve `<position currency><base currency>` under the triggering
+  tick's `scenario_id`, never inverted or derived (ADR-0027). EVERY position
+  type requires it, not only options: the required-curve pass adds
+  `(FX_RATE, pair)` for any position not in the base currency, and a missing
+  pair is `MISSING_CURVE` listing `FX_RATE:<pair>` with the other missing
+  keys. A same-currency position is untouched: no lookup, no multiplication,
+  no re-rounding. A published rate that is not finite and strictly positive
+  (the shared validator permits any finite decimal) does not escape and kill
+  the tick loop: that position fails as `INSTRUMENT_NOT_PRICEABLE` with a
+  detail saying the FX rate for the pair is invalid and giving the value.
+  Tightening the validator in `libs/quant-io` to reject a non-positive
+  `FX_RATE` at publish and consume time is the deeper fix and is deliberately
+  left for a later session, since it would widen this change to a third
+  package. Tick currency (Decision 7): a tick whose currency differs from
+  its instrument's reference-data currency is rejected before its price or
+  event time is cached (logged WARNING `tick_currency_mismatch`, counted in
+  `PricerService.tick_currency_mismatch_count`, offset committed, no
+  snapshot); a tick for an instrument absent from reference data is cached
+  as before. `var_95` is still hard-coded to `0.0`; its currency treatment is
+  decided when VaR is built. Tests: `tests/test_fx_conversion.py` (mixed
+  USD/EUR equities against hand-worked decimals, missing FX curve, a EUR
+  option's full required set, same-currency needing no curve, a mismatched
+  tick leaving the cached price unchanged, and a zero FX rate not killing the
+  loop); the golden pipeline and replay determinism tests pass untouched and
+  `golden_snapshots.json` is byte-identical.
 
 ## Boundaries
 - **Owns:** `services/pricer/**`.

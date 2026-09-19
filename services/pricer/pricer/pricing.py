@@ -31,7 +31,7 @@ from decimal import Decimal
 from enum import Enum
 
 from quant_core import PRICER_VERSION
-from quant_core.numeric import to_model, to_money
+from quant_core.numeric import convert_money, to_model, to_money
 from quant_core.pricing.black_scholes import price as black_scholes_price
 from quant_core.types import EuropeanOption, MarketState, PricingResult
 
@@ -159,6 +159,26 @@ def aggregate_position(
         cash_vega=to_money(pricing_result.vega * multiplier),
         cash_theta=to_money(pricing_result.theta * multiplier),
         cash_rho=to_money(pricing_result.rho * multiplier),
+    )
+
+
+def convert_contribution(
+    contribution: PositionCashContribution, rate: Decimal
+) -> PositionCashContribution:
+    """One position's contribution converted into the portfolio's reporting
+    currency at `rate` (ADR-0028 Decisions 3 and 5): each of the six fields
+    goes through `quant_core.numeric.convert_money` -- decimal throughout,
+    quantised once per field at scale 8 -- and a new instance is returned.
+    Called per position, before `aggregate_portfolio` sums, so the total does
+    not depend on summation order. Raises `ValueError` for a rate that is not
+    finite and strictly positive."""
+    return PositionCashContribution(
+        price=convert_money(contribution.price, rate),
+        cash_delta=convert_money(contribution.cash_delta, rate),
+        cash_gamma=convert_money(contribution.cash_gamma, rate),
+        cash_vega=convert_money(contribution.cash_vega, rate),
+        cash_theta=convert_money(contribution.cash_theta, rate),
+        cash_rho=convert_money(contribution.cash_rho, rate),
     )
 
 

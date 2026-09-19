@@ -47,5 +47,5 @@ dependency on anything outside its arguments (no I/O, no wall clock). The
 constraint enforced on `libs/quant-core` by ADR-0010.
 
 **VaR (Value at Risk)** — a statistical estimate of potential portfolio loss
-over a given horizon and confidence level; Meridian's Q1 scope is 1-day 95%
-VaR, `RiskSnapshot.var_95`.
+over a given horizon and confidence level; Meridian's Q2 scope is 1-day 95%
+VaR, `RiskSnapshot.var_95` (method: ADR-0029).

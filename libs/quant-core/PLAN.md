@@ -37,8 +37,11 @@ independently verifiable against a closed-form reference.
 ## Explicitly out of scope
 - American-style exercise (Q2).
 - Monte Carlo pricing of any kind (Q3, ADR-0006).
-- Portfolio-level aggregation (VaR, correlated risk) — this library prices
-  one instrument at a time; aggregation lives in `services/pricer`.
+- Portfolio-level aggregation, VaR input assembly, and correlated risk — this
+  library prices one instrument at a time; aggregation and assembling a VaR
+  statistic's inputs live in `services/pricer`. The VaR statistic itself
+  (`quant_core.risk.delta_normal_var_95`, a pure function of the inputs it is
+  given) lives here (ADR-0029).
 - Any Kafka, HTTP, filesystem, or database code — that's `libs/quant-io` and
   `services/pricer`, by ADR-0010.
 
@@ -131,3 +134,15 @@ one.
   representative value, scale 8, half-even at a tie, rate 1, and rejection of
   0, negative, NaN and infinity. `PRICER_VERSION` was not bumped: no
   pricing-model behaviour changed. Owner: Eng-B, Quarter: Q2.
+- 2026-09-19 (ADR-0029 VaR statistic session, Eng-B, Q2): Added
+  `quant_core.risk`: `PositionRisk` and `delta_normal_var_95`, the 1-day 95%
+  parametric (delta-normal) VaR statistic (ADR-0029). A pure function of
+  per-position `cash_delta` (already in the reporting currency) and annual
+  volatility; magnitudes are summed with no diversification benefit, and only
+  delta risk is captured. Daily volatility scales by `sqrt(365)`
+  (`CALENDAR_DAYS_PER_YEAR`, ACT/365F by analogy, ADR-0029 Decision 3). Corrected
+  the out-of-scope line above, which contradicted `docs/rotation.md`. Not
+  wired into `services/pricer`: `var_95` is still `0.0` until that session, and
+  `PRICER_VERSION` was not bumped because no pricing behaviour changed. Unit
+  tests in `tests/unit/test_risk.py`, including the no-netting test. Owner:
+  Eng-B, Quarter: Q2.

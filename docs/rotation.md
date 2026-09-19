@@ -31,7 +31,7 @@ gate is `CODEOWNERS` and each workstream's `PLAN.md` **Boundaries** section.
 
 | Surface | Owner |
 |---|---|
-| `libs/quant-core` (American pricers, VaR) | Eng-B |
+| `libs/quant-core` (American pricers, VaR statistic — ADR-0029) | Eng-B |
 | `services/pricer` (portfolio aggregation) | Eng-C |
 | `services/core-service` (audit log, ADR-0008) | Eng-D |
 | `apps/dashboard` (VaR views) | Eng-E |

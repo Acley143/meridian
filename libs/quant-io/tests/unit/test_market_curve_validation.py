@@ -190,3 +190,24 @@ def test_value_decimal_thirty_integer_digits_accepted() -> None:
 @pytest.mark.parametrize("value_decimal", [Decimal("1.5"), Decimal(2)])
 def test_value_decimal_fewer_than_eight_fractional_digits_accepted(value_decimal: Decimal) -> None:
     validate_market_curve(_curve(kind=CurveKind.FX_RATE, value_decimal=value_decimal))
+
+
+@pytest.mark.parametrize("value_decimal", [Decimal(0), Decimal("0E-8"), Decimal("-1.08000000")])
+def test_fx_rate_that_is_not_strictly_positive_rejected(value_decimal: Decimal) -> None:
+    curve = _curve(kind=CurveKind.FX_RATE, value_decimal=value_decimal)
+    with pytest.raises(InvalidMarketCurveError, match=CurveKind.FX_RATE.value) as excinfo:
+        validate_market_curve(curve)
+    assert "strictly positive" in str(excinfo.value)
+    assert "EURUSD" in str(excinfo.value)
+
+
+def test_fx_rate_smallest_positive_value_accepted() -> None:
+    validate_market_curve(_curve(kind=CurveKind.FX_RATE, value_decimal=Decimal("0.00000001")))
+
+
+@pytest.mark.parametrize("kind", _FLOAT_KINDS)
+@pytest.mark.parametrize("value_float", [0.0, -0.01])
+def test_positivity_rule_is_fx_rate_only(kind: CurveKind, value_float: float) -> None:
+    # A zero dividend yield is legitimate and a zero or negative interest rate
+    # is meaningful; volatility bounds are not this function's business.
+    validate_market_curve(_curve(kind=kind, value_float=value_float))

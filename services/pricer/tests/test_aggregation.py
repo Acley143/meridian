@@ -5,10 +5,13 @@ from datetime import UTC, datetime
 from decimal import Decimal
 from pathlib import Path
 
+import pytest
 from pricer.pricing import (
     OptionMarketInputs,
+    PositionCashContribution,
     aggregate_portfolio,
     aggregate_position,
+    convert_contribution,
     price_instrument,
 )
 from pricer.reference_data import InstrumentReference, load_reference_data
@@ -119,3 +122,24 @@ def test_aggregate_portfolio_sums_across_positions() -> None:
 
     assert total.price == a.price + b.price
     assert total.cash_delta == a.cash_delta + b.cash_delta
+
+
+@pytest.mark.parametrize("bad_rate", [Decimal(0), Decimal("-1.08000000")])
+def test_convert_contribution_raises_for_a_rate_that_is_not_strictly_positive(
+    bad_rate: Decimal,
+) -> None:
+    """ADR-0028 Decision 5: a zero rate would silently zero a book and a
+    negative one would flip its sign. The shared curve validator rejects such
+    a rate before it can reach the pricer, so this guard is the last line of
+    defence, tested directly: it must raise, naming the rate, never convert."""
+    contribution = PositionCashContribution(
+        price=Decimal("1500.00000000"),
+        cash_delta=Decimal("15.00000000"),
+        cash_gamma=Decimal(0),
+        cash_vega=Decimal(0),
+        cash_theta=Decimal(0),
+        cash_rho=Decimal(0),
+    )
+    with pytest.raises(ValueError, match="strictly positive") as excinfo:
+        convert_contribution(contribution, bad_rate)
+    assert str(bad_rate) in str(excinfo.value)

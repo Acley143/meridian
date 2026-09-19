@@ -85,6 +85,19 @@ def validate_market_curve(curve: MarketCurve) -> None:
     if curve.value_decimal is not None and not _fits_decimal_38_8(curve.value_decimal):
         _fail("value_decimal must be finite and representable at precision 38, scale 8")
 
+    # An exchange rate is units of the target currency per one unit of the
+    # source (ADR-0027 Decision 2): zero or below is not a rate, and applying
+    # one would silently zero or flip a book (ADR-0028 Decision 5). FX_RATE
+    # only -- a zero dividend yield or a negative interest rate is meaningful.
+    # Checked after the finiteness/representability rule above, so a NaN is
+    # never ordered against zero.
+    if (
+        curve.kind is CurveKind.FX_RATE
+        and curve.value_decimal is not None
+        and curve.value_decimal <= 0
+    ):
+        _fail("FX_RATE value_decimal must be strictly positive")
+
     if curve.kind in _CURVE_ID_PATTERNS:
         if not _CURVE_ID_PATTERNS[curve.kind].match(curve.curve_id):
             _fail(f"curve_id does not match the pattern required for {curve.kind.value}")

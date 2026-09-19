@@ -66,6 +66,17 @@ Python side.
   checked against decimal(38,8) representability before any curve in a
   batch is produced, not left to fail during Avro serialization partway
   through the batch.
+- `validate_market_curve` now also rejects an `FX_RATE` whose `value_decimal`
+  is not strictly positive (ADR-0027 Decision 2 defines a rate as units of
+  the target currency per one unit of the source, so zero or below is not a
+  rate; ADR-0028 Decision 5), with the existing message style naming the
+  kind and `curve_id`. FX_RATE only: a zero dividend yield is legitimate, a
+  zero or negative interest rate is meaningful, and volatility bounds are not
+  this function's business. Because the one validator runs in the producer
+  before anything is produced and in `CurveView.apply` when a record is
+  consumed, a non-positive rate is now stopped in both directions, not only
+  caught at conversion time in `services/pricer`. Tests:
+  `tests/unit/test_market_curve_validation.py`. Owner: Eng-B, Quarter: Q2.
 
 ## Boundaries
 - **Owns:** `libs/quant-io/**`.

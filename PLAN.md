@@ -52,17 +52,22 @@ to pass.
   `docs/adr/0028-cross-currency-aggregation.md` (reporting currency travels
   on `portfolio.state`; conversion per position in `services/pricer` using
   direct `FX_RATE` curves; decimal throughout; the snapshot records
-  `base_currency`). Done: `portfolio.state` carries `base_currency`, copied
-  by `services/core-service` from the `portfolios` row. Still outstanding,
-  each a later session: the pricer's `UNKNOWN_BASE_CURRENCY` reason; the
-  per-position conversion with its `quant_core.numeric` helper, required
-  `FX_RATE` curves for every position type and `MISSING_CURVE` reporting;
-  `base_currency` on `RiskSnapshot` across Avro, Postgres, the REST DTO and
-  the TypeScript binding (an ADR-0026 paired change); the tick-currency
-  mismatch check; FX curves for `services/ingest`'s multi-currency scenario.
+  `base_currency`). Done: `portfolio.state` and `RiskSnapshot` both carry
+  `base_currency` (Avro, OpenAPI, Postgres, REST and SSE, TypeScript
+  bindings), and the pricer refuses a portfolio whose currency is unknown
+  (`UNKNOWN_BASE_CURRENCY`, ADR-0018) rather than assuming one; existing
+  rows and old `portfolio.state` messages carry the empty "unknown" default
+  until rewritten. Still outstanding, each a later session: the FX
+  conversion itself (ADR-0028 Decision 3: per-position, in `services/pricer`,
+  with its `quant_core.numeric` helper, `FX_RATE` required for every
+  position type, and `MISSING_CURVE` reporting for a missing pair); VaR's
+  currency treatment (`var_95` is a float64 hard-coded to 0.0 and how it
+  converts is decided when VaR is built); the tick-currency mismatch check
+  (Decision 7); FX curves for `services/ingest`'s multi-currency scenario.
   Until the conversion session lands, a mixed-currency portfolio still
-  publishes a sum across currencies, so portfolio VaR must not start before
-  it. Owner: TBD (spans `services/pricer`, `services/core-service`,
+  publishes a sum across currencies under a recorded reporting currency it
+  is not yet converted into, so portfolio VaR must not start before it.
+  Owner: TBD (spans `services/pricer`, `services/core-service`,
   `contracts/`), by-when: before Q2 VaR work starts.
 - **Avro/OpenAPI field parity (Q2).** `oldest_input_event_time` existed in
   `contracts/avro/risk-snapshot.avsc` since Session 04a but was missing from

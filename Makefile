@@ -20,7 +20,11 @@ lint:
 	PYTHONPATH=libs/quant-core lint-imports --config libs/quant-core/.importlinter
 	PYTHONPATH=libs/quant-core:libs/quant-io lint-imports --config libs/.importlinter
 	mvn -pl services/core-service com.diffplug.spotless:spotless-maven-plugin:check
-	cd apps/dashboard && npx tsc --noEmit && npx eslint .
+# apps/dashboard/tsconfig.json is solution-style ("files": [] plus references), so a plain
+# `tsc --noEmit` compiles nothing and always exits 0. This must stay in build mode (-b), which
+# follows the references to tsconfig.app.json and tsconfig.node.json, or check each project
+# explicitly with -p.
+	cd apps/dashboard && npx tsc -b --noEmit && npx eslint .
 	$(MAKE) check-dashboard-same-origin
 
 gen:

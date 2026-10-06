@@ -5,7 +5,7 @@ No I/O, ever. See the package docstrings of `quant_core.numeric`,
 `quant_core.simulation` for the rest of the public surface.
 """
 
-PRICER_VERSION = "0.1.0"
+PRICER_VERSION = "0.2.0"
 """Manually-bumped semver identifying pricing-model behavior (ADR-0007).
 
 Part of a `RiskSnapshot`'s identity tuple `(portfolio_id, as_of_event_time,
@@ -20,12 +20,12 @@ description what changed about the model. A PR that doesn't change pricing
 behavior must not bump this.
 
 Version identity only binds once a `RiskSnapshot` carrying it has actually
-been persisted (ADR-0007) — as of this version, none has: `services/pricer`
-doesn't exist yet. Until the first snapshot is written, a model-behavior
-change here (e.g. the ACT/365F day-count fix in this version) does not
-fork any stored history, so it does not itself force a bump. Don't take
-that as license to skip bumping later — once snapshots exist, the rule
-above is absolute again.
+been persisted (ADR-0007). That is now the case: `services/pricer` produces
+snapshots and `services/core-service` persists them, upserting on the
+identity tuple, so a model-behavior change shipped without a bump silently
+overwrites stored rows instead of coexisting with them. The rule above is
+absolute. (0.1.0's ACT/365F day-count fix predated any persisted snapshot,
+which is the only reason it did not force a bump of its own.)
 
 Q1 ships 0.1.0.
 """

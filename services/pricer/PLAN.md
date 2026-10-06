@@ -244,6 +244,32 @@ Consumes ticks and portfolio state, prices every position using
   tick leaving the cached price unchanged, and a zero FX rate not killing the
   loop); the golden pipeline and replay determinism tests pass untouched and
   `golden_snapshots.json` is byte-identical.
+- [x] Portfolio VaR (ADR-0029), owner Eng-B, Q2: `var_95` is no longer
+  `0.0`. `VOLATILITY:<underlying_id>` is now required for EVERY position
+  type, not only options (Decision 7), in the same required-curve pass under
+  the triggering tick's `scenario_id`; a missing one is reported through the
+  existing `MISSING_CURVE` path, with no new unpriceable reason. When a
+  position's contribution is appended -- after FX conversion -- a
+  `quant_core.risk.PositionRisk` is built from that contribution's
+  `cash_delta` (through `quant_core.numeric.to_model`, the one Decimal to
+  float64 crossing) and its underlying's `VOLATILITY` `value_float`, and
+  `delta_normal_var_95` over all of them is the snapshot's `var_95`. It is
+  therefore in the base currency by construction, with no FX step of its own
+  (Decision 6). A position that fails and is skipped never reaches the
+  contributions, and the portfolio is not published at all. `PRICER_VERSION`
+  is bumped to `0.2.0`: every snapshot's `var_95` changes, and ADR-0007 makes
+  the version part of snapshot identity so the re-priced rows coexist with
+  the old ones instead of `core-service`'s upsert overwriting them.
+  `fixtures/generate_golden_snapshots.py` re-derives VaR inline from ADR-0029's
+  formula (not importing `quant_core.risk`), from each position's money-rounded
+  cash delta, in the statistic's order of operations, since the golden test
+  compares `var_95` exactly; the regenerated `golden_snapshots.json` changes
+  only `var_95` and `pricer_version`. Tests: `tests/test_var.py` (a hand-worked
+  mixed USD/EUR `var_95` that also pins conversion-before-VaR, an equity with
+  no volatility curve reported `MISSING_CURVE` naming `VOLATILITY:AAPL`, and
+  opposite positions on one underlying adding by magnitude rather than
+  netting); the five equity tests in `tests/test_fx_conversion.py` gained the
+  `VOLATILITY` curves their setups now need, with no assertion changed.
 
 ## Boundaries
 - **Owns:** `services/pricer/**`.
@@ -343,6 +369,19 @@ Consumes `market.ticks` and `portfolio.state`. Produces `risk.snapshots`, schema
   currencies. A EUR position aggregated into a USD portfolio total without
   conversion is silently wrong. Deliberately NOT owned here — see root
   `PLAN.md`'s open questions, ahead of Q2 portfolio VaR.
+- **New, found by the ADR-0029 VaR session.** A negative `VOLATILITY` passes
+  the shared validator (`validate_market_curve` rejects only a non-finite
+  `value_float`), so it enters `CurveView` and reaches
+  `quant_core.risk.delta_normal_var_95` (and, for options, `MarketState`),
+  both of which raise `ValueError` on it. Nothing catches that: it escapes
+  `_price_portfolio` and `process_one_tick`, stopping the tick loop with the
+  tick's offset uncommitted. Requiring `VOLATILITY` for every position type
+  (ADR-0029 Decision 7) extends to equities an exposure options already had.
+  The fix is to reject a negative `VOLATILITY` at validation in
+  `libs/quant-io`, mirroring the non-positive `FX_RATE` rule, so it is
+  stopped at the producer and again at consume time. Deliberately not done
+  in the VaR session; a separate session. Owner: Eng-B, by-when: before the
+  pricer consumes curves from any source other than the checked-in scenarios.
 
 ## Session log
 - 2026-08-31 (contracts session, Eng-A): `contracts/avro/risk-snapshot.avsc`

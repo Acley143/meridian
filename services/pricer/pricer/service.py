@@ -53,8 +53,16 @@ missing; the per-position `ValueError` catch in `_price_portfolio` is defence
 in depth (it fails that position as `INSTRUMENT_NOT_PRICEABLE` naming the
 pair and value) rather than a path reachable through Kafka. A tick
 whose currency disagrees with its instrument's reference currency is
-rejected before it is cached (`tick_currency_mismatch`). `var_95` is still
-0.0; its currency treatment is decided when VaR is built.
+rejected before it is cached (`tick_currency_mismatch`).
+
+VaR (ADR-0029): `var_95` is the 1-day 95% delta-normal VaR from
+`quant_core.risk.delta_normal_var_95`, one `PositionRisk` per position from
+its converted `cash_delta` and its underlying's `VOLATILITY` curve, summed
+by magnitude with no netting; because it is built from the already-converted
+contributions it is in the portfolio's `base_currency` with no FX step of its
+own. `VOLATILITY` is therefore required for every position type, not only
+options, and a missing one is `MISSING_CURVE` listing
+`VOLATILITY:<underlying_id>`.
 """
 from __future__ import annotations
 
@@ -69,6 +77,8 @@ from meridian_contracts.market_curves import CurveKind
 from meridian_contracts.risk_snapshot import RiskSnapshot
 from meridian_contracts.tick import Tick
 from quant_core import PRICER_VERSION
+from quant_core.numeric import to_model
+from quant_core.risk import PositionRisk, delta_normal_var_95
 from quant_io.clock import now_utc
 from quant_io.consumer import PartitionEOF
 from quant_io.market_curve_io import MARKET_CURVES_TOPIC, make_market_curve_consumer
@@ -490,21 +500,23 @@ class PricerService:
 
         # (c) Every required market.curves value must be present under the
         # triggering tick's scenario_id (ADR-0027 Decisions 6, 8, 9) -- every
-        # missing key, not just the first. A VANILLA_EUROPEAN_OPTION needs its
-        # three option curves; and EVERY position, of any type, whose currency
-        # differs from the portfolio's base currency needs the direct FX_RATE
-        # pair (position currency followed by base currency, e.g. EURUSD --
-        # ADR-0028 Decisions 3 and 4). A same-currency position needs no FX
-        # curve. A rate is never inverted or derived (ADR-0027 Decision 2).
+        # missing key, not just the first. EVERY position, of any type, needs
+        # its underlying's VOLATILITY curve, the VaR input (ADR-0029 Decision
+        # 7). A VANILLA_EUROPEAN_OPTION also needs its rate and dividend
+        # curves; and EVERY position whose currency differs from the
+        # portfolio's base currency needs the direct FX_RATE pair (position
+        # currency followed by base currency, e.g. EURUSD -- ADR-0028
+        # Decisions 3 and 4). A same-currency position needs no FX curve. A
+        # rate is never inverted or derived (ADR-0027 Decision 2).
         required_curves: dict[tuple[CurveKind, str], None] = {}
         for position in positions:
             reference = self.reference_data.get(position.instrument_id)
+            required_curves[(CurveKind.VOLATILITY, reference.underlying_id)] = None
             if reference.currency != base_currency:
                 required_curves[(CurveKind.FX_RATE, reference.currency + base_currency)] = None
             if reference.instrument_type != "VANILLA_EUROPEAN_OPTION":
                 continue
             required_curves[(CurveKind.RISK_FREE_RATE, reference.currency)] = None
-            required_curves[(CurveKind.VOLATILITY, reference.underlying_id)] = None
             required_curves[(CurveKind.DIVIDEND_YIELD, reference.underlying_id)] = None
 
         missing_curves = sorted(
@@ -524,6 +536,7 @@ class PricerService:
         # (d) Price every position, collecting every pricing failure (not
         # just the first) before reporting.
         contributions = []
+        position_risks: list[PositionRisk] = []
         underlyings_used: set[str] = set()
         failures: list[tuple[str, str]] = []
 
@@ -531,14 +544,14 @@ class PricerService:
             reference = self.reference_data.get(position.instrument_id)
             underlying_id = reference.underlying_id
             spot = self._last_price[underlying_id]
+            vol_curve = self.curves.get(
+                triggering_tick.scenario_id, CurveKind.VOLATILITY, underlying_id
+            )
 
             market = None
             if reference.instrument_type == "VANILLA_EUROPEAN_OPTION":
                 rate_curve = self.curves.get(
                     triggering_tick.scenario_id, CurveKind.RISK_FREE_RATE, reference.currency
-                )
-                vol_curve = self.curves.get(
-                    triggering_tick.scenario_id, CurveKind.VOLATILITY, underlying_id
                 )
                 div_curve = self.curves.get(
                     triggering_tick.scenario_id, CurveKind.DIVIDEND_YIELD, underlying_id
@@ -587,6 +600,15 @@ class PricerService:
                     continue
 
             contributions.append(contribution)
+            # ADR-0029 Decisions 5 and 6: the VaR input is the post-conversion
+            # cash_delta, so VaR is in the base currency with no FX step of
+            # its own; to_model is the one Decimal -> float64 crossing.
+            position_risks.append(
+                PositionRisk(
+                    cash_delta=to_model(contribution.cash_delta),
+                    annual_volatility=vol_curve.value_float,
+                )
+            )
             underlyings_used.add(underlying_id)
 
         if failures:
@@ -614,7 +636,7 @@ class PricerService:
             cash_vega=aggregate.cash_vega,
             cash_theta=aggregate.cash_theta,
             cash_rho=aggregate.cash_rho,
-            var_95=0.0,
+            var_95=delta_normal_var_95(position_risks),
             scenario_id=triggering_tick.scenario_id,
             oldest_input_event_time=oldest,
             ingest_time=now_utc(),

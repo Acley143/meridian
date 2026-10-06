@@ -11,6 +11,7 @@ from loader import (
     load_portfolio_fixtures,
     load_tick_fixtures,
 )
+from meridian_contracts.market_curves import CurveKind, MarketCurve
 from meridian_contracts.portfolio_state import Position
 from pricer.pricing import UnpriceableReason
 from pricer.reference_data import InstrumentReference, ReferenceData
@@ -207,7 +208,20 @@ def test_instrument_not_priceable_reported_at_tick_time(kafka_stack, caplog) -> 
     )
     seed_portfolios(kafka_stack, topics, [fixture])
 
-    service = make_service(kafka_stack, topics, reference_data)
+    # Curves are scenario-scoped (ADR-0027 Decision 6), so the tick's scenario
+    # must carry the curves its positions now require (ADR-0029 Decision 7).
+    curves = [
+        MarketCurve(
+            scenario_id="s",
+            kind=CurveKind.VOLATILITY,
+            curve_id="AAPL",
+            value_float=0.25,
+            value_decimal=None,
+            event_time=t0,
+            ingest_time=t0,
+        )
+    ]
+    service = make_service(kafka_stack, topics, reference_data, curves=curves)
     service.hydrate()
     service.start_tick_consumption()
 

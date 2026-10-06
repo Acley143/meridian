@@ -16,7 +16,9 @@ helper or any pricer code (ADR-0027). The golden-pipeline test in
 `PricerService` against these same fixtures and asserts its output matches
 this file -- if the two independently-written aggregation implementations
 ever agree on a wrong answer, that would be a remarkable coincidence, not a
-silent tautology.
+silent tautology. `var_95` is re-derived the same way: ADR-0029's
+delta-normal formula written out inline below, not imported from
+`quant_core.risk`, fed each position's money-rounded cash delta.
 
 Run after changing any of fixtures/{instruments,portfolios,ticks,curves}.yaml:
     python3 services/pricer/fixtures/generate_golden_snapshots.py
@@ -24,6 +26,7 @@ Run after changing any of fixtures/{instruments,portfolios,ticks,curves}.yaml:
 from __future__ import annotations
 
 import json
+import math
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
@@ -37,6 +40,10 @@ from quant_core.pricing.black_scholes import price as black_scholes_price
 from quant_core.types import EuropeanOption, MarketState, OptionRight
 
 _FIXTURES_DIR = Path(__file__).resolve().parent
+
+# ADR-0029 Decision 2, written out here rather than imported.
+_Z_95 = 1.6448536269514722
+_DAYS_PER_YEAR = 365
 
 
 @dataclass(frozen=True)
@@ -152,6 +159,7 @@ def main() -> None:
             cash_vega_total = Decimal(0)
             cash_theta_total = Decimal(0)
             cash_rho_total = Decimal(0)
+            var_95_total = 0.0
             skip = False
 
             for position in portfolio.positions:
@@ -172,7 +180,14 @@ def main() -> None:
                 mult = q * c
 
                 price_total += to_money(to_model(pr_price) * mult)
-                cash_delta_total += to_money(pr_delta * s * 0.01 * mult)
+                position_cash_delta = to_money(pr_delta * s * 0.01 * mult)
+                cash_delta_total += position_cash_delta
+                # Per position: |cash_delta| * (Z_95 * vol / sqrt(365)) / 0.01,
+                # summed by magnitude with no netting. Evaluated in ADR-0029's
+                # order, since the golden test compares var_95 exactly.
+                daily_vol = _curve(curves, "VOLATILITY", underlying_id) / math.sqrt(_DAYS_PER_YEAR)
+                shock = _Z_95 * daily_vol
+                var_95_total += abs(to_model(position_cash_delta)) * shock / 0.01
                 cash_gamma_total += to_money(pr_gamma * s * s * 0.0001 * mult)
                 cash_vega_total += to_money(pr_vega * mult)
                 cash_theta_total += to_money(pr_theta * mult)
@@ -195,7 +210,7 @@ def main() -> None:
                     "cash_vega": str(cash_vega_total),
                     "cash_theta": str(cash_theta_total),
                     "cash_rho": str(cash_rho_total),
-                    "var_95": 0.0,
+                    "var_95": var_95_total,
                     "scenario_id": scenario_id,
                     "oldest_input_event_time": oldest.isoformat(),
                 }

@@ -77,6 +77,27 @@ Python side.
   consumed, a non-positive rate is now stopped in both directions, not only
   caught at conversion time in `services/pricer`. Tests:
   `tests/unit/test_market_curve_validation.py`. Owner: Eng-B, Quarter: Q2.
+- `validate_market_curve` now also rejects a `VOLATILITY` whose `value_float`
+  is negative ("VOLATILITY value_float must be non-negative"), checked after
+  the finiteness rule so a NaN is never ordered against zero. **This reverses
+  the line above that "volatility bounds are not this function's
+  business".** That was true when written: only options read `VOLATILITY`,
+  and nothing required it of an equity. ADR-0029 Decision 7 changed the
+  facts by making `VOLATILITY` required for every position type, and a
+  negative one reaching `services/pricer` raises an uncaught `ValueError`
+  (`MarketState` for an option, `quant_core.risk.delta_normal_var_95` for an
+  equity) that stops the tick loop with the offset uncommitted and
+  crash-loops on restart, since the compacted curve is re-hydrated and the
+  same tick redelivered. Zero is accepted: Black-Scholes has an explicit
+  zero-vol limit and a zero-volatility book has zero VaR (ADR-0029). No
+  floor for `RISK_FREE_RATE` or `DIVIDEND_YIELD`: a negative interest rate is
+  real, and a negative dividend yield is a modelling choice, not a validation
+  error. As with `FX_RATE`, the one validator runs in the producer and in
+  `CurveView.apply`, so the value is stopped in both directions. Tests:
+  `tests/unit/test_market_curve_validation.py` -- negative rejected naming the
+  kind, zero and a small positive value accepted, and the existing
+  FX-only-positivity test's `(VOLATILITY, -0.01)` case flipped to a
+  rejection, its other cases unchanged. Owner: Eng-B, Quarter: Q2.
 
 ## Boundaries
 - **Owns:** `libs/quant-io/**`.

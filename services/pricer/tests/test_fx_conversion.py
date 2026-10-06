@@ -104,6 +104,12 @@ def _option_curves(underlying_id: str, currency: str) -> list[MarketCurve]:
     ]
 
 
+def _vol_curves(*underlying_ids: str) -> list[MarketCurve]:
+    """VOLATILITY for each underlying: every position type needs one, the VaR
+    input (ADR-0029 Decision 7)."""
+    return [_float_curve(CurveKind.VOLATILITY, u, 0.25) for u in underlying_ids]
+
+
 def _unpriceable_records(caplog):
     return [r for r in caplog.records if getattr(r, "event", None) == "portfolio_unpriceable"]
 
@@ -155,7 +161,11 @@ def test_eur_and_usd_equities_are_converted_per_position_before_summing(
     The other four fields are zero for equities and stay zero."""
     reference_data, portfolio, ticks = _mixed_equity_setup()
     service, topics, per_tick = _drive(
-        kafka_stack, reference_data, [portfolio], [_fx_curve("EURUSD", "1.08123457")], ticks
+        kafka_stack,
+        reference_data,
+        [portfolio],
+        [_fx_curve("EURUSD", "1.08123457"), *_vol_curves("AAPL", "SAP")],
+        ticks,
     )
     try:
         assert per_tick[0] == [], "SAP has no price yet on the first tick"
@@ -182,7 +192,9 @@ def test_missing_fx_curve_is_reported_missing_curve_and_no_snapshot(kafka_stack,
     needs one even though it is not an option (ADR-0028 Decision 4)."""
     caplog.set_level(logging.WARNING, logger="pricer")
     reference_data, portfolio, ticks = _mixed_equity_setup()
-    service, _topics, per_tick = _drive(kafka_stack, reference_data, [portfolio], [], ticks)
+    service, _topics, per_tick = _drive(
+        kafka_stack, reference_data, [portfolio], _vol_curves("AAPL", "SAP"), ticks
+    )
     try:
         assert per_tick == [[], []], "no snapshot on either tick"
 
@@ -305,7 +317,7 @@ def test_all_usd_portfolio_prices_without_any_fx_curve(kafka_stack, caplog) -> N
         kafka_stack,
         ReferenceData({"AAPL": _equity("AAPL", "USD")}),
         [_portfolio("PF", "USD", [_position("PF", "AAPL", "10")])],
-        [],
+        _vol_curves("AAPL"),
         [TickFixture("AAPL", Decimal("150.00"), "USD", _at(0))],
     )
     try:
@@ -343,7 +355,9 @@ def test_tick_with_the_wrong_currency_is_rejected_and_the_cached_price_is_unchan
         TickFixture("AAPL", Decimal("999.00"), "EUR", _at(2)),
         TickFixture("MSFT", Decimal("201.00"), "USD", _at(3)),
     ]
-    service, _t, per_tick = _drive(kafka_stack, reference_data, [portfolio], [], ticks)
+    service, _t, per_tick = _drive(
+        kafka_stack, reference_data, [portfolio], _vol_curves("AAPL", "MSFT"), ticks
+    )
     try:
         assert per_tick[0] == []
         assert [s.price for s in per_tick[1]] == [Decimal("2500.00000000")]
@@ -390,7 +404,7 @@ def test_a_zero_fx_rate_is_rejected_at_consume_so_the_pair_is_missing_and_the_lo
 
     topics = unique_topics()
     seed_portfolios(kafka_stack, topics, portfolios)
-    service = make_service(kafka_stack, topics, reference_data, curves=[])
+    service = make_service(kafka_stack, topics, reference_data, curves=_vol_curves("AAPL", "SAP"))
     produce_raw_curve(
         kafka_stack,
         topics,

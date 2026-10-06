@@ -369,19 +369,28 @@ Consumes `market.ticks` and `portfolio.state`. Produces `risk.snapshots`, schema
   currencies. A EUR position aggregated into a USD portfolio total without
   conversion is silently wrong. Deliberately NOT owned here — see root
   `PLAN.md`'s open questions, ahead of Q2 portfolio VaR.
-- **New, found by the ADR-0029 VaR session.** A negative `VOLATILITY` passes
-  the shared validator (`validate_market_curve` rejects only a non-finite
-  `value_float`), so it enters `CurveView` and reaches
-  `quant_core.risk.delta_normal_var_95` (and, for options, `MarketState`),
-  both of which raise `ValueError` on it. Nothing catches that: it escapes
-  `_price_portfolio` and `process_one_tick`, stopping the tick loop with the
-  tick's offset uncommitted. Requiring `VOLATILITY` for every position type
-  (ADR-0029 Decision 7) extends to equities an exposure options already had.
-  The fix is to reject a negative `VOLATILITY` at validation in
-  `libs/quant-io`, mirroring the non-positive `FX_RATE` rule, so it is
-  stopped at the producer and again at consume time. Deliberately not done
-  in the VaR session; a separate session. Owner: Eng-B, by-when: before the
-  pricer consumes curves from any source other than the checked-in scenarios.
+- **Uncaught `ValueError` from `quant-core` stops the tick loop (found by the
+  ADR-0029 VaR session).** ~~Curve-borne case: a negative `VOLATILITY`
+  passing the shared validator~~ **Closed by the quant-io session that made
+  `validate_market_curve` reject a negative `VOLATILITY`** (see
+  `libs/quant-io/PLAN.md`): it is now stopped at the producer and again in
+  `CurveView.apply`, so it can no longer reach the pricer through Kafka.
+  **The underlying hazard is still open.** `_price_portfolio` has two raise
+  sites that nothing catches: for an option, `MarketState(...)` inside
+  `price_instrument` (`pricing.py`), whose `ValueError` passes the `try` in
+  `_price_portfolio` because that `except` catches only
+  `UnpricableInstrumentError` (the `except ValueError` there wraps only
+  `convert_contribution`); for an equity, `delta_normal_var_95` during the
+  `RiskSnapshot` construction. Either escapes `process_one_tick` before
+  `self._tick_consumer.commit(msg)`, and `run()` and `cli.main` have no
+  handler, so the process exits with the offset uncommitted. On restart the
+  stable-group tick consumer redelivers the same tick and the compacted
+  `market.curves` topic re-hydrates the same curve, so it crash-loops. Any
+  future caller that puts inputs into the view another way, or any new
+  `ValueError` quant-core adds, reopens it. Fix not yet decided (e.g.
+  failing that position as `INSTRUMENT_NOT_PRICEABLE`, as the FX
+  defence-in-depth catch does). Owner: Eng-B, by-when: before the pricer
+  consumes curves from any source other than the checked-in scenarios.
 
 ## Session log
 - 2026-08-31 (contracts session, Eng-A): `contracts/avro/risk-snapshot.avsc`

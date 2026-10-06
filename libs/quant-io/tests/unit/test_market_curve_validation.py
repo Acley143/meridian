@@ -205,9 +205,41 @@ def test_fx_rate_smallest_positive_value_accepted() -> None:
     validate_market_curve(_curve(kind=CurveKind.FX_RATE, value_decimal=Decimal("0.00000001")))
 
 
-@pytest.mark.parametrize("kind", _FLOAT_KINDS)
-@pytest.mark.parametrize("value_float", [0.0, -0.01])
+@pytest.mark.parametrize(
+    ("kind", "value_float"),
+    [
+        (CurveKind.RISK_FREE_RATE, 0.0),
+        (CurveKind.RISK_FREE_RATE, -0.01),
+        (CurveKind.DIVIDEND_YIELD, 0.0),
+        (CurveKind.DIVIDEND_YIELD, -0.01),
+        (CurveKind.VOLATILITY, 0.0),
+    ],
+)
 def test_positivity_rule_is_fx_rate_only(kind: CurveKind, value_float: float) -> None:
     # A zero dividend yield is legitimate and a zero or negative interest rate
-    # is meaningful; volatility bounds are not this function's business.
+    # is meaningful, so neither has a floor. VOLATILITY has a floor at zero
+    # (zero itself is accepted, a legitimate limit) since ADR-0029 Decision 7
+    # made it required for every position: a negative one reaching the pricer
+    # raises an uncaught ValueError (MarketState for options,
+    # delta_normal_var_95 for equities) that stops the tick loop with the
+    # offset uncommitted and crash-loops on restart against the compacted
+    # curve. (VOLATILITY, -0.01) was accepted here until then; it is now
+    # rejected -- see test_negative_volatility_rejected.
     validate_market_curve(_curve(kind=kind, value_float=value_float))
+
+
+@pytest.mark.parametrize("value_float", [-0.01, -1e-12])
+def test_negative_volatility_rejected(value_float: float) -> None:
+    curve = _curve(kind=CurveKind.VOLATILITY, value_float=value_float)
+    with pytest.raises(InvalidMarketCurveError, match=CurveKind.VOLATILITY.value) as excinfo:
+        validate_market_curve(curve)
+    assert "non-negative" in str(excinfo.value)
+    assert "AAPL" in str(excinfo.value)
+
+
+def test_zero_volatility_accepted() -> None:
+    validate_market_curve(_curve(kind=CurveKind.VOLATILITY, value_float=0.0))
+
+
+def test_small_positive_volatility_accepted() -> None:
+    validate_market_curve(_curve(kind=CurveKind.VOLATILITY, value_float=1e-12))

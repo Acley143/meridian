@@ -87,16 +87,35 @@ def validate_market_curve(curve: MarketCurve) -> None:
 
     # An exchange rate is units of the target currency per one unit of the
     # source (ADR-0027 Decision 2): zero or below is not a rate, and applying
-    # one would silently zero or flip a book (ADR-0028 Decision 5). FX_RATE
-    # only -- a zero dividend yield or a negative interest rate is meaningful.
-    # Checked after the finiteness/representability rule above, so a NaN is
-    # never ordered against zero.
+    # one would silently zero or flip a book (ADR-0028 Decision 5). Strict
+    # positivity is FX_RATE only -- a zero dividend yield or a negative
+    # interest rate is meaningful. Checked after the finiteness/
+    # representability rule above, so a NaN is never ordered against zero.
     if (
         curve.kind is CurveKind.FX_RATE
         and curve.value_decimal is not None
         and curve.value_decimal <= 0
     ):
         _fail("FX_RATE value_decimal must be strictly positive")
+
+    # A volatility below zero is not a volatility, and the pricer cannot
+    # survive one: every position needs its VOLATILITY curve (ADR-0029
+    # Decision 7), and a negative value raises an uncaught ValueError --
+    # from MarketState for an option, from delta_normal_var_95 for an equity
+    # -- that stops the pricer's tick loop with the offset uncommitted, then
+    # crash-loops on restart as the compacted curve is re-hydrated and the
+    # same tick redelivered. Zero is legitimate (Black-Scholes has an explicit
+    # zero-vol limit; a zero-vol book has zero VaR), so only a negative value
+    # is rejected. RISK_FREE_RATE and DIVIDEND_YIELD get no such floor: a
+    # negative interest rate is real, and a negative dividend yield is a
+    # modelling choice, not a validation error. After the finiteness rule, so
+    # a NaN is never ordered against zero.
+    if (
+        curve.kind is CurveKind.VOLATILITY
+        and curve.value_float is not None
+        and curve.value_float < 0
+    ):
+        _fail("VOLATILITY value_float must be non-negative")
 
     if curve.kind in _CURVE_ID_PATTERNS:
         if not _CURVE_ID_PATTERNS[curve.kind].match(curve.curve_id):

@@ -19,6 +19,7 @@ from pricer_test_helpers import (
     seed_curves,
     seed_portfolios,
     unique_topics,
+    wait_until_applied,
 )
 
 
@@ -249,6 +250,12 @@ def test_live_curve_update_before_ticks_prices_pf1_on_msft_tick(kafka_stack) -> 
             if c.kind == CurveKind.VOLATILITY and c.curve_id == "MSFT"
         )
         seed_curves(kafka_stack, topics, [msft_vol])
+        # flush() is broker acknowledgement, not pricer delivery: wait for it (ADR-0030).
+        wait_until_applied(
+            service,
+            lambda s: s.curves.get(msft_vol.scenario_id, CurveKind.VOLATILITY, "MSFT") is not None,
+            "the live VOLATILITY:MSFT update is applied",
+        )
 
         scenario_id, ticks = load_tick_fixtures()
         produce_ticks(kafka_stack, topics, scenario_id, ticks)

@@ -130,7 +130,20 @@ to pass.
   race is a live possibility and this must not be assumed to be a
   test-only issue. Not investigated this session (out of scope). Owner:
   TBD (`services/pricer`), by-when: before relying on tombstone handling
-  for Q2 VaR work.
+  for Q2 VaR work. **Resolved — see `docs/adr/0030-pricer-view-consistency-under-late-updates.md`.**
+  The cause is established and it is a real cross-topic race in the
+  pricer, not a test-only bug: `portfolio.state` and `market.ticks` are
+  separate topics with no ordering between them, and the pricer's
+  non-blocking drain missed a tombstone the broker had acknowledged but not
+  yet delivered, pricing the next tick against the pre-tombstone view. The
+  tombstone is applied late, not lost. Reproduced by delaying the portfolio
+  consumer's fetch. ADR-0030 records the semantics (eventually consistent
+  views; a snapshot can be published for a portfolio whose tombstone is
+  still in flight; live and replay can differ by those snapshots; a
+  blocking prerequisite for any future portfolio deletion). The pricer now
+  drains again after the tick poll, which narrows the window to in-flight
+  broker latency without closing it, and the three tests with this shape
+  now wait until the update is applied, so they are deterministic.
 
 ## Team & ownership
 

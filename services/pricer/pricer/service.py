@@ -20,7 +20,14 @@ each one (one snapshot per affected portfolio, Task 6's Q1 fan-out policy),
 flush all of them to the broker, and only then commit the tick's offset --
 never before every snapshot it produced is durably delivered. Pending
 `market.curves` updates are drained the same way pending `portfolio.state`
-updates are, before polling for the next tick.
+updates are, before polling for the next tick and again once a tick has
+arrived, before it is priced.
+
+View consistency (ADR-0030): after hydration the portfolio and curve views
+are eventually consistent with the tick stream. A tick is priced against
+whatever updates have reached this process when it is priced; an update
+still in flight from the broker is not waited for, because Kafka gives no
+ordering across topics.
 
 Unpriceable-portfolio reporting (ADR-0018, extended by ADR-0027): a
 portfolio that cannot be priced -- missing reference data, no observed
@@ -392,6 +399,14 @@ class PricerService:
         msg = self._tick_consumer.poll(timeout)
         if msg is None or isinstance(msg, PartitionEOF):
             return None
+
+        # Drain again: the drains above run before a poll that can block for
+        # the full timeout, so an update arriving during that wait would
+        # otherwise be ignored for the very tick it waited on. This narrows
+        # the staleness window to in-flight broker latency; it does not close
+        # it, because the two topics have no cross-topic ordering (ADR-0030).
+        self._drain_portfolio_updates()
+        self._drain_curve_updates()
 
         tick: Tick = msg.value()
 

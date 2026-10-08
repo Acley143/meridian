@@ -2,7 +2,6 @@
 updated on every portfolio.state change, including a position removal --
 the case people forget, which otherwise leaves a portfolio being repriced
 forever on an instrument it no longer holds."""
-import time
 from datetime import UTC, datetime
 from decimal import Decimal
 
@@ -14,6 +13,7 @@ from pricer_test_helpers import (
     process_n_real_ticks,
     seed_portfolios,
     unique_topics,
+    wait_until_applied,
 )
 
 
@@ -49,6 +49,12 @@ def test_removing_a_position_stops_it_from_triggering_snapshots(kafka_stack) -> 
     # Full-state replacement removing the position -- not a delta.
     without_position = PortfolioFixture(portfolio_id="P", base_currency="USD", positions=[], event_time=datetime(2026, 1, 3, tzinfo=UTC))
     seed_portfolios(kafka_stack, topics, [without_position])
+    # flush() is broker acknowledgement, not pricer delivery: wait for it (ADR-0030).
+    wait_until_applied(
+        service,
+        lambda s: s.view.portfolios_for_underlying("AAPL") == set(),
+        "P's position-less state is applied",
+    )
 
     _send_tick(kafka_stack, topics, "AAPL", "151.00", datetime(2026, 1, 4, tzinfo=UTC))
     second = process_n_real_ticks(service, 1)
@@ -100,15 +106,12 @@ def test_reindexing_leaves_other_portfolios_on_the_same_underlying_untouched(kaf
     assert service.view.portfolios_for_underlying("AAPL") == {"P1", "P2"}
 
     seed_portfolios(kafka_stack, topics, [PortfolioFixture(portfolio_id="P1", base_currency="USD", positions=[], event_time=datetime(2026, 1, 2, tzinfo=UTC))])
-    # _drain_portfolio_updates() polls with timeout=0 (non-blocking, so it
-    # never stalls the hot tick-processing path) -- give the consumer a
-    # few real chances to actually fetch the just-produced message rather
-    # than asserting after a single zero-timeout call.
-    for _ in range(20):
-        service._drain_portfolio_updates()
-        if service.view.portfolios_for_underlying("AAPL") == {"P2"}:
-            break
-        time.sleep(0.25)
+    # flush() is broker acknowledgement, not pricer delivery: wait for it (ADR-0030).
+    wait_until_applied(
+        service,
+        lambda s: s.view.portfolios_for_underlying("AAPL") == {"P2"},
+        "P1's position-less state is applied",
+    )
 
     assert service.view.portfolios_for_underlying("AAPL") == {"P2"}
     service.close()

@@ -270,6 +270,28 @@ Consumes ticks and portfolio state, prices every position using
   opposite positions on one underlying adding by magnitude rather than
   netting); the five equity tests in `tests/test_fx_conversion.py` gained the
   `VOLATILITY` curves their setups now need, with no assertion changed.
+- [x] Late portfolio and curve updates (ADR-0030), owner Eng-B, Q2: the
+  intermittent `test_tombstone.py` failure is a real cross-topic race, not a
+  test bug. `portfolio.state` and `market.curves` are consumed separately
+  from `market.ticks`, and the non-blocking `poll(0.0)` drain can miss an
+  update the broker has acknowledged but not yet delivered, so the next tick
+  is priced against the old view; the update is applied on the following
+  drain, late but not lost. Reproduced by delaying only the portfolio
+  consumer's fetch (`fetch.min.bytes` 10 MB, `fetch.wait.max.ms` 1500).
+  `process_one_tick` now drains both views a second time once the tick poll
+  has returned a message and before pricing, so an update that arrived
+  while the poll was blocked is not ignored for the tick it waited on. That
+  narrows the window to in-flight broker latency and does not close it;
+  ADR-0030 records the views as eventually consistent with the tick stream.
+  The pre-poll drains, offsets, snapshot identity and `PRICER_VERSION` are
+  unchanged. Tests: a shared `wait_until_applied` helper in
+  `tests/pricer_test_helpers.py` drives the service's own two drains, in
+  `process_one_tick`'s order, until a predicate holds (10 s timeout, 0.05 s
+  interval). It replaces the ad-hoc sleep loop in
+  `test_reverse_index.py`'s reindexing test, and `test_tombstone.py`,
+  `test_reverse_index.py`'s position-removal test and `test_market_curves.py`'s
+  live-curve test now wait for their update before sending the ticks they
+  assert on. No assertion changed.
 
 ## Boundaries
 - **Owns:** `services/pricer/**`.
@@ -391,6 +413,18 @@ Consumes `market.ticks` and `portfolio.state`. Produces `risk.snapshots`, schema
   failing that position as `INSTRUMENT_NOT_PRICEABLE`, as the FX
   defence-in-depth catch does). Owner: Eng-B, by-when: before the pricer
   consumes curves from any source other than the checked-in scenarios.
+- **Blocking prerequisite for any portfolio deletion feature (ADR-0030
+  Decision 5).** Under ADR-0030 a snapshot can still be published for a
+  portfolio whose tombstone is in flight. `risk_snapshots.portfolio_id`
+  references `portfolios`, so if deletion removes the `portfolios` row, that
+  late snapshot fails the foreign key and core-service's
+  `RiskSnapshotConsumerService.pollOnce` seeks back and rethrows on every
+  poll, blocking that partition of `risk.snapshots` indefinitely. Deletion
+  does not exist today (`PortfolioStateProducer.tombstone` has no callers;
+  there is no delete endpoint). Whoever builds it must either keep the
+  `portfolios` row or make the snapshot consumer tolerate a snapshot for a
+  deleted portfolio. Owner: whoever owns the deletion feature
+  (`services/core-service`), by-when: before any deletion path ships.
 
 ## Session log
 - 2026-08-31 (contracts session, Eng-A): `contracts/avro/risk-snapshot.avsc`

@@ -9,6 +9,7 @@ from pricer_test_helpers import (
     make_service,
     process_n_real_ticks,
     unique_topics,
+    wait_until_applied,
 )
 from quant_io.portfolio_state_io import PortfolioStateProducer
 from quant_io.tick_producer import TickProducer
@@ -72,6 +73,10 @@ def test_tombstone_mid_stream_stops_snapshots(kafka_stack) -> None:
 
     portfolio_producer.produce_tombstone("P")
     portfolio_producer.flush()
+    # flush() is broker acknowledgement, not pricer delivery: wait for it (ADR-0030).
+    wait_until_applied(
+        service, lambda s: "P" not in s.view.portfolio_ids(), "the tombstone for P is applied"
+    )
 
     send_tick("151.00", datetime(2026, 1, 3, tzinfo=UTC))
     second = process_n_real_ticks(service, 1)

@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import time
 import uuid
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -167,6 +168,37 @@ def process_n_real_ticks(
         if outcome is not None:
             results.append(outcome)
     return results
+
+
+def wait_until_applied(
+    service: PricerService,
+    predicate: Callable[[PricerService], bool],
+    description: str,
+    timeout: float = 10.0,
+    interval: float = 0.05,
+) -> None:
+    """Drain until `predicate(service)` holds, or fail naming `description`.
+
+    `flush()` proves only that the broker accepted a write, not that the
+    pricer has read it: `portfolio.state` and `market.curves` are consumed
+    separately from `market.ticks`, with no ordering across topics. A test
+    asserting on the effect of a post-hydration update must wait until the
+    pricer has applied it, or it is asserting an ordering Kafka does not
+    provide and will fail intermittently (ADR-0030).
+
+    Each attempt calls the service's own `_drain_portfolio_updates()` then
+    `_drain_curve_updates()`, the same pair, in the same order, that
+    `process_one_tick` runs -- so this waits for exactly the state production
+    would reach, not for anything polled from Kafka directly."""
+    deadline = time.monotonic() + timeout
+    while True:
+        service._drain_portfolio_updates()
+        service._drain_curve_updates()
+        if predicate(service):
+            return
+        if time.monotonic() > deadline:
+            raise AssertionError(f"timed out after {timeout}s waiting until {description}")
+        time.sleep(interval)
 
 
 def consume_all_snapshots(kafka_stack, topics: TestTopics, expected_count: int, timeout: float = 30.0):

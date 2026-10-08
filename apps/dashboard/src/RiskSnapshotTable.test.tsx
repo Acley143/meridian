@@ -83,4 +83,30 @@ describe("RiskSnapshotTable", () => {
     expect(html).toContain("5m 0s");
     expect(html).toContain('class="stale"');
   });
+
+  it("renders var_95 as a 2dp figure in a VaR row", () => {
+    const html = renderToStaticMarkup(<RiskSnapshotTable snapshot={{ ...SNAPSHOT, var_95: 3228.5840156462987 }} />);
+    expect(html).toContain('<th scope="row">VaR (1-day, 95%)</th><td>3228.58</td>');
+  });
+
+  it("renders a zero var_95 as 0.00, not a blank or a dash", () => {
+    const html = renderToStaticMarkup(<RiskSnapshotTable snapshot={{ ...SNAPSHOT, var_95: 0 }} />);
+    expect(html).toContain('<th scope="row">VaR (1-day, 95%)</th><td>0.00</td>');
+  });
+
+  it("states the currency of every figure once, from base_currency", () => {
+    const html = renderToStaticMarkup(<RiskSnapshotTable snapshot={SNAPSHOT} />);
+    expect(html).toContain("Figures in USD");
+  });
+
+  it("states an unknown currency for the empty-string sentinel, with no default", () => {
+    const html = renderToStaticMarkup(<RiskSnapshotTable snapshot={{ ...SNAPSHOT, base_currency: "" }} />);
+    expect(html).toContain("Figures in an unknown currency");
+    expect(html).not.toContain("USD");
+  });
+
+  it("renders the pricer version", () => {
+    const html = renderToStaticMarkup(<RiskSnapshotTable snapshot={{ ...SNAPSHOT, pricer_version: "0.2.0" }} />);
+    expect(html).toContain('<th scope="row">Pricer version</th><td>0.2.0</td>');
+  });
 });

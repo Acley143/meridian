@@ -1,0 +1,331 @@
+python 3.12.13  numpy 2.5.2  SEED=12345  N_PROD=128  H=0.0001
+
+######## 0.5 grid axes (STEP 1c section a) ########
+  vol  : [0.0001, 0.001, 0.01, 0.05, 0.2, 0.5, 1.0, 2.0, 3.0]
+  r    : [-0.1, -0.05, 0.0, 0.05, 0.1, 0.3]
+  q    : [0.0, 0.05, 0.1, 0.3]
+  T    : [0.0001, 0.01, 0.1, 1.0, 5.0, 10.0]
+  points: 9x6x4x6 = 1296; STEP 1c's grid had no S/K axis -- Parts 2 and 4 use S=K=100
+  lncosh stable vs math.log(math.cosh): a=1e-10: 0.0e+00, a=1e-06: 1.3e-25, a=0.001: 1.0e-16, a=0.1: 3.1e-17, a=1: 5.6e-17, a=5: 0.0e+00
+
+######## 1.1 price: JR-FM N=128 vs CRR N=128, golden cases ########
+  CRR-invalid golden cases excluded: 0 []
+case                        JRFM128       CRR128   abs_diff  rel_diff
+put ATM 1y q0              6.093424     6.084087   9.34e-03  1.53e-03
+put ITM 0.5y q0           12.577157    12.575807   1.35e-03  1.07e-04
+put OTM 1y q0              2.474355     2.467465   6.89e-03  2.79e-03
+put ATM 0.1y q0            2.315578     2.309515   6.06e-03  2.63e-03
+put deepITM 2y q0         20.811584    20.809265   2.32e-03  1.11e-04
+put ATM 3y q>0            17.148832    17.123661   2.52e-02  1.47e-03
+put ATM 1y r0 q0           7.980191     7.950025   3.02e-02  3.79e-03
+call ATM 1y q0            10.450991    10.434976   1.60e-02  1.53e-03
+call OTM 2y q0             6.127404     6.149707   2.23e-02  3.63e-03
+call ITM 0.5y q0          13.798129    13.798588   4.59e-04  3.33e-05
+call ITM 1y q>0           14.434357    14.433465   8.92e-04  6.18e-05
+call ATM 2y q>0            9.468913     9.443064   2.58e-02  2.74e-03
+call OTM 1y q>0            7.581557     7.588751   7.19e-03  9.48e-04
+call ITM 0.25y q>0         6.622405     6.627405   5.00e-03  7.55e-04
+call deepITM 5y q>0      656.899831   656.992618   9.28e-02  1.41e-04
+MAX rel_diff=3.794e-03  MAX abs_diff=9.279e-02
+
+######## 1.2 delta/gamma/theta: JR-FM vs CRR N=128, rel (abs) ########
+  put ATM 1y q0          delta 1.49e-03 (6.15e-04)  gamma 3.40e-03 (7.86e-05)  theta 3.06e-03 (6.91e-03)
+  put ITM 0.5y q0        delta 9.23e-05 (6.18e-05)  gamma 1.76e-04 (4.05e-06)  theta 2.69e-04 (1.30e-03)
+  put OTM 1y q0          delta 6.75e-04 (1.40e-04)  gamma 3.68e-03 (5.68e-05)  theta 3.55e-03 (6.85e-03)
+  put ATM 0.1y q0        delta 4.04e-04 (1.88e-04)  gamma 2.95e-03 (1.93e-04)  theta 3.41e-03 (3.63e-02)
+  put deepITM 2y q0      delta 1.23e-03 (9.57e-04)  gamma 5.56e-03 (1.55e-04)  theta 2.18e-02 (1.29e-02)
+  put ATM 3y q>0         delta 4.23e-04 (1.55e-04)  gamma 6.97e-04 (5.60e-06)  theta 4.20e-03 (9.22e-03)
+  put ATM 1y r0 q0       delta 1.48e-04 (6.80e-05)  gamma 3.39e-03 (6.77e-05)  theta 4.09e-03 (1.63e-02)
+  call ATM 1y q0         delta 3.21e-04 (2.04e-04)  gamma 3.16e-03 (5.97e-05)  theta 1.03e-03 (6.65e-03)
+  call OTM 2y q0         delta 4.30e-04 (1.89e-04)  gamma 2.40e-03 (4.46e-05)  theta 2.33e-03 (6.64e-03)
+  call ITM 0.5y q0       delta 1.02e-05 (7.94e-06)  gamma 9.75e-05 (1.64e-06)  theta 5.88e-05 (4.23e-04)
+  call ITM 1y q>0        delta 1.06e-03 (7.08e-04)  gamma 5.41e-04 (8.15e-06)  theta 1.18e-03 (3.81e-03)
+  call ATM 2y q>0        delta 1.53e-03 (7.74e-04)  gamma 2.44e-03 (3.69e-05)  theta 6.60e-03 (1.27e-02)
+  call OTM 1y q>0        delta 1.22e-03 (5.02e-04)  gamma 1.03e-03 (1.34e-05)  theta 6.84e-04 (3.54e-03)
+  call ITM 0.25y q>0     delta 2.45e-05 (1.70e-05)  gamma 1.98e-03 (7.20e-05)  theta 2.38e-03 (1.35e-02)
+  call deepITM 5y q>0    delta 2.13e-04 (1.86e-04)  gamma 5.99e-03 (7.62e-07)  theta 7.20e-04 (1.44e-02)
+MAX: delta: rel 1.53e-03 abs 9.57e-04  gamma: rel 5.99e-03 abs 1.93e-04  theta: rel 2.18e-02 abs 3.63e-02
+
+######## 1.3 all five Greeks: JR-FM N=128 vs mpmath closed form, q=0 calls ########
+  call ATM 1y q0       delta 7.07e-05 (4.50e-05)  gamma 3.47e-03 (6.51e-05)  vega 2.17e-02 (8.14e-01)  theta 2.77e-03 (1.77e-02)  rho 4.36e-02 (2.32e+00)
+  call OTM 2y q0       delta 1.10e-03 (4.83e-04)  gamma 4.22e-03 (7.85e-05)  vega 1.26e-02 (7.03e-01)  theta 3.40e-03 (9.67e-03)  rho 7.71e-02 (5.82e+00)
+  call ITM 0.5y q0     delta 1.75e-04 (1.37e-04)  gamma 2.68e-03 (4.50e-05)  vega 1.86e-02 (3.91e-01)  theta 1.95e-03 (1.40e-02)  rho 1.19e-02 (3.83e-01)
+MAX vs closed form: delta: rel 1.10e-03 abs 4.83e-04  gamma: rel 4.22e-03 abs 7.85e-05  vega: rel 2.17e-02 abs 8.14e-01  theta: rel 3.40e-03 abs 1.77e-02  rho: rel 7.71e-02 abs 5.82e+00
+
+######## 1.4 anchor: JR-FM N=4096 vs mpmath BS, q=0 calls; same-N identity ########
+  call ATM 1y q0       N=2048  JRFM=10.4514062800 BS=10.4505835722 rel=7.87e-05
+  call ATM 1y q0       N=4096  JRFM=10.4507077722 BS=10.4505835722 rel=1.19e-05
+  call ATM 1y q0       N=8192  JRFM=10.4506582309 BS=10.4505835722 rel=7.14e-06
+  call OTM 2y q0       N=2048  JRFM=6.1368048412 BS=6.1362017128 rel=9.83e-05
+  call OTM 2y q0       N=4096  JRFM=6.1364388063 BS=6.1362017128 rel=3.86e-05
+  call OTM 2y q0       N=8192  JRFM=6.1364149952 BS=6.1362017128 rel=3.48e-05
+  call ITM 0.5y q0     N=2048  JRFM=13.7913827076 BS=13.7908489618 rel=3.87e-05
+  call ITM 0.5y q0     N=4096  JRFM=13.7906001465 BS=13.7908489618 rel=1.80e-05
+  call ITM 0.5y q0     N=8192  JRFM=13.7908699492 BS=13.7908489618 rel=1.52e-06
+  same-N identity N=128, q=0 r>=0 calls: max |American - European| = 0.000e+00
+
+######## 1.5 convergence: JR-FM American put S=K=100 vol=.2 r=.05 q=0 T=1 ########
+  reference N=16384: 6.0904535005
+  N=16    6.1313982582 diff_vs_prev=            err_vs_N16384=+4.094e-02
+  N=32    6.1265617484 diff_vs_prev= -4.837e-03 err_vs_N16384=+3.611e-02
+  N=64    6.1120213028 diff_vs_prev= -1.454e-02 err_vs_N16384=+2.157e-02
+  N=128   6.0934238733 diff_vs_prev= -1.860e-02 err_vs_N16384=+2.970e-03
+  N=256   6.0916644060 diff_vs_prev= -1.759e-03 err_vs_N16384=+1.211e-03
+  N=512   6.0925788790 diff_vs_prev= +9.145e-04 err_vs_N16384=+2.125e-03
+  N=1024  6.0916065625 diff_vs_prev= -9.723e-04 err_vs_N16384=+1.153e-03
+  N=2048  6.0909896374 diff_vs_prev= -6.169e-04 err_vs_N16384=+5.361e-04
+  N=4096  6.0905328893 diff_vs_prev= -4.567e-04 err_vs_N16384=+7.939e-05
+  bound expression |P(2N)-P(N)|: at N=128 = 1.7595e-03;  at N=64 = 1.8597e-02
+
+######## 1.6 timing: JR-FM full priced result (5 builds), ATM put ########
+  N=64   median 749.5 us  p99 887.8 us  min 728.8 us
+  N=128  median 1489.2 us  p99 1710.6 us  min 1458.8 us
+  N=256  median 3167.1 us  p99 3531.0 us  min 3074.0 us
+
+######## PART 2: discretisation error over the grid, S=K=100, JR-FM ########
+  cases: 2592 (1296 grid points x call/put)
+  err_price = |P128-P4096|/K : median 9.587e-06  p90 2.782e-03  p99 2.002e-02  max 5.305e-02  (n=2592)
+  err_ref   = |P4096-P2048|/K: median 4.871e-07  p90 9.135e-05  p99 6.574e-04  max 1.776e-03  (n=2592)
+  vol x T, max err_price:
+      vol\T      0.0001       0.01        0.1          1          5         10
+     0.0001    1.29e-08   1.72e-08   2.38e-08   7.53e-08   1.68e-07   3.43e-06
+      0.001    3.90e-08   1.29e-06   3.50e-06   1.72e-06   1.61e-06   3.69e-06
+       0.01    7.75e-08   3.90e-06   4.82e-05   1.29e-04   3.48e-04   3.50e-04
+       0.05    3.82e-07   3.94e-06   4.31e-05   4.78e-04   1.75e-03   2.23e-03
+        0.2    1.45e-06   1.58e-05   4.59e-05   4.73e-04   2.21e-03   4.92e-03
+        0.5    3.70e-06   4.13e-05   1.17e-04   6.00e-04   3.51e-03   7.07e-03
+          1    6.96e-06   8.23e-05   2.43e-04   1.18e-03   7.54e-03   1.53e-02
+          2    1.02e-05   1.60e-04   5.43e-04   3.10e-03   1.86e-02   3.62e-02
+          3    1.05e-05   1.16e-04   6.32e-04   6.61e-03   2.70e-02   5.31e-02
+  10 worst err_price:
+    call S=100 K=100 vol=3 r=-0.1 q=0.3 T=10  P128=72.140514 P4096=77.445807 err=5.305e-02 err_ref=1.78e-03
+    call S=100 K=100 vol=3 r=-0.05 q=0.3 T=10  P128=72.395396 P4096=77.601807 err=5.206e-02 err_ref=1.75e-03
+    call S=100 K=100 vol=3 r=0 q=0.3 T=10  P128=72.644636 P4096=77.755594 err=5.111e-02 err_ref=1.72e-03
+    call S=100 K=100 vol=3 r=0.05 q=0.3 T=10  P128=72.889215 P4096=77.907220 err=5.018e-02 err_ref=1.70e-03
+    call S=100 K=100 vol=3 r=0.1 q=0.3 T=10  P128=73.123771 P4096=78.056763 err=4.933e-02 err_ref=1.67e-03
+    call S=100 K=100 vol=3 r=0.3 q=0.3 T=10  P128=74.037737 P4096=78.634154 err=4.596e-02 err_ref=1.57e-03
+    call S=100 K=100 vol=2 r=-0.1 q=0.3 T=10  P128=59.443547 P4096=63.068228 err=3.625e-02 err_ref=1.20e-03
+    call S=100 K=100 vol=2 r=-0.05 q=0.3 T=10  P128=59.985773 P4096=63.512065 err=3.526e-02 err_ref=1.17e-03
+    call S=100 K=100 vol=2 r=0 q=0.3 T=10  P128=60.520255 P4096=63.946156 err=3.426e-02 err_ref=1.14e-03
+    call S=100 K=100 vol=2 r=0.05 q=0.3 T=10  P128=61.041685 P4096=64.370724 err=3.329e-02 err_ref=1.11e-03
+  delta abs |D128-D4096|  : median 3.600e-04  p90 1.553e-02  p99 3.348e-01  max 3.495e-01  (n=2592)
+  delta abs |D4096-D2048| : median 1.131e-05  p90 5.296e-04  p99 1.003e-01  max 1.448e-01  (n=2592)
+  vol x T, max delta abs error:
+      vol\T      0.0001       0.01        0.1          1          5         10
+     0.0001    3.39e-01   1.09e-01   2.20e-04   1.68e-03   2.55e-03   5.87e-03
+      0.001    5.70e-02   3.39e-01   3.35e-01   1.09e-01   2.55e-03   5.38e-03
+       0.01    9.10e-04   5.70e-02   3.49e-01   3.39e-01   3.45e-01   3.35e-01
+       0.05    5.91e-05   2.92e-03   2.48e-02   2.14e-01   3.48e-01   3.50e-01
+        0.2    5.59e-05   2.19e-04   2.01e-03   1.74e-02   7.61e-02   1.52e-01
+        0.5    3.43e-05   1.23e-04   4.84e-04   3.93e-03   1.89e-02   3.59e-02
+          1    2.53e-05   1.33e-04   4.97e-04   2.44e-03   1.14e-02   2.20e-02
+          2    1.94e-05   1.83e-04   1.00e-03   3.48e-03   1.66e-02   3.24e-02
+          3    1.97e-05   4.00e-04   1.30e-03   5.32e-03   2.30e-02   4.53e-02
+
+######## PART 3: vega/rho bump size, JR-FM N=128 vs mpmath closed form, q=0 calls r>=0 over the grid ########
+  points: 216
+  h=0.0001: vega points excluded because vol-h < 0: 0
+    vega abs: median 1.329e-02  p99 3.793e+00  max 4.584e+00  (n=216)
+    vega rel: median 8.952e-03  p99 4.324e+00  max 1.296e+03  (n=174)  [rel only where |closed form| >= 1e-08: 42 excluded]
+      worst vega: call S=K=100 vol=0.5 r=0.1 q=0 T=10  abs=4.584e+00 closed=4.583391e+01
+      worst vega: call S=K=100 vol=1 r=0.05 q=0 T=10  abs=3.839e+00 closed=2.779967e+01
+      worst vega: call S=K=100 vol=1 r=0.1 q=0 T=5  abs=3.794e+00 closed=3.626854e+01
+      worst vega: call S=K=100 vol=0.5 r=0.05 q=0 T=5  abs=3.784e+00 closed=6.567384e+01
+      worst vega: call S=K=100 vol=0.2 r=0.1 q=0 T=5  abs=3.675e+00 closed=3.626854e+01
+    rho  abs: median 2.090e-02  p99 2.401e+01  max 4.730e+01  (n=216)
+    rho  rel: median 3.316e-02  p99 5.060e+00  max 8.781e+00  (n=216)  [rel only where |closed form| >= 1e-08: 0 excluded]
+      worst rho: call S=K=100 vol=0.001 r=0 q=0 T=10  abs=4.730e+01 closed=4.993692e+02
+      worst rho: call S=K=100 vol=0.01 r=0 q=0 T=10  abs=4.049e+01 closed=4.936924e+02
+      worst rho: call S=K=100 vol=0.05 r=0 q=0 T=10  abs=2.430e+01 closed=4.684937e+02
+      worst rho: call S=K=100 vol=0.001 r=0 q=0 T=5  abs=2.238e+01 closed=2.497770e+02
+      worst rho: call S=K=100 vol=0.01 r=0 q=0 T=5  abs=2.038e+01 closed=2.477699e+02
+  h=0.001: vega points excluded because vol-h < 0: 24
+    vega abs: median 2.434e-02  p99 3.798e+00  max 4.584e+00  (n=192)
+    vega rel: median 9.219e-03  p99 5.482e+00  max 1.296e+03  (n=167)  [rel only where |closed form| >= 1e-08: 25 excluded]
+      worst vega: call S=K=100 vol=0.5 r=0.1 q=0 T=10  abs=4.584e+00 closed=4.583391e+01
+      worst vega: call S=K=100 vol=1 r=0.05 q=0 T=10  abs=3.839e+00 closed=2.779967e+01
+      worst vega: call S=K=100 vol=1 r=0.1 q=0 T=5  abs=3.794e+00 closed=3.626854e+01
+      worst vega: call S=K=100 vol=0.5 r=0.05 q=0 T=5  abs=3.784e+00 closed=6.567384e+01
+      worst vega: call S=K=100 vol=0.2 r=0.1 q=0 T=5  abs=3.675e+00 closed=3.626854e+01
+    rho  abs: median 2.090e-02  p99 2.230e+01  max 4.611e+01  (n=216)
+    rho  rel: median 3.157e-02  p99 5.060e+00  max 8.781e+00  (n=216)  [rel only where |closed form| >= 1e-08: 0 excluded]
+      worst rho: call S=K=100 vol=0.01 r=0 q=0 T=10  abs=4.611e+01 closed=4.936924e+02
+      worst rho: call S=K=100 vol=0.05 r=0 q=0 T=10  abs=3.511e+01 closed=4.684937e+02
+      worst rho: call S=K=100 vol=0.01 r=0 q=0 T=5  abs=2.248e+01 closed=2.477699e+02
+      worst rho: call S=K=100 vol=0.05 r=0 q=0 T=5  abs=2.130e+01 closed=2.388550e+02
+      worst rho: call S=K=100 vol=0.2 r=0 q=0 T=5  abs=1.671e+01 closed=2.057658e+02
+  h=0.01: vega points excluded because vol-h < 0: 48
+    vega abs: median 3.593e-02  p99 3.299e+00  max 3.786e+00  (n=168)
+    vega rel: median 8.917e-03  p99 1.929e+01  max 1.290e+03  (n=157)  [rel only where |closed form| >= 1e-08: 11 excluded]
+      worst vega: call S=K=100 vol=0.5 r=0.05 q=0 T=5  abs=3.786e+00 closed=6.567384e+01
+      worst vega: call S=K=100 vol=1 r=0 q=0 T=10  abs=3.542e+00 closed=3.614448e+01
+      worst vega: call S=K=100 vol=0.5 r=0.1 q=0 T=10  abs=3.179e+00 closed=4.583391e+01
+      worst vega: call S=K=100 vol=0.5 r=0.05 q=0 T=10  abs=2.687e+00 closed=6.837616e+01
+      worst vega: call S=K=100 vol=1 r=0.05 q=0 T=10  abs=2.476e+00 closed=2.779967e+01
+    rho  abs: median 5.943e-02  p99 2.614e+01  max 4.958e+01  (n=216)
+    rho  rel: median 2.411e-02  p99 5.070e+00  max 8.798e+00  (n=216)  [rel only where |closed form| >= 1e-08: 0 excluded]
+      worst rho: call S=K=100 vol=0.05 r=0 q=0 T=10  abs=4.958e+01 closed=4.684937e+02
+      worst rho: call S=K=100 vol=0.2 r=0 q=0 T=10  abs=2.950e+01 closed=3.759148e+02
+      worst rho: call S=K=100 vol=0.01 r=0 q=0 T=10  abs=2.649e+01 closed=4.936924e+02
+      worst rho: call S=K=100 vol=0.0001 r=0 q=0 T=10  abs=2.412e+01 closed=4.999369e+02
+      worst rho: call S=K=100 vol=0.05 r=0 q=0 T=5  abs=2.384e+01 closed=2.388550e+02
+
+######## PART 4: JR-FM-CV  (Eu_lat computed in the SAME backward pass as Am_lat) ########
+
+## 4.1 CV < intrinsic over the grid, N=128
+  call: CV < intrinsic in 0 / 1296
+  put : CV < intrinsic in 0 / 1296
+  (grid is S=K, intrinsic is 0 everywhere; extra check at S/K = 0.5 and 2 below)
+  ITM call S=200: CV < intrinsic in 181 / 1296; worst (intr-CV)/K = 4.672e-04 at call S=200 K=100 vol=0.2 r=-0.1 q=0 T=10 CV=99.953278
+  ITM put S=50 : CV < intrinsic in 199 / 1296; worst (intr-CV)/K = 1.498e-04 at put  S=50 K=100 vol=0.2 r=0.05 q=0 T=10 CV=49.985025
+
+## 4.2 err_price_cv = |CV128 - CV4096|/K over the grid
+  err_price_cv : median 2.504e-09  p90 9.046e-04  p99 1.946e-02  max 5.305e-02  (n=2592)
+  err_ref_cv = |CV4096-CV2048|/K: median 8.283e-11  p90 3.276e-05  p99 6.418e-04  max 1.776e-03  (n=2592)
+  vol x T, max err_price_cv:
+      vol\T      0.0001       0.01        0.1          1          5         10
+     0.0001    1.29e-08   1.72e-08   2.69e-09   1.43e-08   1.23e-07   3.43e-06
+      0.001    3.90e-08   1.29e-06   3.50e-06   1.72e-06   1.25e-06   3.69e-06
+       0.01    4.14e-08   3.90e-06   4.82e-05   1.29e-04   3.48e-04   3.50e-04
+       0.05    2.36e-08   4.61e-06   4.24e-05   4.78e-04   1.75e-03   2.23e-03
+        0.2    9.21e-08   4.76e-06   3.84e-05   4.41e-04   2.21e-03   4.92e-03
+        0.5    1.52e-07   5.57e-06   4.34e-05   5.32e-04   3.28e-03   7.00e-03
+          1    2.56e-07   1.30e-05   3.13e-05   7.15e-04   6.17e-03   1.42e-02
+          2    2.80e-07   1.23e-05   7.84e-05   1.55e-03   1.65e-02   3.60e-02
+          3    2.93e-07   2.20e-05   9.17e-05   2.90e-03   2.67e-02   5.30e-02
+
+## 4.3 rho/vega on PUTS: JR-FM and CV at N=128 vs CRR N=4096 (rho h=1e-4, vega h=1e-3), CRR-valid only
+  grid puts: 1296; excluded: {'vol-1e-3 < 0': 144, 'CRR p outside (0,1) at a bumped input': 157}; compared: 995
+  JR-FM vega abs: median 4.460e-02  p99 3.383e+00  max 9.226e+00  (n=995)
+  JR-FM vega rel: median 8.929e-03  p99 2.868e+00  max 6.111e+00  (n=957)  [38 excluded, |ref| < 1e-08]
+      worst: put S=K=100 vol=0.05 r=0.3 q=0.1 T=10  abs=9.226e+00 ref=9.225561e+00
+      worst: put S=K=100 vol=0.01 r=0.05 q=0 T=10  abs=7.376e+00 ref=7.376499e+00
+      worst: put S=K=100 vol=0.01 r=0.1 q=0.05 T=10  abs=7.366e+00 ref=7.365676e+00
+      worst: put S=K=100 vol=0.05 r=0.3 q=0.05 T=10  abs=7.356e+00 ref=7.355714e+00
+      worst: put S=K=100 vol=0.05 r=0.3 q=0 T=10  abs=6.669e+00 ref=6.669290e+00
+  JR-FM rho  abs: median 9.146e-02  p99 1.255e+01  max 3.008e+01  (n=995)
+  JR-FM rho  rel: median 2.078e-02  p99 1.000e+00  max 1.482e+00  (n=995)  [0 excluded, |ref| < 1e-08]
+      worst: put S=K=100 vol=0.5 r=-0.1 q=0 T=10  abs=3.008e+01 ref=-2.507947e+03
+      worst: put S=K=100 vol=0.2 r=0 q=0 T=10  abs=2.273e+01 ref=-5.963365e+02
+      worst: put S=K=100 vol=0.5 r=-0.05 q=0.05 T=10  abs=1.824e+01 ref=-1.521147e+03
+      worst: put S=K=100 vol=1 r=0 q=0 T=10  abs=1.580e+01 ref=-8.469156e+02
+      worst: put S=K=100 vol=0.5 r=-0.05 q=0 T=10  abs=1.482e+01 ref=-1.427451e+03
+  CV vega    abs: median 8.198e-04  p99 3.018e+00  max 9.226e+00  (n=995)
+  CV vega    rel: median 1.104e-04  p99 1.000e+00  max 1.009e+00  (n=957)  [38 excluded, |ref| < 1e-08]
+      worst: put S=K=100 vol=0.05 r=0.3 q=0.1 T=10  abs=9.226e+00 ref=9.225561e+00
+      worst: put S=K=100 vol=0.01 r=0.05 q=0 T=10  abs=7.376e+00 ref=7.376499e+00
+      worst: put S=K=100 vol=0.01 r=0.1 q=0.05 T=10  abs=7.366e+00 ref=7.365676e+00
+      worst: put S=K=100 vol=0.05 r=0.3 q=0.05 T=10  abs=7.356e+00 ref=7.355714e+00
+      worst: put S=K=100 vol=0.05 r=0.3 q=0 T=10  abs=6.669e+00 ref=6.669290e+00
+  CV rho     abs: median 1.571e-03  p99 6.745e+00  max 1.292e+01  (n=995)
+  CV rho     rel: median 2.213e-05  p99 1.000e+00  max 1.482e+00  (n=995)  [0 excluded, |ref| < 1e-08]
+      worst: put S=K=100 vol=3 r=0 q=0 T=10  abs=1.292e+01 ref=-6.305079e+02
+      worst: put S=K=100 vol=3 r=0 q=0.05 T=10  abs=1.276e+01 ref=-6.292302e+02
+      worst: put S=K=100 vol=3 r=0 q=0.1 T=10  abs=1.254e+01 ref=-6.279753e+02
+      worst: put S=K=100 vol=3 r=0 q=0.3 T=10  abs=1.170e+01 ref=-6.231399e+02
+      worst: put S=K=100 vol=3 r=0.05 q=0 T=10  abs=9.377e+00 ref=-9.311662e+01
+
+## 4.4 properties on CV, N=128, 3000 random inputs each, random.seed(12345) as STEP 1c
+  CV >= BS_eu        failures    6/3000  worst size/K 2.468e-17 at put  S=7710.74 K=9213.1 vol=1.70366 r=0.0179246 q=0.0804712 T=0.0141814; failures with size/K > 1e-3: 0
+  CV >= intrinsic    failures   49/3000  worst size/K 3.613e-04 at call S=8533.06 K=1292.09 vol=1.1541 r=0.128662 q=0.233669 T=1.38144; failures with size/K > 1e-3: 0
+  monotonic in vol   failures   58/3000  worst size/K 5.517e-03 at call S=6939.89 K=200.096 vol=2.65336 r=-0.0887834 q=0.29447 T=2.61138; failures with size/K > 1e-3: 7
+  monotonic in T     failures  846/3000  worst size/K 1.708e-02 at call S=1791.51 K=514.438 vol=2.62516 r=0.0205876 q=0.2504 T=8.43478; failures with size/K > 1e-3: 353
+
+## 4.5 timing: CV full priced result N=128 (5 combined Am+Eu passes + closed form), ATM put
+  N=128 median 2179.7 us  p99 2515.2 us  min 2119.9 us
+
+######## 5.1 vol -> 0: JR-FM N=128; vega = FORWARD difference h=1e-4; rho = central h=1e-4 ########
+  call ITM q>0 (early)  (S=110 K=100 r=0.02 q=0.08 T=1)
+         vol          price        delta        gamma        theta    vega(fwd)          rho
+        0.01    10.00000000     1.000000  -2.6859e-13    -0.000000     0.000000     0.000000
+      0.0001    10.00000000     1.000000  -3.3922e-09     0.000000     0.000000     0.000000
+       1e-06    10.00000000     1.000000  -2.5073e-05    -0.000000     0.000000     0.000000
+       1e-08    10.00000000     1.000000   3.6743e-01     0.000000     0.000000     0.000000
+    EU _zero_vol 3.52293077     0.923116   0.0000e+00     6.163027     0.000000    98.019867
+  call ITM q=0  (S=110 K=100 r=0.05 q=0 T=1)
+         vol          price        delta        gamma        theta    vega(fwd)          rho
+        0.01    14.87705755     1.000000  -1.3121e-14    -4.758005    -0.000000    95.122943
+      0.0001    14.87705755     1.000000   7.5077e-11    -4.758005     0.000000    95.122943
+       1e-06    14.87705755     1.000000  -3.0623e-06    -4.758005     0.000000    95.122943
+       1e-08    14.87705755     1.000000  -1.0289e-01    -4.758005     0.000000    95.122943
+    EU _zero_vol 14.87705755     1.000000   0.0000e+00    -4.756147     0.000000    95.122942
+  call OTM  (S=90 K=100 r=0.02 q=0 T=1)
+         vol          price        delta        gamma        theta    vega(fwd)          rho
+        0.01     0.00000000     0.000000   6.0144e-19    -0.000000     0.000000     0.000000
+      0.0001     0.00000000     0.000000   0.0000e+00     0.000000     0.000000     0.000000
+       1e-06     0.00000000     0.000000   0.0000e+00     0.000000     0.000000     0.000000
+       1e-08     0.00000000     0.000000   0.0000e+00     0.000000     0.000000     0.000000
+    EU _zero_vol 0.00000000     0.000000   0.0000e+00     0.000000     0.000000     0.000000
+  put ITM r>0 (early)  (S=90 K=100 r=0.05 q=0 T=1)
+         vol          price        delta        gamma        theta    vega(fwd)          rho
+        0.01    10.00000000    -1.000000   3.5422e-13    -0.000000     0.000000     0.000000
+      0.0001    10.00000000    -1.000000   4.0485e-09    -0.000000     0.000000     0.000000
+       1e-06    10.00000000    -1.000000   3.7428e-06    -0.000000     0.000000     0.000000
+       1e-08    10.00000000    -1.000000  -5.4944e-01     0.000000     0.000000     0.000000
+    EU _zero_vol 5.12294245    -1.000000   0.0000e+00     4.756147     0.000000   -95.122942
+  put OTM  (S=110 K=100 r=0.05 q=0 T=1)
+         vol          price        delta        gamma        theta    vega(fwd)          rho
+        0.01     0.00000000     0.000000   0.0000e+00     0.000000     0.000000     0.000000
+      0.0001     0.00000000     0.000000   0.0000e+00     0.000000     0.000000     0.000000
+       1e-06     0.00000000     0.000000   0.0000e+00     0.000000     0.000000     0.000000
+       1e-08     0.00000000     0.000000   0.0000e+00     0.000000     0.000000     0.000000
+    EU _zero_vol 0.00000000     0.000000   0.0000e+00     0.000000     0.000000     0.000000
+  put ITM, q>r, interior  (S=62 K=100 r=0.03 q=0.05 T=3)
+         vol          price        delta        gamma        theta    vega(fwd)          rho
+        0.01    38.09170691    -0.918194   3.4299e-02    -0.001048     2.147068  -163.312882
+      0.0001    38.08021002    -0.922351   2.0767e-02     0.000030     0.031225  -156.042501
+       1e-06    38.08020978    -0.922323   1.3258e-05     0.000065     0.002525  -156.037945
+       1e-08    38.08020978    -0.922323   2.1245e-01     0.000065     0.002402  -156.037945
+    EU _zero_vol 38.02922399    -0.860708   0.0000e+00     0.073599     0.000000  -274.179356
+  call ITM, q<r, interior  (S=120 K=100 r=0.05 q=0.0415 T=1)
+         vol          price        delta        gamma        theta    vega(fwd)          rho
+        0.01    20.01242978     0.977022   1.7708e-02    -0.008371     1.000464    54.737933
+      0.0001    20.00468283     0.980937   3.9804e-02     0.000000     0.040303    45.881752
+       1e-06    20.00468143     0.981053  -4.1649e-08    -0.000116     0.014292    45.875638
+       1e-08    20.00468143     0.981053  -8.1770e-03    -0.000115     0.014014    45.875638
+    EU _zero_vol 19.99897779     0.959349   0.0000e+00     0.021413     0.000000    95.122942
+
+######## 5.2 T -> 0: JR-FM N=128, vol=.2 r=.05 q=0, S=100; vega/rho central h=1e-4 ########
+  call K=90
+           T          price        delta        gamma          theta         vega          rho
+        0.01    10.04498876     1.000000   8.4712e-08    -4.4978e+00   2.6444e-06   8.9955e-01
+      0.0001    10.00045000     1.000000  -2.7288e-12    -4.5000e+00  -7.3186e-09   9.0000e-03
+       1e-06    10.00000450     1.000000  -3.0962e-11    -4.5000e+00  -1.8829e-09   9.0000e-05
+       1e-08    10.00000005     1.000000  -2.0489e-08    -4.5001e+00   1.0303e-09   8.9969e-07
+     BS t<=0    10.00000000     1.000000   0.0000e+00     0.0000e+00   0.0000e+00   0.0000e+00
+  call K=100
+           T          price        delta        gamma          theta         vega          rho
+        0.01     0.82232382     0.513933   2.0028e-01    -4.2586e+01   3.9738e+00   5.3493e-01
+      0.0001     0.07989328     0.501394   2.0062e+00    -4.0375e+02   3.9809e-01   5.3519e-03
+       1e-06     0.00796588     0.500139   2.0065e+01    -4.0154e+03   3.9816e-02   5.3519e-05
+       1e-08     0.00079635     0.500014   2.0065e+02    -4.0132e+04   3.9816e-03   5.3516e-07
+     BS t<=0     0.00000000     0.000000   0.0000e+00     0.0000e+00   0.0000e+00   0.0000e+00
+  call K=110
+           T          price        delta        gamma          theta         vega          rho
+        0.01     0.00000029     0.000001   1.8541e-06    -3.7456e-04   5.3783e-05   1.1028e-06
+      0.0001     0.00000000     0.000000   0.0000e+00     0.0000e+00   0.0000e+00   0.0000e+00
+       1e-06     0.00000000     0.000000   0.0000e+00     0.0000e+00   0.0000e+00   0.0000e+00
+       1e-08     0.00000000     0.000000   0.0000e+00     0.0000e+00   0.0000e+00   0.0000e+00
+     BS t<=0     0.00000000     0.000000   0.0000e+00     0.0000e+00   0.0000e+00   0.0000e+00
+  put K=90
+           T          price        delta        gamma          theta         vega          rho
+        0.01     0.00000001    -0.000000   8.4869e-08    -1.6819e-05   2.6419e-06  -4.8491e-08
+      0.0001     0.00000000     0.000000   0.0000e+00     0.0000e+00   0.0000e+00   0.0000e+00
+       1e-06     0.00000000     0.000000   0.0000e+00     0.0000e+00   0.0000e+00   0.0000e+00
+       1e-08     0.00000000     0.000000   0.0000e+00     0.0000e+00   0.0000e+00   0.0000e+00
+     BS t<=0     0.00000000     0.000000   0.0000e+00     0.0000e+00   0.0000e+00   0.0000e+00
+  put K=100
+           T          price        delta        gamma          theta         vega          rho
+        0.01     0.77528491    -0.488491   2.0192e-01    -3.7903e+01   3.9718e+00  -3.9614e-01
+      0.0001     0.07941473    -0.498772   2.0072e+00    -3.9895e+02   3.9808e-01  -4.1830e-03
+       1e-06     0.00796107    -0.499874   2.0065e+01    -4.0106e+03   3.9816e-02  -4.2694e-05
+       1e-08     0.00079631    -0.499987   2.0065e+02    -4.0127e+04   3.9816e-03  -4.3037e-07
+     BS t<=0     0.00000000     0.000000   0.0000e+00     0.0000e+00   0.0000e+00   0.0000e+00
+  put K=110
+           T          price        delta        gamma          theta         vega          rho
+        0.01    10.00000000    -1.000000  -5.8407e-14    -1.1369e-11   0.0000e+00   0.0000e+00
+      0.0001    10.00000000    -1.000000  -4.3806e-12     1.1369e-09   0.0000e+00   0.0000e+00
+       1e-06    10.00000000    -1.000000   3.0962e-11     6.8212e-07   0.0000e+00   0.0000e+00
+       1e-08    10.00000000    -1.000000  -7.9327e-09     4.5475e-05   0.0000e+00   0.0000e+00
+     BS t<=0    10.00000000    -1.000000   0.0000e+00     0.0000e+00   0.0000e+00   0.0000e+00
+/Users/mac/Projects/meridian/.venv/bin/python -I -B step1d_measure.py  197.99s user 1.45s system 99% cpu 3:20.41 total

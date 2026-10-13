@@ -1,0 +1,50 @@
+[
+  {
+    "label": "call ATM 1y q0",
+    "spot": 100.0,
+    "strike": 100.0,
+    "volatility": 0.2,
+    "risk_free_rate": 0.05,
+    "dividend_yield": 0.0,
+    "time_to_expiry_years": 1.0,
+    "is_call": true,
+    "price": 10.450583572185568,
+    "delta": 0.6368306511756191,
+    "gamma": 0.01876201734584689,
+    "vega": 37.524034691693785,
+    "theta": -6.414027546438196,
+    "rho": 53.23248154537634
+  },
+  {
+    "label": "call OTM 2y q0",
+    "spot": 100.0,
+    "strike": 110.0,
+    "volatility": 0.15,
+    "risk_free_rate": 0.02,
+    "dividend_yield": 0.0,
+    "time_to_expiry_years": 2.0,
+    "is_call": true,
+    "price": 6.136201712839436,
+    "delta": 0.43854126487203043,
+    "gamma": 0.0185827132893473,
+    "vega": 55.748139868041896,
+    "theta": -2.844913740538843,
+    "rho": 75.43584954872722
+  },
+  {
+    "label": "call ITM 0.5y q0",
+    "spot": 100.0,
+    "strike": 90.0,
+    "volatility": 0.25,
+    "risk_free_rate": 0.03,
+    "dividend_yield": 0.0,
+    "time_to_expiry_years": 0.5,
+    "is_call": true,
+    "price": 13.79084896176948,
+    "delta": 0.7791276152208002,
+    "gamma": 0.01678761720805289,
+    "vega": 20.984521510066113,
+    "theta": -7.169787754325844,
+    "rho": 32.06095628015527
+  }
+]

@@ -31,6 +31,7 @@ from statistics import NormalDist
 from quant_core import PRICER_VERSION
 from quant_core.numeric import to_model, to_money
 from quant_core.types import (
+    AmericanOption,
     EuropeanOption,
     MarketState,
     OptionRight,
@@ -43,7 +44,7 @@ _NORMAL = NormalDist()
 _SQRT_2PI = math.sqrt(2.0 * math.pi)
 
 
-def _time_to_expiry(option: EuropeanOption, market: MarketState) -> float:
+def _time_to_expiry(option: EuropeanOption | AmericanOption, market: MarketState) -> float:
     """ACT/365F: actual calendar days between valuation and expiry, divided
     by a fixed 365-day year. Years, not days. Per docs/conventions.md."""
     return (option.expiry - market.valuation_time) / _DAYS_PER_YEAR

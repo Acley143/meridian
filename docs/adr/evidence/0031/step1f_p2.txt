@@ -1,0 +1,281 @@
+shard=p2 python=3.12.13 numpy=2.5.2 cores=8 SEED=20261012
+sampling: Part 1 accepted 20000 of 41882 drawn -> acceptance rate 0.4775
+          2.1    accepted 2000 of 4476 drawn -> acceptance rate 0.4468
+          2.3    accepted 300 of 337 drawn -> acceptance rate 0.8902
+  Part 1 points in C1=(Lmax=0.1, Smax=1): 20000   calls 9951
+  Part 1 points in C2=(Lmax=0.1, Smax=0.5): 18857   calls 9386
+  Part 1 points in C3=(Lmax=0.05, Smax=1): 17363   calls 8644
+  Part 1 points in C4=(Lmax=0.05, Smax=0.5): 16352   calls 8149
+
+2.2 source: first 5000 Part 1 points that are puts or calls with q>0 (puts 2459, calls q>0 2541); last one is Part 1 index 4999
+  2.2 excluded from CRR rho reference (any bumped input, N=4096 or 2048): 0 {}
+  2.2 excluded from CRR vega reference (any bumped input, N=4096 or 2048): 0 {}
+
+################ PART 2.1 calls q=0, r in [1e-3,0.3], vs mpmath closed form (reference error 0)
+
+  ## vega h=0.05*vol  (LOOSE: max(5e-2*|ref|, 1e-3*K*sqrt(T)))
+    C1 (Lmax=0.1, Smax=1):
+      compared 2000  unresolved 0  excluded 0
+      LOOSE pass over resolved: 2000/2000 = 1.00000
+      abs : median 6.746e-11  p99 7.630e-01  max 3.270e+00
+      rel : median 1.929e-02  p99 3.729e-01  max 4.141e-01  (|ref|>1e-08: n=526)
+      worst: call S=136.4367899 K=100 vol=0.3011697201 r=0.02094754407 q=0 T=8.206352438 | lambda=0.01761 sigmaRootT=0.8628 a=0.07626  value=9.871907e+01 ref=9.544903e+01 abs=3.270e+00 rel=3.43e-02 referr=0.00e+00 bound=4.77e+00
+      worst: call S=133.194653 K=100 vol=0.2583060882 r=0.002244010433 q=0 T=3.286798225 | lambda=0.001392 sigmaRootT=0.4683 a=0.04139  value=6.390297e+01 ref=6.644105e+01 abs=2.538e+00 rel=3.82e-02 referr=0.00e+00 bound=3.32e+00
+      worst: call S=78.93447057 K=100 vol=0.2569485909 r=0.07825453959 q=0 T=9.079950807 | lambda=0.08111 sigmaRootT=0.7743 a=0.06844  value=5.527804e+01 ref=5.759254e+01 abs=2.314e+00 rel=4.02e-02 referr=0.00e+00 bound=2.88e+00
+      worst: call S=100.301536 K=100 vol=0.2788670607 r=0.03213759032 q=0 T=6.330216561 | lambda=0.02563 sigmaRootT=0.7016 a=0.06202  value=8.342433e+01 ref=8.176594e+01 abs=1.658e+00 rel=2.03e-02 referr=0.00e+00 bound=4.09e+00
+      worst: call S=113.4847346 K=100 vol=0.2457526124 r=0.02409728887 q=0 T=1.482328862 | lambda=0.01055 sigmaRootT=0.2992 a=0.02645  value=4.194905e+01 ref=4.339167e+01 abs=1.443e+00 rel=3.32e-02 referr=0.00e+00 bound=2.17e+00
+    C2 (Lmax=0.1, Smax=0.5):
+      compared 1877  unresolved 0  excluded 0
+      LOOSE pass over resolved: 1877/1877 = 1.00000
+      abs : median 4.312e-11  p99 4.025e-01  max 2.538e+00
+      rel : median 2.380e-02  p99 3.814e-01  max 4.141e-01  (|ref|>1e-08: n=403)
+      worst: call S=133.194653 K=100 vol=0.2583060882 r=0.002244010433 q=0 T=3.286798225 | lambda=0.001392 sigmaRootT=0.4683 a=0.04139  value=6.390297e+01 ref=6.644105e+01 abs=2.538e+00 rel=3.82e-02 referr=0.00e+00 bound=3.32e+00
+      worst: call S=113.4847346 K=100 vol=0.2457526124 r=0.02409728887 q=0 T=1.482328862 | lambda=0.01055 sigmaRootT=0.2992 a=0.02645  value=4.194905e+01 ref=4.339167e+01 abs=1.443e+00 rel=3.32e-02 referr=0.00e+00 bound=2.17e+00
+      worst: call S=78.58623949 K=100 vol=0.2878674677 r=0.1763653873 q=0 T=2.473591499 | lambda=0.08517 sigmaRootT=0.4527 a=0.04002  value=3.841717e+01 ref=3.971816e+01 abs=1.301e+00 rel=3.28e-02 referr=0.00e+00 bound=1.99e+00
+      worst: call S=90.35786385 K=100 vol=0.1079613964 r=0.01140703354 q=0 T=9.138457565 | lambda=0.02823 sigmaRootT=0.3264 a=0.02885  value=1.060882e+02 ref=1.073729e+02 abs=1.285e+00 rel=1.20e-02 referr=0.00e+00 bound=5.37e+00
+      worst: call S=96.9264063 K=100 vol=0.1377846685 r=0.07705201192 q=0 T=1.38295827 | lambda=0.05813 sigmaRootT=0.162 a=0.01432  value=3.796079e+01 ref=3.917633e+01 abs=1.216e+00 rel=3.10e-02 referr=0.00e+00 bound=1.96e+00
+    C3 (Lmax=0.05, Smax=1):
+      compared 1752  unresolved 0  excluded 0
+      LOOSE pass over resolved: 1752/1752 = 1.00000
+      abs : median 5.591e-11  p99 6.082e-01  max 3.270e+00
+      rel : median 1.933e-02  p99 3.672e-01  max 4.141e-01  (|ref|>1e-08: n=475)
+      worst: call S=136.4367899 K=100 vol=0.3011697201 r=0.02094754407 q=0 T=8.206352438 | lambda=0.01761 sigmaRootT=0.8628 a=0.07626  value=9.871907e+01 ref=9.544903e+01 abs=3.270e+00 rel=3.43e-02 referr=0.00e+00 bound=4.77e+00
+      worst: call S=133.194653 K=100 vol=0.2583060882 r=0.002244010433 q=0 T=3.286798225 | lambda=0.001392 sigmaRootT=0.4683 a=0.04139  value=6.390297e+01 ref=6.644105e+01 abs=2.538e+00 rel=3.82e-02 referr=0.00e+00 bound=3.32e+00
+      worst: call S=100.301536 K=100 vol=0.2788670607 r=0.03213759032 q=0 T=6.330216561 | lambda=0.02563 sigmaRootT=0.7016 a=0.06202  value=8.342433e+01 ref=8.176594e+01 abs=1.658e+00 rel=2.03e-02 referr=0.00e+00 bound=4.09e+00
+      worst: call S=113.4847346 K=100 vol=0.2457526124 r=0.02409728887 q=0 T=1.482328862 | lambda=0.01055 sigmaRootT=0.2992 a=0.02645  value=4.194905e+01 ref=4.339167e+01 abs=1.443e+00 rel=3.32e-02 referr=0.00e+00 bound=2.17e+00
+      worst: call S=90.35786385 K=100 vol=0.1079613964 r=0.01140703354 q=0 T=9.138457565 | lambda=0.02823 sigmaRootT=0.3264 a=0.02885  value=1.060882e+02 ref=1.073729e+02 abs=1.285e+00 rel=1.20e-02 referr=0.00e+00 bound=5.37e+00
+    C4 (Lmax=0.05, Smax=0.5):
+      compared 1643  unresolved 0  excluded 0
+      LOOSE pass over resolved: 1643/1643 = 1.00000
+      abs : median 3.507e-11  p99 3.142e-01  max 2.538e+00
+      rel : median 2.421e-02  p99 3.785e-01  max 4.141e-01  (|ref|>1e-08: n=366)
+      worst: call S=133.194653 K=100 vol=0.2583060882 r=0.002244010433 q=0 T=3.286798225 | lambda=0.001392 sigmaRootT=0.4683 a=0.04139  value=6.390297e+01 ref=6.644105e+01 abs=2.538e+00 rel=3.82e-02 referr=0.00e+00 bound=3.32e+00
+      worst: call S=113.4847346 K=100 vol=0.2457526124 r=0.02409728887 q=0 T=1.482328862 | lambda=0.01055 sigmaRootT=0.2992 a=0.02645  value=4.194905e+01 ref=4.339167e+01 abs=1.443e+00 rel=3.32e-02 referr=0.00e+00 bound=2.17e+00
+      worst: call S=90.35786385 K=100 vol=0.1079613964 r=0.01140703354 q=0 T=9.138457565 | lambda=0.02823 sigmaRootT=0.3264 a=0.02885  value=1.060882e+02 ref=1.073729e+02 abs=1.285e+00 rel=1.20e-02 referr=0.00e+00 bound=5.37e+00
+      worst: call S=132.7776956 K=100 vol=0.598646333 r=0.01873001887 q=0 T=0.6057637364 | lambda=0.002152 sigmaRootT=0.4659 a=0.04118  value=2.733275e+01 ref=2.834102e+01 abs=1.008e+00 rel=3.56e-02 referr=0.00e+00 bound=1.42e+00
+      worst: call S=123.0666192 K=100 vol=0.3777938636 r=0.1693706384 q=0 T=1.575021602 | lambda=0.04973 sigmaRootT=0.4741 a=0.04191  value=2.772255e+01 ref=2.865327e+01 abs=9.307e-01 rel=3.25e-02 referr=0.00e+00 bound=1.43e+00
+
+  ## vega h=0.10*vol  (LOOSE: max(5e-2*|ref|, 1e-3*K*sqrt(T)))
+    C1 (Lmax=0.1, Smax=1):
+      compared 2000  unresolved 0  excluded 0
+      LOOSE pass over resolved: 2000/2000 = 1.00000
+      abs : median 3.353e-11  p99 3.714e-01  max 1.298e+00
+      rel : median 1.311e-02  p99 1.043e+00  max 1.478e+00  (|ref|>1e-08: n=526)
+      worst: call S=90.35786385 K=100 vol=0.1079613964 r=0.01140703354 q=0 T=9.138457565 | lambda=0.02823 sigmaRootT=0.3264 a=0.02885  value=1.060748e+02 ref=1.073729e+02 abs=1.298e+00 rel=1.21e-02 referr=0.00e+00 bound=5.37e+00
+      worst: call S=134.2209947 K=100 vol=0.5121946495 r=0.130875733 q=0 T=3.769670088 | lambda=0.04385 sigmaRootT=0.9945 a=0.0879  value=4.423351e+01 ref=4.528170e+01 abs=1.048e+00 rel=2.31e-02 referr=0.00e+00 bound=2.26e+00
+      worst: call S=100.301536 K=100 vol=0.2788670607 r=0.03213759032 q=0 T=6.330216561 | lambda=0.02563 sigmaRootT=0.7016 a=0.06202  value=8.265059e+01 ref=8.176594e+01 abs=8.846e-01 rel=1.08e-02 referr=0.00e+00 bound=4.09e+00
+      worst: call S=149.2360037 K=100 vol=0.5541111538 r=0.1762043995 q=0 T=2.98815519 | lambda=0.04859 sigmaRootT=0.9579 a=0.08466  value=3.527485e+01 ref=3.614716e+01 abs=8.723e-01 rel=2.41e-02 referr=0.00e+00 bound=1.81e+00
+      worst: call S=60.2924074 K=100 vol=0.2969755365 r=0.1160024481 q=0 T=4.971612381 | lambda=0.07698 sigmaRootT=0.6622 a=0.05853  value=4.955490e+01 ref=4.872756e+01 abs=8.273e-01 rel=1.70e-02 referr=0.00e+00 bound=2.44e+00
+    C2 (Lmax=0.1, Smax=0.5):
+      compared 1877  unresolved 0  excluded 0
+      LOOSE pass over resolved: 1877/1877 = 1.00000
+      abs : median 2.029e-11  p99 2.009e-01  max 1.298e+00
+      rel : median 2.150e-02  p99 1.232e+00  max 1.478e+00  (|ref|>1e-08: n=403)
+      worst: call S=90.35786385 K=100 vol=0.1079613964 r=0.01140703354 q=0 T=9.138457565 | lambda=0.02823 sigmaRootT=0.3264 a=0.02885  value=1.060748e+02 ref=1.073729e+02 abs=1.298e+00 rel=1.21e-02 referr=0.00e+00 bound=5.37e+00
+      worst: call S=86.82888726 K=100 vol=0.1500519109 r=0.01491643508 q=0 T=3.051401423 | lambda=0.01535 sigmaRootT=0.2621 a=0.02317  value=5.963160e+01 ref=5.887393e+01 abs=7.577e-01 rel=1.29e-02 referr=0.00e+00 bound=2.94e+00
+      worst: call S=113.9245716 K=100 vol=0.1270247139 r=0.02757612141 q=0 T=8.464176281 | lambda=0.05583 sigmaRootT=0.3696 a=0.03266  value=6.606079e+01 ref=6.675840e+01 abs=6.976e-01 rel=1.04e-02 referr=0.00e+00 bound=3.34e+00
+      worst: call S=78.3756149 K=100 vol=0.3409383624 r=0.1807272399 q=0 T=1.856713486 | lambda=0.06384 sigmaRootT=0.4646 a=0.04106  value=3.939408e+01 ref=3.884126e+01 abs=5.528e-01 rel=1.42e-02 referr=0.00e+00 bound=1.94e+00
+      worst: call S=96.9264063 K=100 vol=0.1377846685 r=0.07705201192 q=0 T=1.38295827 | lambda=0.05813 sigmaRootT=0.162 a=0.01432  value=3.872651e+01 ref=3.917633e+01 abs=4.498e-01 rel=1.15e-02 referr=0.00e+00 bound=1.96e+00
+    C3 (Lmax=0.05, Smax=1):
+      compared 1752  unresolved 0  excluded 0
+      LOOSE pass over resolved: 1752/1752 = 1.00000
+      abs : median 2.833e-11  p99 3.458e-01  max 1.298e+00
+      rel : median 1.378e-02  p99 1.033e+00  max 1.478e+00  (|ref|>1e-08: n=475)
+      worst: call S=90.35786385 K=100 vol=0.1079613964 r=0.01140703354 q=0 T=9.138457565 | lambda=0.02823 sigmaRootT=0.3264 a=0.02885  value=1.060748e+02 ref=1.073729e+02 abs=1.298e+00 rel=1.21e-02 referr=0.00e+00 bound=5.37e+00
+      worst: call S=134.2209947 K=100 vol=0.5121946495 r=0.130875733 q=0 T=3.769670088 | lambda=0.04385 sigmaRootT=0.9945 a=0.0879  value=4.423351e+01 ref=4.528170e+01 abs=1.048e+00 rel=2.31e-02 referr=0.00e+00 bound=2.26e+00
+      worst: call S=100.301536 K=100 vol=0.2788670607 r=0.03213759032 q=0 T=6.330216561 | lambda=0.02563 sigmaRootT=0.7016 a=0.06202  value=8.265059e+01 ref=8.176594e+01 abs=8.846e-01 rel=1.08e-02 referr=0.00e+00 bound=4.09e+00
+      worst: call S=149.2360037 K=100 vol=0.5541111538 r=0.1762043995 q=0 T=2.98815519 | lambda=0.04859 sigmaRootT=0.9579 a=0.08466  value=3.527485e+01 ref=3.614716e+01 abs=8.723e-01 rel=2.41e-02 referr=0.00e+00 bound=1.81e+00
+      worst: call S=86.82888726 K=100 vol=0.1500519109 r=0.01491643508 q=0 T=3.051401423 | lambda=0.01535 sigmaRootT=0.2621 a=0.02317  value=5.963160e+01 ref=5.887393e+01 abs=7.577e-01 rel=1.29e-02 referr=0.00e+00 bound=2.94e+00
+    C4 (Lmax=0.05, Smax=0.5):
+      compared 1643  unresolved 0  excluded 0
+      LOOSE pass over resolved: 1643/1643 = 1.00000
+      abs : median 1.762e-11  p99 1.571e-01  max 1.298e+00
+      rel : median 2.280e-02  p99 1.113e+00  max 1.478e+00  (|ref|>1e-08: n=366)
+      worst: call S=90.35786385 K=100 vol=0.1079613964 r=0.01140703354 q=0 T=9.138457565 | lambda=0.02823 sigmaRootT=0.3264 a=0.02885  value=1.060748e+02 ref=1.073729e+02 abs=1.298e+00 rel=1.21e-02 referr=0.00e+00 bound=5.37e+00
+      worst: call S=86.82888726 K=100 vol=0.1500519109 r=0.01491643508 q=0 T=3.051401423 | lambda=0.01535 sigmaRootT=0.2621 a=0.02317  value=5.963160e+01 ref=5.887393e+01 abs=7.577e-01 rel=1.29e-02 referr=0.00e+00 bound=2.94e+00
+      worst: call S=113.4847346 K=100 vol=0.2457526124 r=0.02409728887 q=0 T=1.482328862 | lambda=0.01055 sigmaRootT=0.2992 a=0.02645  value=4.302040e+01 ref=4.339167e+01 abs=3.713e-01 rel=8.56e-03 referr=0.00e+00 bound=2.17e+00
+      worst: call S=90.32356485 K=100 vol=0.2687037171 r=0.1730364513 q=0 T=0.7130418651 | lambda=0.04806 sigmaRootT=0.2269 a=0.02006  value=3.009939e+01 ref=2.977223e+01 abs=3.272e-01 rel=1.10e-02 referr=0.00e+00 bound=1.49e+00
+      worst: call S=70.60843972 K=100 vol=0.1180093819 r=0.01791214128 q=0 T=3.323535073 | lambda=0.02446 sigmaRootT=0.2151 a=0.01902  value=2.429337e+01 ref=2.400139e+01 abs=2.920e-01 rel=1.22e-02 referr=0.00e+00 bound=1.20e+00
+
+  ## rho Method B  (LOOSE: max(5e-2*|ref|, 1e-3*K*T))
+    C1 (Lmax=0.1, Smax=1):
+      compared 2000  unresolved 0  excluded 0
+      LOOSE pass over resolved: 2000/2000 = 1.00000
+      abs : median 1.389e-09  p99 1.279e-01  max 6.033e-01
+      rel : median 9.779e-08  p99 4.378e-01  max 6.192e-01  (|ref|>1e-08: n=1249)
+      worst: call S=136.4367899 K=100 vol=0.3011697201 r=0.02094754407 q=0 T=8.206352438 | lambda=0.01761 sigmaRootT=0.8628 a=0.07626  value=3.800969e+02 ref=3.807002e+02 abs=6.033e-01 rel=1.58e-03 referr=0.00e+00 bound=1.90e+01
+      worst: call S=141.8851807 K=100 vol=0.4070224486 r=0.01851737444 q=0 T=4.349951577 | lambda=0.008387 sigmaRootT=0.8489 a=0.07503  value=2.133927e+02 ref=2.138668e+02 abs=4.741e-01 rel=2.22e-03 referr=0.00e+00 bound=1.07e+01
+      worst: call S=53.27209547 K=100 vol=0.1595447566 r=0.00144264867 q=0 T=6.150107648 | lambda=0.001982 sigmaRootT=0.3957 a=0.03497  value=2.306341e+01 ref=2.353509e+01 abs=4.717e-01 rel=2.00e-02 referr=0.00e+00 bound=1.18e+00
+      worst: call S=100.301536 K=100 vol=0.2788670607 r=0.03213759032 q=0 T=6.330216561 | lambda=0.02563 sigmaRootT=0.7016 a=0.06202  value=2.461671e+02 ref=2.465974e+02 abs=4.304e-01 rel=1.75e-03 referr=0.00e+00 bound=1.23e+01
+      worst: call S=29.58716138 K=100 vol=0.2737339961 r=0.04943868858 q=0 T=8.68451273 | lambda=0.04704 sigmaRootT=0.8067 a=0.0713  value=4.690733e+01 ref=4.730101e+01 abs=3.937e-01 rel=8.32e-03 referr=0.00e+00 bound=2.37e+00
+    C2 (Lmax=0.1, Smax=0.5):
+      compared 1877  unresolved 0  excluded 0
+      LOOSE pass over resolved: 1877/1877 = 1.00000
+      abs : median 8.629e-10  p99 5.402e-02  max 4.717e-01
+      rel : median 5.035e-08  p99 4.551e-01  max 6.192e-01  (|ref|>1e-08: n=1126)
+      worst: call S=53.27209547 K=100 vol=0.1595447566 r=0.00144264867 q=0 T=6.150107648 | lambda=0.001982 sigmaRootT=0.3957 a=0.03497  value=2.306341e+01 ref=2.353509e+01 abs=4.717e-01 rel=2.00e-02 referr=0.00e+00 bound=1.18e+00
+      worst: call S=113.9245716 K=100 vol=0.1270247139 r=0.02757612141 q=0 T=8.464176281 | lambda=0.05583 sigmaRootT=0.3696 a=0.03266  value=5.278368e+02 ref=5.281474e+02 abs=3.106e-01 rel=5.88e-04 referr=0.00e+00 bound=2.64e+01
+      worst: call S=90.35786385 K=100 vol=0.1079613964 r=0.01140703354 q=0 T=9.138457565 | lambda=0.02823 sigmaRootT=0.3264 a=0.02885  value=3.608799e+02 ref=3.611579e+02 abs=2.781e-01 rel=7.70e-04 referr=0.00e+00 bound=1.81e+01
+      worst: call S=99.50830819 K=100 vol=0.2023436373 r=0.0733346414 q=0 T=5.793402207 | lambda=0.0771 sigmaRootT=0.487 a=0.04305  value=2.770074e+02 ref=2.772675e+02 abs=2.601e-01 rel=9.38e-04 referr=0.00e+00 bound=1.39e+01
+      worst: call S=64.59591297 K=100 vol=0.207579959 r=0.06099662181 q=0 T=5.406238673 | lambda=0.06039 sigmaRootT=0.4827 a=0.04266  value=1.247542e+02 ref=1.249805e+02 abs=2.263e-01 rel=1.81e-03 referr=0.00e+00 bound=6.25e+00
+    C3 (Lmax=0.05, Smax=1):
+      compared 1752  unresolved 0  excluded 0
+      LOOSE pass over resolved: 1752/1752 = 1.00000
+      abs : median 1.404e-09  p99 1.155e-01  max 6.033e-01
+      rel : median 1.350e-07  p99 4.551e-01  max 6.192e-01  (|ref|>1e-08: n=1096)
+      worst: call S=136.4367899 K=100 vol=0.3011697201 r=0.02094754407 q=0 T=8.206352438 | lambda=0.01761 sigmaRootT=0.8628 a=0.07626  value=3.800969e+02 ref=3.807002e+02 abs=6.033e-01 rel=1.58e-03 referr=0.00e+00 bound=1.90e+01
+      worst: call S=141.8851807 K=100 vol=0.4070224486 r=0.01851737444 q=0 T=4.349951577 | lambda=0.008387 sigmaRootT=0.8489 a=0.07503  value=2.133927e+02 ref=2.138668e+02 abs=4.741e-01 rel=2.22e-03 referr=0.00e+00 bound=1.07e+01
+      worst: call S=53.27209547 K=100 vol=0.1595447566 r=0.00144264867 q=0 T=6.150107648 | lambda=0.001982 sigmaRootT=0.3957 a=0.03497  value=2.306341e+01 ref=2.353509e+01 abs=4.717e-01 rel=2.00e-02 referr=0.00e+00 bound=1.18e+00
+      worst: call S=100.301536 K=100 vol=0.2788670607 r=0.03213759032 q=0 T=6.330216561 | lambda=0.02563 sigmaRootT=0.7016 a=0.06202  value=2.461671e+02 ref=2.465974e+02 abs=4.304e-01 rel=1.75e-03 referr=0.00e+00 bound=1.23e+01
+      worst: call S=29.58716138 K=100 vol=0.2737339961 r=0.04943868858 q=0 T=8.68451273 | lambda=0.04704 sigmaRootT=0.8067 a=0.0713  value=4.690733e+01 ref=4.730101e+01 abs=3.937e-01 rel=8.32e-03 referr=0.00e+00 bound=2.37e+00
+    C4 (Lmax=0.05, Smax=0.5):
+      compared 1643  unresolved 0  excluded 0
+      LOOSE pass over resolved: 1643/1643 = 1.00000
+      abs : median 8.932e-10  p99 4.174e-02  max 4.717e-01
+      rel : median 6.338e-08  p99 4.580e-01  max 6.192e-01  (|ref|>1e-08: n=987)
+      worst: call S=53.27209547 K=100 vol=0.1595447566 r=0.00144264867 q=0 T=6.150107648 | lambda=0.001982 sigmaRootT=0.3957 a=0.03497  value=2.306341e+01 ref=2.353509e+01 abs=4.717e-01 rel=2.00e-02 referr=0.00e+00 bound=1.18e+00
+      worst: call S=90.35786385 K=100 vol=0.1079613964 r=0.01140703354 q=0 T=9.138457565 | lambda=0.02823 sigmaRootT=0.3264 a=0.02885  value=3.608799e+02 ref=3.611579e+02 abs=2.781e-01 rel=7.70e-04 referr=0.00e+00 bound=1.81e+01
+      worst: call S=70.60843972 K=100 vol=0.1180093819 r=0.01791214128 q=0 T=3.323535073 | lambda=0.02446 sigmaRootT=0.2151 a=0.01902  value=2.292639e+01 ref=2.309011e+01 abs=1.637e-01 rel=7.09e-03 referr=0.00e+00 bound=1.15e+00
+      worst: call S=86.82888726 K=100 vol=0.1500519109 r=0.01491643508 q=0 T=3.051401423 | lambda=0.01535 sigmaRootT=0.2621 a=0.02317  value=9.022324e+01 ref=9.034630e+01 abs=1.231e-01 rel=1.36e-03 referr=0.00e+00 bound=4.52e+00
+      worst: call S=133.194653 K=100 vol=0.2583060882 r=0.002244010433 q=0 T=3.286798225 | lambda=0.001392 sigmaRootT=0.4683 a=0.04139  value=2.129595e+02 ref=2.130823e+02 abs=1.228e-01 rel=5.76e-04 referr=0.00e+00 bound=1.07e+01
+
+################ PART 2.2 puts and calls q>0, vs CRR N=4096 central h=1e-4 (reference error: CRR 4096 vs 2048)
+
+  ## vega h=0.05*vol  (LOOSE: max(5e-2*|ref|, 1e-3*K*sqrt(T)))
+    C1 (Lmax=0.1, Smax=1):
+      compared 5000  unresolved 1587  excluded 0
+      LOOSE pass over resolved: 3405/3413 = 0.99766
+      abs : median 0.000e+00  p99 4.676e-01  max 2.408e+00
+      rel : median 3.304e-02  p99 1.032e+00  max 4.153e+00  (|ref|>1e-08: n=1531)
+      worst: put  S=164.2590838 K=100 vol=0.3305296807 r=-0.08528777147 q=0.02143462823 T=5.442070247 | lambda=0.06658 sigmaRootT=0.7711 a=0.06815  value=1.288172e+02 ref=1.312249e+02 abs=2.408e+00 rel=1.83e-02 referr=8.93e-05 bound=6.56e+00
+      worst: put  S=159.4752933 K=100 vol=0.253671452 r=-0.05532246566 q=0.009458860947 T=7.434251558 | lambda=0.06154 sigmaRootT=0.6917 a=0.06113  value=1.560697e+02 ref=1.537244e+02 abs=2.345e+00 rel=1.53e-02 referr=1.35e+00 bound=7.69e+00 UNRESOLVED
+      worst: call S=186.6707846 K=100 vol=0.3563547879 r=0.1650274217 q=0.1369615898 T=5.888099844 | lambda=0.01689 sigmaRootT=0.8647 a=0.07643  value=2.008851e+01 ref=2.183499e+01 abs=1.746e+00 rel=8.00e-02 referr=1.43e+00 bound=1.09e+00 UNRESOLVED
+      worst: put  S=74.0843512 K=100 vol=0.2077560457 r=0.01045787337 q=0.04346812568 T=9.879945016 | lambda=0.04414 sigmaRootT=0.653 a=0.05772  value=5.024807e+01 ref=5.177436e+01 abs=1.526e+00 rel=2.95e-02 referr=2.46e-01 bound=2.59e+00
+      worst: put  S=153.544913 K=100 vol=0.240045938 r=0.09964074328 q=0.1484218045 T=4.74994283 | lambda=0.03915 sigmaRootT=0.5232 a=0.04624  value=5.983943e+01 ref=5.854781e+01 abs=1.292e+00 rel=2.21e-02 referr=4.60e-01 bound=2.93e+00 UNRESOLVED
+    C2 (Lmax=0.1, Smax=0.5):
+      compared 4696  unresolved 1401  excluded 0
+      LOOSE pass over resolved: 3291/3295 = 0.99879
+      abs : median 0.000e+00  p99 3.197e-01  max 1.048e+00
+      rel : median 6.405e-02  p99 1.044e+00  max 4.153e+00  (|ref|>1e-08: n=1266)
+      worst: call S=114.8114416 K=100 vol=0.4635266501 r=0.08469527012 q=0.04306082812 T=0.7563637607 | lambda=0.006905 sigmaRootT=0.4031 a=0.03563  value=3.108514e+01 ref=3.213306e+01 abs=1.048e+00 rel=3.26e-02 referr=3.33e-02 bound=1.61e+00
+      worst: call S=103.5778528 K=100 vol=0.4037073716 r=0.2101266571 q=0.1020145095 T=1.457400595 | lambda=0.02858 sigmaRootT=0.4874 a=0.04308  value=3.734478e+01 ref=3.640959e+01 abs=9.352e-01 rel=2.57e-02 referr=3.18e-02 bound=1.82e+00
+      worst: put  S=83.89405071 K=100 vol=0.304121501 r=0.08497782216 q=0.1733443527 T=1.046138666 | lambda=0.02627 sigmaRootT=0.3111 a=0.02749  value=2.333582e+01 ref=2.245011e+01 abs=8.857e-01 rel=3.95e-02 referr=3.24e-01 bound=1.12e+00 UNRESOLVED
+      worst: put  S=146.3498977 K=100 vol=0.8503284158 r=0.1524314484 q=0.2868610831 T=0.2634025902 | lambda=0.007172 sigmaRootT=0.4364 a=0.03857  value=1.613541e+01 ref=1.689906e+01 abs=7.636e-01 rel=4.52e-02 referr=3.43e-02 bound=8.45e-01
+      worst: call S=98.40391246 K=100 vol=0.2255661378 r=0.2850489787 q=0.1947375447 T=2.174282682 | lambda=0.05218 sigmaRootT=0.3326 a=0.0294  value=3.455054e+01 ref=3.530348e+01 abs=7.529e-01 rel=2.13e-02 referr=3.18e-02 bound=1.77e+00
+    C3 (Lmax=0.05, Smax=1):
+      compared 4326  unresolved 1398  excluded 0
+      LOOSE pass over resolved: 2920/2928 = 0.99727
+      abs : median 0.000e+00  p99 4.617e-01  max 1.746e+00
+      rel : median 3.115e-02  p99 1.021e+00  max 4.153e+00  (|ref|>1e-08: n=1342)
+      worst: call S=186.6707846 K=100 vol=0.3563547879 r=0.1650274217 q=0.1369615898 T=5.888099844 | lambda=0.01689 sigmaRootT=0.8647 a=0.07643  value=2.008851e+01 ref=2.183499e+01 abs=1.746e+00 rel=8.00e-02 referr=1.43e+00 bound=1.09e+00 UNRESOLVED
+      worst: put  S=74.0843512 K=100 vol=0.2077560457 r=0.01045787337 q=0.04346812568 T=9.879945016 | lambda=0.04414 sigmaRootT=0.653 a=0.05772  value=5.024807e+01 ref=5.177436e+01 abs=1.526e+00 rel=2.95e-02 referr=2.46e-01 bound=2.59e+00
+      worst: put  S=153.544913 K=100 vol=0.240045938 r=0.09964074328 q=0.1484218045 T=4.74994283 | lambda=0.03915 sigmaRootT=0.5232 a=0.04624  value=5.983943e+01 ref=5.854781e+01 abs=1.292e+00 rel=2.21e-02 referr=4.60e-01 bound=2.93e+00 UNRESOLVED
+      worst: call S=99.34118875 K=100 vol=0.3015580172 r=0.007644233608 q=0.0102513179 T=3.84454399 | lambda=0.001498 sigmaRootT=0.5913 a=0.05226  value=7.151853e+01 ref=7.264821e+01 abs=1.130e+00 rel=1.55e-02 referr=4.24e-03 bound=3.63e+00
+      worst: call S=132.3103976 K=100 vol=0.5354926167 r=0.1185936933 q=0.05125776059 T=0.9877671804 | lambda=0.01105 sigmaRootT=0.5322 a=0.04704  value=3.252944e+01 ref=3.362359e+01 abs=1.094e+00 rel=3.25e-02 referr=1.27e-01 bound=1.68e+00
+    C4 (Lmax=0.05, Smax=0.5):
+      compared 4060  unresolved 1232  excluded 0
+      LOOSE pass over resolved: 2824/2828 = 0.99859
+      abs : median 0.000e+00  p99 3.232e-01  max 1.048e+00
+      rel : median 5.021e-02  p99 1.025e+00  max 4.153e+00  (|ref|>1e-08: n=1104)
+      worst: call S=114.8114416 K=100 vol=0.4635266501 r=0.08469527012 q=0.04306082812 T=0.7563637607 | lambda=0.006905 sigmaRootT=0.4031 a=0.03563  value=3.108514e+01 ref=3.213306e+01 abs=1.048e+00 rel=3.26e-02 referr=3.33e-02 bound=1.61e+00
+      worst: call S=103.5778528 K=100 vol=0.4037073716 r=0.2101266571 q=0.1020145095 T=1.457400595 | lambda=0.02858 sigmaRootT=0.4874 a=0.04308  value=3.734478e+01 ref=3.640959e+01 abs=9.352e-01 rel=2.57e-02 referr=3.18e-02 bound=1.82e+00
+      worst: put  S=83.89405071 K=100 vol=0.304121501 r=0.08497782216 q=0.1733443527 T=1.046138666 | lambda=0.02627 sigmaRootT=0.3111 a=0.02749  value=2.333582e+01 ref=2.245011e+01 abs=8.857e-01 rel=3.95e-02 referr=3.24e-01 bound=1.12e+00 UNRESOLVED
+      worst: put  S=146.3498977 K=100 vol=0.8503284158 r=0.1524314484 q=0.2868610831 T=0.2634025902 | lambda=0.007172 sigmaRootT=0.4364 a=0.03857  value=1.613541e+01 ref=1.689906e+01 abs=7.636e-01 rel=4.52e-02 referr=3.43e-02 bound=8.45e-01
+      worst: call S=71.04440225 K=100 vol=0.2053804492 r=0.05816060953 q=0.02190422005 T=3.106935704 | lambda=0.0275 sigmaRootT=0.362 a=0.032  value=4.253702e+01 ref=4.179061e+01 abs=7.464e-01 rel=1.79e-02 referr=1.20e-01 bound=2.09e+00
+
+  ## vega h=0.10*vol  (LOOSE: max(5e-2*|ref|, 1e-3*K*sqrt(T)))
+    C1 (Lmax=0.1, Smax=1):
+      compared 5000  unresolved 1558  excluded 0
+      LOOSE pass over resolved: 3415/3442 = 0.99216
+      abs : median 0.000e+00  p99 3.532e-01  max 2.493e+00
+      rel : median 4.247e-02  p99 1.203e+00  max 8.752e+00  (|ref|>1e-08: n=1531)
+      worst: put  S=164.2590838 K=100 vol=0.3305296807 r=-0.08528777147 q=0.02143462823 T=5.442070247 | lambda=0.06658 sigmaRootT=0.7711 a=0.06815  value=1.287319e+02 ref=1.312249e+02 abs=2.493e+00 rel=1.90e-02 referr=8.93e-05 bound=6.56e+00
+      worst: call S=197.5472927 K=100 vol=0.6247219534 r=0.03681313763 q=0.1516735143 T=0.989560492 | lambda=0.01617 sigmaRootT=0.6215 a=0.05493  value=1.775274e+00 ref=0.000000e+00 abs=1.775e+00 rel=n/a referr=0.00e+00 bound=9.95e-02
+      worst: call S=252.5604334 K=100 vol=0.6564913096 r=0.02661658651 q=0.00293121568 T=2.267888835 | lambda=0.004802 sigmaRootT=0.9886 a=0.08738  value=4.918179e+01 ref=5.093461e+01 abs=1.753e+00 rel=3.44e-02 referr=1.33e+00 bound=2.55e+00 UNRESOLVED
+      worst: put  S=64.41074333 K=100 vol=0.3583766742 r=0.09413855432 q=0.02370524765 T=1.732501778 | lambda=0.02286 sigmaRootT=0.4717 a=0.04169  value=3.121397e+00 ref=1.549456e+00 abs=1.572e+00 rel=1.01e+00 referr=5.25e-01 bound=1.32e-01 UNRESOLVED
+      worst: put  S=60.82522517 K=100 vol=0.5096603903 r=0.2554790839 q=0.190050765 T=0.8829701637 | lambda=0.01066 sigmaRootT=0.4789 a=0.04233  value=1.394999e+00 ref=0.000000e+00 abs=1.395e+00 rel=n/a referr=0.00e+00 bound=9.40e-02
+    C2 (Lmax=0.1, Smax=0.5):
+      compared 4696  unresolved 1365  excluded 0
+      LOOSE pass over resolved: 3314/3331 = 0.99490
+      abs : median 0.000e+00  p99 2.165e-01  max 1.572e+00
+      rel : median 1.819e-01  p99 1.222e+00  max 8.752e+00  (|ref|>1e-08: n=1266)
+      worst: put  S=64.41074333 K=100 vol=0.3583766742 r=0.09413855432 q=0.02370524765 T=1.732501778 | lambda=0.02286 sigmaRootT=0.4717 a=0.04169  value=3.121397e+00 ref=1.549456e+00 abs=1.572e+00 rel=1.01e+00 referr=5.25e-01 bound=1.32e-01 UNRESOLVED
+      worst: put  S=60.82522517 K=100 vol=0.5096603903 r=0.2554790839 q=0.190050765 T=0.8829701637 | lambda=0.01066 sigmaRootT=0.4789 a=0.04233  value=1.394999e+00 ref=0.000000e+00 abs=1.395e+00 rel=n/a referr=0.00e+00 bound=9.40e-02
+      worst: call S=71.04440225 K=100 vol=0.2053804492 r=0.05816060953 q=0.02190422005 T=3.106935704 | lambda=0.0275 sigmaRootT=0.362 a=0.032  value=4.253160e+01 ref=4.179061e+01 abs=7.410e-01 rel=1.77e-02 referr=1.20e-01 bound=2.09e+00
+      worst: put  S=152.6694485 K=100 vol=0.2577083785 r=0.1262105393 q=0.08848080836 T=2.707734823 | lambda=0.02129 sigmaRootT=0.4241 a=0.03748  value=3.045171e+01 ref=3.115224e+01 abs=7.005e-01 rel=2.25e-02 referr=2.20e-01 bound=1.56e+00
+      worst: put  S=76.06813777 K=100 vol=0.4258727023 r=-0.07984967674 q=0.03811992192 T=1.334197134 | lambda=0.02828 sigmaRootT=0.4919 a=0.04348  value=2.683671e+01 ref=2.745721e+01 abs=6.205e-01 rel=2.26e-02 referr=8.19e-02 bound=1.37e+00
+    C3 (Lmax=0.05, Smax=1):
+      compared 4326  unresolved 1383  excluded 0
+      LOOSE pass over resolved: 2916/2943 = 0.99083
+      abs : median 0.000e+00  p99 3.462e-01  max 1.775e+00
+      rel : median 3.589e-02  p99 1.202e+00  max 8.752e+00  (|ref|>1e-08: n=1342)
+      worst: call S=197.5472927 K=100 vol=0.6247219534 r=0.03681313763 q=0.1516735143 T=0.989560492 | lambda=0.01617 sigmaRootT=0.6215 a=0.05493  value=1.775274e+00 ref=0.000000e+00 abs=1.775e+00 rel=n/a referr=0.00e+00 bound=9.95e-02
+      worst: call S=252.5604334 K=100 vol=0.6564913096 r=0.02661658651 q=0.00293121568 T=2.267888835 | lambda=0.004802 sigmaRootT=0.9886 a=0.08738  value=4.918179e+01 ref=5.093461e+01 abs=1.753e+00 rel=3.44e-02 referr=1.33e+00 bound=2.55e+00 UNRESOLVED
+      worst: put  S=64.41074333 K=100 vol=0.3583766742 r=0.09413855432 q=0.02370524765 T=1.732501778 | lambda=0.02286 sigmaRootT=0.4717 a=0.04169  value=3.121397e+00 ref=1.549456e+00 abs=1.572e+00 rel=1.01e+00 referr=5.25e-01 bound=1.32e-01 UNRESOLVED
+      worst: put  S=60.82522517 K=100 vol=0.5096603903 r=0.2554790839 q=0.190050765 T=0.8829701637 | lambda=0.01066 sigmaRootT=0.4789 a=0.04233  value=1.394999e+00 ref=0.000000e+00 abs=1.395e+00 rel=n/a referr=0.00e+00 bound=9.40e-02
+      worst: call S=198.6116004 K=100 vol=0.4258580838 r=0.1377148381 q=0.1293574264 T=2.813028835 | lambda=0.002909 sigmaRootT=0.7143 a=0.06313  value=1.062016e+01 ref=1.194032e+01 abs=1.320e+00 rel=1.11e-01 referr=1.02e+00 bound=5.97e-01 UNRESOLVED
+    C4 (Lmax=0.05, Smax=0.5):
+      compared 4060  unresolved 1206  excluded 0
+      LOOSE pass over resolved: 2837/2854 = 0.99404
+      abs : median 0.000e+00  p99 2.107e-01  max 1.572e+00
+      rel : median 1.119e-01  p99 1.219e+00  max 8.752e+00  (|ref|>1e-08: n=1104)
+      worst: put  S=64.41074333 K=100 vol=0.3583766742 r=0.09413855432 q=0.02370524765 T=1.732501778 | lambda=0.02286 sigmaRootT=0.4717 a=0.04169  value=3.121397e+00 ref=1.549456e+00 abs=1.572e+00 rel=1.01e+00 referr=5.25e-01 bound=1.32e-01 UNRESOLVED
+      worst: put  S=60.82522517 K=100 vol=0.5096603903 r=0.2554790839 q=0.190050765 T=0.8829701637 | lambda=0.01066 sigmaRootT=0.4789 a=0.04233  value=1.394999e+00 ref=0.000000e+00 abs=1.395e+00 rel=n/a referr=0.00e+00 bound=9.40e-02
+      worst: call S=71.04440225 K=100 vol=0.2053804492 r=0.05816060953 q=0.02190422005 T=3.106935704 | lambda=0.0275 sigmaRootT=0.362 a=0.032  value=4.253160e+01 ref=4.179061e+01 abs=7.410e-01 rel=1.77e-02 referr=1.20e-01 bound=2.09e+00
+      worst: put  S=152.6694485 K=100 vol=0.2577083785 r=0.1262105393 q=0.08848080836 T=2.707734823 | lambda=0.02129 sigmaRootT=0.4241 a=0.03748  value=3.045171e+01 ref=3.115224e+01 abs=7.005e-01 rel=2.25e-02 referr=2.20e-01 bound=1.56e+00
+      worst: put  S=76.06813777 K=100 vol=0.4258727023 r=-0.07984967674 q=0.03811992192 T=1.334197134 | lambda=0.02828 sigmaRootT=0.4919 a=0.04348  value=2.683671e+01 ref=2.745721e+01 abs=6.205e-01 rel=2.26e-02 referr=8.19e-02 bound=1.37e+00
+
+  ## rho Method B  (LOOSE: max(5e-2*|ref|, 1e-3*K*T))
+    C1 (Lmax=0.1, Smax=1):
+      compared 5000  unresolved 912  excluded 0
+      LOOSE pass over resolved: 4072/4088 = 0.99609
+      abs : median 0.000e+00  p99 2.007e-01  max 4.266e+00
+      rel : median 7.619e-04  p99 5.860e-01  max 1.000e+00  (|ref|>1e-08: n=1569)
+      worst: call S=186.6707846 K=100 vol=0.3563547879 r=0.1650274217 q=0.1369615898 T=5.888099844 | lambda=0.01689 sigmaRootT=0.8647 a=0.07643  value=2.938995e+01 ref=3.365619e+01 abs=4.266e+00 rel=1.27e-01 referr=2.63e+00 bound=1.68e+00 UNRESOLVED
+      worst: put  S=64.41074333 K=100 vol=0.3583766742 r=0.09413855432 q=0.02370524765 T=1.732501778 | lambda=0.02286 sigmaRootT=0.4717 a=0.04169  value=0.000000e+00 ref=-2.443972e+00 abs=2.444e+00 rel=1.00e+00 referr=8.79e-01 bound=1.73e-01 UNRESOLVED
+      worst: call S=249.0775598 K=100 vol=0.9195252093 r=-0.01402160985 q=0.1457452131 T=1.151198318 | lambda=0.01648 sigmaRootT=0.9866 a=0.0872  value=1.493328e+01 ref=1.274237e+01 abs=2.191e+00 rel=1.72e-01 referr=3.47e-01 bound=6.37e-01
+      worst: call S=96.49287223 K=100 vol=0.1562633109 r=0.2637826795 q=0.2564303123 T=8.777153714 | lambda=0.01232 sigmaRootT=0.4629 a=0.04092  value=6.563984e+01 ref=6.363032e+01 abs=2.010e+00 rel=3.16e-02 referr=7.92e-02 bound=3.18e+00
+      worst: put  S=90.46664025 K=100 vol=0.2399808517 r=0.1947508329 q=0.2080690761 T=7.668034391 | lambda=0.01358 sigmaRootT=0.6645 a=0.05874  value=-1.022913e+02 ref=-1.003108e+02 abs=1.981e+00 rel=1.97e-02 referr=1.29e+00 bound=5.02e+00 UNRESOLVED
+    C2 (Lmax=0.1, Smax=0.5):
+      compared 4696  unresolved 899  excluded 0
+      LOOSE pass over resolved: 3790/3797 = 0.99816
+      abs : median 0.000e+00  p99 6.506e-02  max 2.444e+00
+      rel : median 2.378e-04  p99 5.863e-01  max 1.000e+00  (|ref|>1e-08: n=1304)
+      worst: put  S=64.41074333 K=100 vol=0.3583766742 r=0.09413855432 q=0.02370524765 T=1.732501778 | lambda=0.02286 sigmaRootT=0.4717 a=0.04169  value=0.000000e+00 ref=-2.443972e+00 abs=2.444e+00 rel=1.00e+00 referr=8.79e-01 bound=1.73e-01 UNRESOLVED
+      worst: call S=96.49287223 K=100 vol=0.1562633109 r=0.2637826795 q=0.2564303123 T=8.777153714 | lambda=0.01232 sigmaRootT=0.4629 a=0.04092  value=6.563984e+01 ref=6.363032e+01 abs=2.010e+00 rel=3.16e-02 referr=7.92e-02 bound=3.18e+00
+      worst: call S=112.6641467 K=100 vol=0.2399523035 r=0.1732718839 q=0.2128686469 T=2.949300539 | lambda=0.02505 sigmaRootT=0.4121 a=0.03642  value=4.422984e+01 ref=4.306637e+01 abs=1.163e+00 rel=2.70e-02 referr=7.52e-02 bound=2.15e+00
+      worst: put  S=64.49231423 K=100 vol=0.2129999886 r=0.01138012591 q=0.01940366285 T=5.167434149 | lambda=0.007569 sigmaRootT=0.4842 a=0.0428  value=-2.989639e+02 ref=-2.997501e+02 abs=7.862e-01 rel=2.62e-03 referr=1.80e-02 bound=1.50e+01
+      worst: call S=202.9828729 K=100 vol=0.659111585 r=0.1972524005 q=0.1461758632 T=0.3086004695 | lambda=0.003805 sigmaRootT=0.3661 a=0.03236  value=2.183533e+00 ref=1.547370e+00 abs=6.362e-01 rel=4.11e-01 referr=6.44e-02 bound=7.74e-02
+    C3 (Lmax=0.05, Smax=1):
+      compared 4326  unresolved 771  excluded 0
+      LOOSE pass over resolved: 3539/3555 = 0.99550
+      abs : median 0.000e+00  p99 1.983e-01  max 4.266e+00
+      rel : median 9.233e-04  p99 5.828e-01  max 1.000e+00  (|ref|>1e-08: n=1371)
+      worst: call S=186.6707846 K=100 vol=0.3563547879 r=0.1650274217 q=0.1369615898 T=5.888099844 | lambda=0.01689 sigmaRootT=0.8647 a=0.07643  value=2.938995e+01 ref=3.365619e+01 abs=4.266e+00 rel=1.27e-01 referr=2.63e+00 bound=1.68e+00 UNRESOLVED
+      worst: put  S=64.41074333 K=100 vol=0.3583766742 r=0.09413855432 q=0.02370524765 T=1.732501778 | lambda=0.02286 sigmaRootT=0.4717 a=0.04169  value=0.000000e+00 ref=-2.443972e+00 abs=2.444e+00 rel=1.00e+00 referr=8.79e-01 bound=1.73e-01 UNRESOLVED
+      worst: call S=249.0775598 K=100 vol=0.9195252093 r=-0.01402160985 q=0.1457452131 T=1.151198318 | lambda=0.01648 sigmaRootT=0.9866 a=0.0872  value=1.493328e+01 ref=1.274237e+01 abs=2.191e+00 rel=1.72e-01 referr=3.47e-01 bound=6.37e-01
+      worst: call S=96.49287223 K=100 vol=0.1562633109 r=0.2637826795 q=0.2564303123 T=8.777153714 | lambda=0.01232 sigmaRootT=0.4629 a=0.04092  value=6.563984e+01 ref=6.363032e+01 abs=2.010e+00 rel=3.16e-02 referr=7.92e-02 bound=3.18e+00
+      worst: put  S=90.46664025 K=100 vol=0.2399808517 r=0.1947508329 q=0.2080690761 T=7.668034391 | lambda=0.01358 sigmaRootT=0.6645 a=0.05874  value=-1.022913e+02 ref=-1.003108e+02 abs=1.981e+00 rel=1.97e-02 referr=1.29e+00 bound=5.02e+00 UNRESOLVED
+    C4 (Lmax=0.05, Smax=0.5):
+      compared 4060  unresolved 761  excluded 0
+      LOOSE pass over resolved: 3292/3299 = 0.99788
+      abs : median 0.000e+00  p99 5.685e-02  max 2.444e+00
+      rel : median 3.227e-04  p99 5.845e-01  max 1.000e+00  (|ref|>1e-08: n=1133)
+      worst: put  S=64.41074333 K=100 vol=0.3583766742 r=0.09413855432 q=0.02370524765 T=1.732501778 | lambda=0.02286 sigmaRootT=0.4717 a=0.04169  value=0.000000e+00 ref=-2.443972e+00 abs=2.444e+00 rel=1.00e+00 referr=8.79e-01 bound=1.73e-01 UNRESOLVED
+      worst: call S=96.49287223 K=100 vol=0.1562633109 r=0.2637826795 q=0.2564303123 T=8.777153714 | lambda=0.01232 sigmaRootT=0.4629 a=0.04092  value=6.563984e+01 ref=6.363032e+01 abs=2.010e+00 rel=3.16e-02 referr=7.92e-02 bound=3.18e+00
+      worst: call S=112.6641467 K=100 vol=0.2399523035 r=0.1732718839 q=0.2128686469 T=2.949300539 | lambda=0.02505 sigmaRootT=0.4121 a=0.03642  value=4.422984e+01 ref=4.306637e+01 abs=1.163e+00 rel=2.70e-02 referr=7.52e-02 bound=2.15e+00
+      worst: put  S=64.49231423 K=100 vol=0.2129999886 r=0.01138012591 q=0.01940366285 T=5.167434149 | lambda=0.007569 sigmaRootT=0.4842 a=0.0428  value=-2.989639e+02 ref=-2.997501e+02 abs=7.862e-01 rel=2.62e-03 referr=1.80e-02 bound=1.50e+01
+      worst: call S=202.9828729 K=100 vol=0.659111585 r=0.1972524005 q=0.1461758632 T=0.3086004695 | lambda=0.003805 sigmaRootT=0.3661 a=0.03236  value=2.183533e+00 ref=1.547370e+00 abs=6.362e-01 rel=4.11e-01 referr=6.44e-02 bound=7.74e-02
+
+################ PART 2.3 kink probe: r=0, q=0, inside C1; Method B fixed grid at base r=0, h=1e-4
+  all   n=300: |up-down|/max(|central|,1e-8): median 1.086e-01  p99 2.000e+00  max 2.000e+00
+  calls n=150: |up-down|/max(|central|,1e-8): median 3.698e-02  p99 2.000e+00  max 2.000e+00
+  puts  n=150: |up-down|/max(|central|,1e-8): median 2.499e-01  p99 2.000e+00  max 2.000e+00
+  5 largest |up - down| (absolute):
+    call S=108.2388739 K=100 vol=0.0003926860703 r=0 q=0 T=7.918075455 | lambda=0 sigmaRootT=0.001105 a=9.767e-05  central=3.957471e+02 up=7.914941e+02 down=1.776357e-10 |up-down|=7.915e+02
+    put  S=87.41900581 K=100 vol=0.0007906335352 r=0 q=0 T=7.754242351 | lambda=0 sigmaRootT=0.002202 a=0.0001946  central=-3.878625e+02 up=-1.598721e-10 down=-7.757250e+02 |up-down|=7.757e+02
+    put  S=35.83058031 K=100 vol=0.004364772597 r=0 q=0 T=6.960324393 | lambda=0 sigmaRootT=0.01152 a=0.001018  central=-3.481374e+02 up=-1.421085e-10 down=-6.962747e+02 |up-down|=6.963e+02
+    put  S=35.12631618 K=100 vol=0.106295303 r=0 q=0 T=6.737116112 | lambda=0 sigmaRootT=0.2759 a=0.02439  central=-3.381439e+02 up=-2.372870e+00 down=-6.739150e+02 |up-down|=6.715e+02
+    call S=125.4711517 K=100 vol=0.006861622883 r=0 q=0 T=5.763958523 | lambda=0 sigmaRootT=0.01647 a=0.001456  central=2.881149e+02 up=5.762298e+02 down=2.131628e-10 |up-down|=5.762e+02
+
+shard p2 wall time: 87.9 s

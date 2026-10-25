@@ -48,6 +48,22 @@ class EuropeanOption:
 
 
 @dataclass(frozen=True)
+class AmericanOption:
+    """A vanilla American option, pricing-scoped (see module docstring).
+    Exercisable at any time up to and including expiry (ADR-0031)."""
+
+    underlying_id: str
+    strike: Decimal
+    expiry: datetime
+    right: OptionRight
+
+    def __post_init__(self) -> None:
+        if self.strike <= 0:
+            raise ValueError(f"strike must be positive, got {self.strike}")
+        _require_aware(self.expiry, "expiry")
+
+
+@dataclass(frozen=True)
 class MarketState:
     """The market inputs a pricer needs, as of one instant.
 
@@ -92,7 +108,7 @@ class PricingResult:
     pricer_version: str
 
 
-def validate_option_against_market(option: EuropeanOption, market: MarketState) -> None:
+def validate_option_against_market(option: EuropeanOption | AmericanOption, market: MarketState) -> None:
     """Cross-object validation that neither type alone can perform."""
     if option.expiry < market.valuation_time:
         raise ValueError(

@@ -1,0 +1,208 @@
+shard=p23 python=3.12.13 numpy=2.5.2 cores=8 SEED=12345
+## 2.0 Method B probability, over the 1296-point grid (independent of S/K)
+  max |p' - 0.5| at r'=r: 5.122e-10
+  p' at r +/- 1e-4: min 0.360246  max 0.639755  outside (0,1): 0 of 2592
+
+PARTS 2/3 cases: calls (q=0, r>=0) 648, puts 3888; S/K in [0.8, 1.0, 1.25]
+  puts excluded from CRR rho reference: 564 {'CRR p outside (0,1) at a bumped input': 564}
+  puts excluded from CRR vega reference: 696 {'vol-1e-4 <= 0': 432, 'CRR p outside (0,1) at a bumped input': 264}
+
+## 2.1 rho, calls q=0 r>=0, vs mpmath closed form
+    Method A (rebuild grid): compared 648
+      abs : median 4.680e-03  p99 1.221e+02  max 5.002e+02
+      rel : median 2.671e-02  p99 5.421e+00  max 8.781e+00  (|ref| > 1e-08; 87 excluded)
+      TIGHT: 399/648 = 0.6157 of resolved (0 unresolved)
+      LOOSE: 470/648 = 0.7253 of resolved (0 unresolved)
+  max rel error, sigmaRootT x lambda
+                         [0,0.1)      [0.1,0.25)      [0.25,0.5)         [0.5,1)         [1,inf)
+        [0,0.05)        5.00e-01        9.77e-03        3.38e-04        9.26e-03        1.67e-07
+      [0.05,0.2)        5.00e-01        2.15e-01        9.69e-04        1.14e-03        1.67e-07
+       [0.2,0.5)        1.32e-01        1.26e-02        7.98e-04               -               -
+         [0.5,1)        1.28e-01        1.88e-02        9.92e-06               -               -
+           [1,2)        1.13e-01        1.64e-02               -               -               -
+         [2,inf)        8.78e+00               -               -               -               -
+      worst: call S=125 K=100 vol=0.001 r=0 q=0 T=10  sigmaRootT=0.003162 lambda=0  value=4.997501e+02 ref=1.000000e+03 abs=5.002e+02 referr=0.00e+00
+      worst: call S=125 K=100 vol=0.01 r=0 q=0 T=10  sigmaRootT=0.03162 lambda=0  value=4.997501e+02 ref=1.000000e+03 abs=5.002e+02 referr=0.00e+00
+      worst: call S=125 K=100 vol=0.0001 r=0 q=0 T=10  sigmaRootT=0.0003162 lambda=0  value=4.997501e+02 ref=1.000000e+03 abs=5.002e+02 referr=0.00e+00
+      worst: call S=125 K=100 vol=0.001 r=0 q=0 T=5  sigmaRootT=0.002236 lambda=0  value=2.499375e+02 ref=5.000000e+02 abs=2.501e+02 referr=0.00e+00
+      worst: call S=125 K=100 vol=0.0001 r=0 q=0 T=5  sigmaRootT=0.0002236 lambda=0  value=2.499375e+02 ref=5.000000e+02 abs=2.501e+02 referr=0.00e+00
+    Method B (fixed grid): compared 648
+      abs : median 3.604e-04  p99 1.203e+02  max 5.002e+02
+      rel : median 7.930e-04  p99 5.156e+00  max 5.652e+00  (|ref| > 1e-08; 87 excluded)
+      TIGHT: 532/648 = 0.8210 of resolved (0 unresolved)
+      LOOSE: 594/648 = 0.9167 of resolved (0 unresolved)
+  max rel error, sigmaRootT x lambda
+                         [0,0.1)      [0.1,0.25)      [0.25,0.5)         [0.5,1)         [1,inf)
+        [0,0.05)        5.00e-01        7.48e-04        1.13e-04        2.46e-04        1.90e-07
+      [0.05,0.2)        5.00e-01        4.43e-02        1.78e-04        1.50e-04        1.67e-07
+       [0.2,0.5)        7.75e-02        7.23e-04        1.89e-04               -               -
+         [0.5,1)        4.48e-02        4.49e-04        5.25e-06               -               -
+           [1,2)        3.27e-02        1.31e-03               -               -               -
+         [2,inf)        5.65e+00               -               -               -               -
+      worst: call S=125 K=100 vol=0.0001 r=0 q=0 T=10  sigmaRootT=0.0003162 lambda=0  value=4.997501e+02 ref=1.000000e+03 abs=5.002e+02 referr=0.00e+00
+      worst: call S=125 K=100 vol=0.001 r=0 q=0 T=10  sigmaRootT=0.003162 lambda=0  value=4.997501e+02 ref=1.000000e+03 abs=5.002e+02 referr=0.00e+00
+      worst: call S=125 K=100 vol=0.01 r=0 q=0 T=10  sigmaRootT=0.03162 lambda=0  value=4.997501e+02 ref=1.000000e+03 abs=5.002e+02 referr=0.00e+00
+      worst: call S=125 K=100 vol=0.0001 r=0 q=0 T=5  sigmaRootT=0.0002236 lambda=0  value=2.499375e+02 ref=5.000000e+02 abs=2.501e+02 referr=0.00e+00
+      worst: call S=125 K=100 vol=0.001 r=0 q=0 T=5  sigmaRootT=0.002236 lambda=0  value=2.499375e+02 ref=5.000000e+02 abs=2.501e+02 referr=0.00e+00
+
+## 2.2 rho, puts, vs CRR N=4096 (h=1e-4), CRR-valid only
+    Method A (rebuild grid): compared 3324
+      abs : median 9.491e-03  p99 1.186e+01  max 3.008e+01
+      rel : median 1.106e-02  p99 1.000e+00  max 1.482e+00  (|ref| > 1e-08; 701 excluded)
+      TIGHT: 1756/2626 = 0.6687 of resolved (698 unresolved)
+      LOOSE: 2298/2626 = 0.8751 of resolved (698 unresolved)
+  max rel error, sigmaRootT x lambda
+                         [0,0.1)      [0.1,0.25)      [0.25,0.5)         [0.5,1)         [1,inf)
+        [0,0.05)        8.47e-02        2.84e-02        2.88e-01        1.48e+00        1.00e+00
+      [0.05,0.2)        4.78e-01        2.14e-01        8.53e-01        1.47e+00        1.00e+00
+       [0.2,0.5)        4.21e-01        5.84e-02        9.41e-02               -               -
+         [0.5,1)        7.07e-01        3.75e-02        1.91e-01        2.03e-10               -
+           [1,2)        1.01e-01        2.25e-01               -               -               -
+         [2,inf)        1.14e-01        7.49e-04               -               -               -
+      worst: put  S=100 K=100 vol=0.5 r=-0.1 q=0 T=10  sigmaRootT=1.581 lambda=0.0559  value=-2.538026e+03 ref=-2.507947e+03 abs=3.008e+01 referr=3.65e-02
+      worst: put  S=125 K=100 vol=0.5 r=-0.1 q=0.05 T=10  sigmaRootT=1.581 lambda=0.08385  value=-2.592303e+03 ref=-2.568719e+03 abs=2.358e+01 referr=3.58e-02
+      worst: put  S=125 K=100 vol=0.2 r=0 q=0 T=10  sigmaRootT=0.6325 lambda=0  value=-4.464234e+02 ref=-4.694402e+02 abs=2.302e+01 referr=2.34e-01
+      worst: put  S=100 K=100 vol=0.2 r=0 q=0 T=10  sigmaRootT=0.6325 lambda=0  value=-5.736062e+02 ref=-5.963365e+02 abs=2.273e+01 referr=1.81e-01
+      worst: put  S=80 K=100 vol=0.5 r=-0.05 q=0 T=10  sigmaRootT=1.581 lambda=0.02795  value=-1.496476e+03 ref=-1.473903e+03 abs=2.257e+01 referr=1.52e-02
+    Method B (fixed grid): compared 3324
+      abs : median 7.556e-04  p99 7.444e+00  max 1.313e+01
+      rel : median 8.224e-04  p99 7.262e-01  max 1.000e+00  (|ref| > 1e-08; 701 excluded)
+      TIGHT: 2347/2485 = 0.9445 of resolved (839 unresolved)
+      LOOSE: 2430/2485 = 0.9779 of resolved (839 unresolved)
+  max rel error, sigmaRootT x lambda
+                         [0,0.1)      [0.1,0.25)      [0.25,0.5)         [0.5,1)         [1,inf)
+        [0,0.05)        7.00e-02        4.73e-02        1.27e-01        9.68e-01        1.00e+00
+      [0.05,0.2)        4.75e-01        2.65e-01        8.83e-01        9.94e-01        1.00e+00
+       [0.2,0.5)        4.18e-01        1.25e-01        1.80e-01               -               -
+         [0.5,1)        7.08e-01        2.13e-02        3.60e-01        2.09e-10               -
+           [1,2)        9.70e-02        2.44e-01               -               -               -
+         [2,inf)        1.36e-01        3.87e-05               -               -               -
+      worst: put  S=125 K=100 vol=3 r=0 q=0 T=10  sigmaRootT=9.487 lambda=0  value=-6.461150e+02 ref=-6.329827e+02 abs=1.313e+01 referr=2.19e-01
+      worst: put  S=125 K=100 vol=3 r=0 q=0.05 T=10  sigmaRootT=9.487 lambda=0.004658  value=-6.446763e+02 ref=-6.316701e+02 abs=1.301e+01 referr=2.28e-01
+      worst: put  S=100 K=100 vol=3 r=0 q=0 T=10  sigmaRootT=9.487 lambda=0  value=-6.434267e+02 ref=-6.305079e+02 abs=1.292e+01 referr=2.10e-01
+      worst: put  S=125 K=100 vol=3 r=0 q=0.1 T=10  sigmaRootT=9.487 lambda=0.009317  value=-6.431878e+02 ref=-6.303808e+02 abs=1.281e+01 referr=2.37e-01
+      worst: put  S=100 K=100 vol=3 r=0 q=0.05 T=10  sigmaRootT=9.487 lambda=0.004658  value=-6.419867e+02 ref=-6.292302e+02 abs=1.276e+01 referr=2.08e-01
+
+## 3 vega, central difference in vol
+
+## 3.1 calls q=0 r>=0 vs mpmath closed form
+  bump h=1e-4: excluded because vol-h < 0: 0
+    vega h=1e-4: compared 648
+      abs : median 1.562e-03  p99 3.818e+00  max 6.294e+00
+      rel : median 3.153e-02  p99 4.840e+00  max 1.296e+03  (|ref| > 1e-08; 263 excluded)
+      TIGHT: 494/648 = 0.7623 of resolved (0 unresolved)
+      LOOSE: 557/648 = 0.8596 of resolved (0 unresolved)
+  max rel error, sigmaRootT x lambda
+                         [0,0.1)      [0.1,0.25)      [0.25,0.5)         [0.5,1)         [1,inf)
+        [0,0.05)        2.95e-02        8.54e-02        1.30e+03        5.07e-02               -
+      [0.05,0.2)        4.72e-01        6.34e-01        7.32e-01        7.93e-01               -
+       [0.2,0.5)        1.29e-01        1.45e-01        1.98e-01               -               -
+         [0.5,1)        7.20e-02        1.35e-01        5.67e-01               -               -
+           [1,2)        1.11e-01        2.05e-01               -               -               -
+         [2,inf)        6.36e+00               -               -               -               -
+      worst: call S=125 K=100 vol=0.5 r=0.05 q=0 T=10  sigmaRootT=1.581 lambda=0.02795  value=6.609141e+01 ref=7.238569e+01 abs=6.294e+00 referr=0.00e+00
+      worst: call S=125 K=100 vol=0.5 r=0.1 q=0 T=10  sigmaRootT=1.581 lambda=0.0559  value=5.156189e+01 ref=4.640373e+01 abs=5.158e+00 referr=0.00e+00
+      worst: call S=125 K=100 vol=0.5 r=0 q=0 T=5  sigmaRootT=1.118 lambda=0  value=8.855411e+01 ref=8.362606e+01 abs=4.928e+00 referr=0.00e+00
+      worst: call S=100 K=100 vol=0.5 r=0.1 q=0 T=10  sigmaRootT=1.581 lambda=0.0559  value=4.124951e+01 ref=4.583391e+01 abs=4.584e+00 referr=0.00e+00
+      worst: call S=125 K=100 vol=0.2 r=0 q=0 T=10  sigmaRootT=0.6325 lambda=0  value=1.216752e+02 ref=1.260722e+02 abs=4.397e+00 referr=0.00e+00
+  bump h=0.05*vol: excluded because vol-h < 0: 0
+    vega h=0.05*vol: compared 648
+      abs : median 8.541e-04  p99 2.048e+00  max 4.407e+00
+      rel : median 1.429e-02  p99 4.458e+00  max 4.758e+00  (|ref| > 1e-08; 263 excluded)
+      TIGHT: 576/648 = 0.8889 of resolved (0 unresolved)
+      LOOSE: 643/648 = 0.9923 of resolved (0 unresolved)
+  max rel error, sigmaRootT x lambda
+                         [0,0.1)      [0.1,0.25)      [0.25,0.5)         [0.5,1)         [1,inf)
+        [0,0.05)        2.97e-02        9.79e-03        1.86e-01        2.50e-02               -
+      [0.05,0.2)        2.03e-01        3.60e-01        3.50e-01        3.25e-01               -
+       [0.2,0.5)        3.83e-02        2.70e-02        3.19e-02               -               -
+         [0.5,1)        3.93e-02        1.87e-02        3.31e-02               -               -
+           [1,2)        3.96e-02        2.53e-02               -               -               -
+         [2,inf)        4.76e+00               -               -               -               -
+      worst: call S=125 K=100 vol=0.2 r=0 q=0 T=10  sigmaRootT=0.6325 lambda=0  value=1.216655e+02 ref=1.260722e+02 abs=4.407e+00 referr=0.00e+00
+      worst: call S=125 K=100 vol=0.5 r=0 q=0 T=10  sigmaRootT=1.581 lambda=0  value=9.885514e+01 ref=1.021699e+02 abs=3.315e+00 referr=0.00e+00
+      worst: call S=100 K=100 vol=0.5 r=0.05 q=0 T=10  sigmaRootT=1.581 lambda=0.02795  value=6.570726e+01 ref=6.837616e+01 abs=2.669e+00 referr=0.00e+00
+      worst: call S=125 K=100 vol=0.5 r=0.05 q=0 T=5  sigmaRootT=1.118 lambda=0.01976  value=6.627616e+01 ref=6.883597e+01 abs=2.560e+00 referr=0.00e+00
+      worst: call S=100 K=100 vol=0.2 r=0.05 q=0 T=10  sigmaRootT=0.6325 lambda=0.06988  value=7.069527e+01 ref=6.837616e+01 abs=2.319e+00 referr=0.00e+00
+  bump h=0.10*vol: excluded because vol-h < 0: 0
+    vega h=0.10*vol: compared 648
+      abs : median 1.947e-03  p99 8.646e-01  max 2.086e+00
+      rel : median 8.379e-03  p99 6.267e+00  max 6.636e+00  (|ref| > 1e-08; 263 excluded)
+      TIGHT: 628/648 = 0.9691 of resolved (0 unresolved)
+      LOOSE: 632/648 = 0.9753 of resolved (0 unresolved)
+  max rel error, sigmaRootT x lambda
+                         [0,0.1)      [0.1,0.25)      [0.25,0.5)         [0.5,1)         [1,inf)
+        [0,0.05)        1.51e-02        9.05e-03        5.32e-01        1.48e-02               -
+      [0.05,0.2)        6.32e-01        1.07e+00        1.21e+00        1.07e+00               -
+       [0.2,0.5)        1.88e-02        2.87e-02        2.17e-01               -               -
+         [0.5,1)        2.00e-02        1.66e-02        6.66e-01               -               -
+           [1,2)        2.18e-02        8.90e-03               -               -               -
+         [2,inf)        6.64e+00               -               -               -               -
+      worst: call S=100 K=100 vol=0.2 r=0 q=0 T=10  sigmaRootT=0.6325 lambda=0  value=1.179179e+02 ref=1.200039e+02 abs=2.086e+00 referr=0.00e+00
+      worst: call S=125 K=100 vol=0.2 r=0 q=0 T=10  sigmaRootT=0.6325 lambda=0  value=1.248971e+02 ref=1.260722e+02 abs=1.175e+00 referr=0.00e+00
+      worst: call S=80 K=100 vol=0.2 r=0 q=0 T=5  sigmaRootT=0.4472 lambda=0  value=6.772395e+01 ref=6.871010e+01 abs=9.862e-01 referr=0.00e+00
+      worst: call S=100 K=100 vol=1 r=0 q=0 T=5  sigmaRootT=2.236 lambda=0  value=4.679335e+01 ref=4.774864e+01 abs=9.553e-01 referr=0.00e+00
+      worst: call S=125 K=100 vol=0.2 r=0.05 q=0 T=5  sigmaRootT=0.4472 lambda=0.04941  value=4.812904e+01 ref=4.905099e+01 abs=9.219e-01 referr=0.00e+00
+  truncation indicator |vega(0.05vol)-vega(0.10vol)|/|ref|: median 1.554e-02  p99 1.820e+00  (n=385)
+
+## 3.2 puts vs CRR N=4096 (central h=1e-4), CRR-valid only
+  bump h=1e-4: excluded because vol-h < 0: 0
+    vega h=1e-4: compared 3192
+      abs : median 2.497e-02  p99 2.991e+00  max 9.852e+00
+      rel : median 2.775e-02  p99 3.323e+00  max 6.112e+00  (|ref| > 1e-08; 724 excluded)
+      TIGHT: 1712/2381 = 0.7190 of resolved (811 unresolved)
+      LOOSE: 2034/2381 = 0.8543 of resolved (811 unresolved)
+  max rel error, sigmaRootT x lambda
+                         [0,0.1)      [0.1,0.25)      [0.25,0.5)         [0.5,1)         [1,inf)
+        [0,0.05)        1.64e+00        1.10e+00        1.20e+00        2.22e+00        1.20e+00
+      [0.05,0.2)        6.00e-01        8.87e-01        1.03e+00        1.13e+00        1.01e+00
+       [0.2,0.5)        3.42e-01        2.19e-01        4.53e-01               -               -
+         [0.5,1)        5.43e-01        1.69e-01        8.17e-01        1.11e+00               -
+           [1,2)        6.48e-02        1.48e-01               -               -               -
+         [2,inf)        6.11e+00        4.83e-02               -               -               -
+      worst: put  S=100 K=100 vol=0.05 r=0.3 q=0.1 T=10  sigmaRootT=0.1581 lambda=1.118  value=0.000000e+00 ref=9.852166e+00 abs=9.852e+00 referr=1.45e-01
+      worst: put  S=100 K=100 vol=0.01 r=0.05 q=0 T=10  sigmaRootT=0.03162 lambda=1.398  value=0.000000e+00 ref=7.388480e+00 abs=7.388e+00 referr=1.34e+00
+      worst: put  S=100 K=100 vol=0.01 r=0.1 q=0.05 T=10  sigmaRootT=0.03162 lambda=1.398  value=0.000000e+00 ref=7.377662e+00 abs=7.378e+00 referr=1.34e+00
+      worst: put  S=100 K=100 vol=0.05 r=0.3 q=0.05 T=10  sigmaRootT=0.1581 lambda=1.398  value=0.000000e+00 ref=7.356192e+00 abs=7.356e+00 referr=1.33e+00
+      worst: put  S=100 K=100 vol=0.05 r=0.3 q=0 T=10  sigmaRootT=0.1581 lambda=1.677  value=0.000000e+00 ref=6.669820e+00 abs=6.670e+00 referr=9.17e-01
+  bump h=0.05*vol: excluded because vol-h < 0: 0
+    vega h=0.05*vol: compared 3192
+      abs : median 1.150e-02  p99 1.642e+00  max 9.852e+00
+      rel : median 1.500e-02  p99 4.499e+00  max 5.042e+00  (|ref| > 1e-08; 724 excluded)
+      TIGHT: 1851/2205 = 0.8395 of resolved (987 unresolved)
+      LOOSE: 2137/2205 = 0.9692 of resolved (987 unresolved)
+  max rel error, sigmaRootT x lambda
+                         [0,0.1)      [0.1,0.25)      [0.25,0.5)         [0.5,1)         [1,inf)
+        [0,0.05)        1.19e+00        1.17e+00        1.00e+00        2.30e+00        1.62e+00
+      [0.05,0.2)        2.29e-01        7.68e-01        1.00e+00        1.37e+00        1.00e+00
+       [0.2,0.5)        2.88e-01        7.21e-02        2.36e-01               -               -
+         [0.5,1)        2.48e-01        3.39e-02        4.71e-01        1.18e+00               -
+           [1,2)        6.21e-02        1.39e-01               -               -               -
+         [2,inf)        5.04e+00        2.72e-02               -               -               -
+      worst: put  S=100 K=100 vol=0.05 r=0.3 q=0.1 T=10  sigmaRootT=0.1581 lambda=1.118  value=0.000000e+00 ref=9.852166e+00 abs=9.852e+00 referr=1.45e-01
+      worst: put  S=100 K=100 vol=0.01 r=0.05 q=0 T=10  sigmaRootT=0.03162 lambda=1.398  value=0.000000e+00 ref=7.388480e+00 abs=7.388e+00 referr=1.34e+00
+      worst: put  S=100 K=100 vol=0.01 r=0.1 q=0.05 T=10  sigmaRootT=0.03162 lambda=1.398  value=0.000000e+00 ref=7.377662e+00 abs=7.378e+00 referr=1.34e+00
+      worst: put  S=100 K=100 vol=0.05 r=0.3 q=0.05 T=10  sigmaRootT=0.1581 lambda=1.398  value=0.000000e+00 ref=7.356192e+00 abs=7.356e+00 referr=1.33e+00
+      worst: put  S=100 K=100 vol=0.05 r=0.3 q=0 T=10  sigmaRootT=0.1581 lambda=1.677  value=0.000000e+00 ref=6.669820e+00 abs=6.670e+00 referr=9.17e-01
+  bump h=0.10*vol: excluded because vol-h < 0: 0
+    vega h=0.10*vol: compared 3192
+      abs : median 1.157e-02  p99 1.176e+00  max 9.852e+00
+      rel : median 9.710e-03  p99 6.344e+00  max 7.070e+00  (|ref| > 1e-08; 724 excluded)
+      TIGHT: 1935/2101 = 0.9210 of resolved (1091 unresolved)
+      LOOSE: 1996/2101 = 0.9500 of resolved (1091 unresolved)
+  max rel error, sigmaRootT x lambda
+                         [0,0.1)      [0.1,0.25)      [0.25,0.5)         [0.5,1)         [1,inf)
+        [0,0.05)        1.08e+00        1.08e+00        1.20e+00        6.34e+00        1.33e+00
+      [0.05,0.2)        6.41e-01        9.90e-01        1.01e+00        2.57e+00        1.00e+00
+       [0.2,0.5)        5.45e-02        5.95e-02        3.23e-01               -               -
+         [0.5,1)        8.83e-02        2.29e-02        5.48e-01        1.83e+00               -
+           [1,2)        2.43e-02        1.04e-01               -               -               -
+         [2,inf)        7.07e+00        3.68e-02               -               -               -
+      worst: put  S=100 K=100 vol=0.05 r=0.3 q=0.1 T=10  sigmaRootT=0.1581 lambda=1.118  value=0.000000e+00 ref=9.852166e+00 abs=9.852e+00 referr=1.45e-01
+      worst: put  S=100 K=100 vol=0.01 r=0.05 q=0 T=10  sigmaRootT=0.03162 lambda=1.398  value=0.000000e+00 ref=7.388480e+00 abs=7.388e+00 referr=1.34e+00
+      worst: put  S=100 K=100 vol=0.01 r=0.1 q=0.05 T=10  sigmaRootT=0.03162 lambda=1.398  value=0.000000e+00 ref=7.377662e+00 abs=7.378e+00 referr=1.34e+00
+      worst: put  S=100 K=100 vol=0.05 r=0.3 q=0.05 T=10  sigmaRootT=0.1581 lambda=1.398  value=0.000000e+00 ref=7.356192e+00 abs=7.356e+00 referr=1.33e+00
+      worst: put  S=100 K=100 vol=0.05 r=0.3 q=0 T=10  sigmaRootT=0.1581 lambda=1.677  value=0.000000e+00 ref=6.669820e+00 abs=6.670e+00 referr=9.17e-01
+  truncation indicator |vega(0.05vol)-vega(0.10vol)|/|ref|: median 5.878e-03  p99 1.815e+00  (n=2468)
+
+shard p23 wall time: 64.9 s

@@ -1,0 +1,14 @@
+== forward-matched JR variant (p=1/2, mu = (r-q)dt - ln cosh(a)): high-vol call q=0 r=.05 vs BS ==
+  vol=0.2 T=1.0: JR-fwd=10.450991 BS=10.450584 rel=+3.90e-05
+  vol=1.0 T=5.0: JR-fwd=76.666212 BS=76.823064 rel=-2.04e-03
+  vol=1.0 T=10.0: JR-fwd=90.881374 BS=91.208092 rel=-3.58e-03
+  vol=2.0 T=10.0: JR-fwd=99.813987 BS=99.878414 rel=-6.45e-04
+  vol=3.0 T=10.0: JR-fwd=99.998832 BS=99.999837 rel=-1.00e-05
+  golden cases, JR-fwd N=128 vs CRR N=128: max rel diff = 3.794e-03
+  anchor N=4096 100.0,100.0,1.0: rel vs mpmath BS 1.19e-05
+  anchor N=4096 100.0,110.0,2.0: rel vs mpmath BS 3.86e-05
+  anchor N=4096 100.0,90.0,0.5: rel vs mpmath BS 1.80e-05
+
+== vol=0 cases with an interior optimal exercise time ==
+  put ITM, q>r, interior   grid(N=128)=38.0802097830 continuous=38.0802098197 t*=1.6395 diff=-3.67e-08 rel=-9.6e-10
+  call ITM, q<r, interior  grid(N=128)=20.0046814320 continuous=20.0046815926 t*=0.4715 diff=-1.61e-07 rel=-8.0e-09

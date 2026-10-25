@@ -1,0 +1,7 @@
+  amer>=euroBS   failures  228/3000   worst rel shortfall 7.81e-01
+  amer>=euroJR   failures    0/3000   worst rel shortfall 0.00e+00
+  >=intrinsic    failures    0/3000   worst rel shortfall 0.00e+00
+  delta bounds   failures    0/3000   worst rel shortfall 0.00e+00
+  gamma>=0       failures    0/3000   worst rel shortfall 0.00e+00
+  mono vol       failures  339/3000   worst rel shortfall 4.30e-01
+  mono T         failures  760/3000   worst rel shortfall 3.97e-01

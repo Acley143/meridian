@@ -1,0 +1,6 @@
+JR (plain) amer>=euroBS  fails  234  max shortfall/strike 3.88e-01  (at vol=1.15 T=8.60 S/K=17.60, shortfall 212 on price 9.55e+03); count with shortfall/strike > 1e-3: 131
+JR (plain) mono vol      fails  339  max shortfall/strike 1.86e-01  (at vol=1.50 T=8.14 S/K=2.50, shortfall 253 on price 3.11e+03); count with shortfall/strike > 1e-3: 321
+JR (plain) mono T        fails  764  max shortfall/strike 1.03e-01  (at vol=2.06 T=4.16 S/K=17.33, shortfall 33.9 on price 5.4e+03); count with shortfall/strike > 1e-3: 545
+JR-fwd     amer>=euroBS  fails  104  max shortfall/strike 2.11e-03  (at vol=1.76 T=1.64 S/K=0.97, shortfall 12.9 on price 4.48e+03); count with shortfall/strike > 1e-3: 4
+JR-fwd     mono vol      fails    2  max shortfall/strike 1.08e-14  (at vol=0.02 T=2.08 S/K=0.90, shortfall 5.14e-11 on price 1.33e+03); count with shortfall/strike > 1e-3: 0
+JR-fwd     mono T        fails  674  max shortfall/strike 1.70e-02  (at vol=2.63 T=8.43 S/K=3.48, shortfall 8.74 on price 1.47e+03); count with shortfall/strike > 1e-3: 314

@@ -1,6 +1,6 @@
 # quant-core — Plan
 
-**Owner:** Eng-B  ·  **Quarter:** Q1  ·  **Status:** Q1 deliverables complete
+**Owner:** Eng-B  ·  **Quarter:** Q2  ·  **Status:** Q2, American options delivered (ADR-0031)
 
 ## Mission
 Pure pricing and risk-analytics functions for every instrument type Meridian
@@ -33,9 +33,14 @@ independently verifiable against a closed-form reference.
 - [x] `quant_core.PRICER_VERSION` (manually-bumped semver, not a source
       hash), `docs/conventions.md` (Greek sign/unit conventions), frozen
       `mypy --strict`-clean types in `quant_core.types`.
+- [x] American-style exercise (Q2, ADR-0031): `quant_core.pricing.american`,
+      a forward-matched Jarrow-Rudd lattice at N = 128, priced only inside a
+      validated domain (`american_domain_violations`, `ModelDomainError`
+      outside it). `AmericanOption` in `quant_core.types`. Evidence in
+      `docs/adr/evidence/0031/`.
 
 ## Explicitly out of scope
-- American-style exercise (Q2).
+- Widening the American validated domain (BBSR smoothing, Q3).
 - Monte Carlo pricing of any kind (Q3, ADR-0006).
 - Portfolio-level aggregation, VaR input assembly, and correlated risk — this
   library prices one instrument at a time; aggregation and assembling a VaR
@@ -64,8 +69,10 @@ one.
 
 ## Definition of done
 - [x] Deliverables above complete
-- [x] Tests per `docs/test-strategy.md` (golden + property layers). 60
-      tests, 100% statement coverage on `quant_core`.
+- [x] Tests per `docs/test-strategy.md` (golden + property layers). 354
+      tests collected from 99 test functions (measured with ADR-0031's PR).
+      The 100% statement-coverage figure dates from Q1 and was not
+      re-measured: no coverage tool is installed.
 - [x] Contract tests pass against `contracts/` (N/A this quarter — no wire
       contract yet; revisit if that changes)
 - [x] Docs updated (`docs/conventions.md` added; `docs/domain-model.md`
@@ -93,6 +100,23 @@ one.
   with no `docs/domain-model.md` counterpart, since it's a pure numerics
   input, not a wire type. Owner: Eng-B, by-when: N/A unless
   `services/ingest` needs it published as a contract.
+
+## Backlog
+- mpmath is used by the golden generators (`generate_reference_values.py`,
+  `generate_american_reference.py`) but is not a declared dependency; CI
+  installs it by hand.
+- The Black-Scholes golden fixture (`black_scholes_reference.json`) has no
+  freshness check against its generator. The American fixtures do
+  (`tests/golden/test_american_reference_freshness.py`).
+- The ln cosh evaluation a + log1p(exp(-2a)) - ln 2 in
+  `quant_core.pricing.american` cancels catastrophically at small a
+  (Method B p deviates from 1/2 by up to 5.122e-10). log1p(2*sinh(a/2)**2)
+  is accurate across the range. Changing it moves published prices at
+  rounding level, so it needs its own measured change.
+- PRICER_VERSION 0.3.0 bump deferred: the literal "0.2.0" appears in
+  `services/pricer/fixtures/golden_snapshots.json`,
+  `apps/dashboard/src/RiskSnapshotTable.tsx` and
+  `apps/dashboard/src/RiskSnapshotTable.test.tsx`.
 
 ## Session log
 - 2026-08-30 (Eng-B session): Implemented all Q1 deliverables — purity

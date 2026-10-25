@@ -1,0 +1,118 @@
+== (a) JR across the property-test strategy grid ==
+grid points: 1296; JR p = 0.5 at all, u > d > 0 finite at all; CRR p outside (0,1) at 262
+JR lattice forward error |1 - E_lattice[S_T]/(S e^((r-q)T))|, worst grid points (N=128):
+   vol=3.0   T=10.0  r=0.3   q=0.3 : 9.884e-01
+   vol=3.0   T=10.0  r=0.3   q=0.1 : 9.884e-01
+   vol=3.0   T=10.0  r=0.3   q=0.05: 9.884e-01
+   vol=3.0   T=10.0  r=0.3   q=0.0 : 9.884e-01
+   vol=3.0   T=10.0  r=0.1   q=0.3 : 9.884e-01
+   vol=3.0   T=10.0  r=0.1   q=0.1 : 9.884e-01
+   vol=0.2, T=1.0: forward error 1.042e-06
+   vol=0.5, T=2.0: forward error 1.626e-04
+   vol=1.0, T=5.0: forward error 1.598e-02
+   vol=1.0, T=10.0: forward error 6.179e-02
+   vol=2.0, T=10.0: forward error 6.180e-01
+   vol=3.0, T=10.0: forward error 9.884e-01
+
+   JR American call q=0 r>=0 vs Black-Scholes European (property 'American >= European'):
+   vol=0.2 T=1.0: JR=10.450927 CRR=10.434976 BS=10.450584  JR-BS=+3.439e-04 rel=+3.29e-05
+   vol=0.5 T=2.0: JR=31.319147 CRR=31.275984 BS=31.327684  JR-BS=-8.537e-03 rel=-2.73e-04
+   vol=1.0 T=5.0: JR=75.378776 CRR=76.706263 BS=76.823064  JR-BS=-1.444e+00 rel=-1.88e-02
+   vol=1.0 T=10.0: JR=86.766963 CRR=91.107171 BS=91.208092  JR-BS=-4.441e+00 rel=-4.87e-02
+   vol=2.0 T=10.0: JR=80.592008 CRR=99.866940 BS=99.878414  JR-BS=-1.929e+01 rel=-1.93e-01
+   vol=3.0 T=10.0: JR=65.494327 CRR=99.999763 BS=99.999837  JR-BS=-3.451e+01 rel=-3.45e-01
+
+== (b) price: JR N=128 (production) vs CRR N=128 (reference) ==
+case                          JR128       CRR128   abs_diff  rel_diff
+put ATM 1y q0              6.093453     6.084087   9.37e-03  1.54e-03
+put ITM 0.5y q0           12.577185    12.575807   1.38e-03  1.10e-04
+put OTM 1y q0              2.474373     2.467465   6.91e-03  2.80e-03
+put ATM 0.1y q0            2.315578     2.309515   6.06e-03  2.63e-03
+put deepITM 2y q0         20.811728    20.809265   2.46e-03  1.18e-04
+put ATM 3y q>0            17.149998    17.123661   2.63e-02  1.54e-03
+put ATM 1y r0 q0           7.980238     7.950025   3.02e-02  3.80e-03
+call ATM 1y q0            10.450927    10.434976   1.60e-02  1.53e-03
+call OTM 2y q0             6.127350     6.149707   2.24e-02  3.64e-03
+call ITM 0.5y q0          13.798079    13.798588   5.09e-04  3.69e-05
+call ITM 1y q>0           14.434250    14.433465   7.84e-04  5.43e-05
+call ATM 2y q>0            9.468763     9.443064   2.57e-02  2.72e-03
+call OTM 1y q>0            7.581363     7.588751   7.39e-03  9.74e-04
+call ITM 0.25y q>0         6.622401     6.627405   5.00e-03  7.55e-04
+call deepITM 5y q>0      656.244755   656.992618   7.48e-01  1.14e-03
+MAX rel_diff=3.800e-03  MAX abs_diff=7.479e-01
+   prod-shaped JR vs tol_proto JR, max |diff|: 9.094947017729282e-13
+
+== (c) delta/gamma/theta: JR vs CRR, rel (abs) ==
+  put ATM 1y q0          delta 1.49e-03 (6.14e-04)  gamma 3.41e-03 (7.87e-05)  theta 3.05e-03 (6.88e-03)
+  put ITM 0.5y q0        delta 9.27e-05 (6.20e-05)  gamma 1.81e-04 (4.18e-06)  theta 2.59e-04 (1.25e-03)
+  put OTM 1y q0          delta 6.71e-04 (1.39e-04)  gamma 3.68e-03 (5.68e-05)  theta 3.54e-03 (6.84e-03)
+  put ATM 0.1y q0        delta 4.04e-04 (1.88e-04)  gamma 2.95e-03 (1.93e-04)  theta 3.41e-03 (3.62e-02)
+  put deepITM 2y q0      delta 1.25e-03 (9.71e-04)  gamma 5.61e-03 (1.57e-04)  theta 2.17e-02 (1.29e-02)
+  put ATM 3y q>0         delta 4.39e-04 (1.61e-04)  gamma 6.41e-04 (5.15e-06)  theta 4.05e-03 (8.91e-03)
+  put ATM 1y r0 q0       delta 1.51e-04 (6.96e-05)  gamma 3.39e-03 (6.78e-05)  theta 4.08e-03 (1.63e-02)
+  call ATM 1y q0         delta 3.16e-04 (2.01e-04)  gamma 3.16e-03 (5.97e-05)  theta 1.04e-03 (6.72e-03)
+  call OTM 2y q0         delta 4.37e-04 (1.91e-04)  gamma 2.39e-03 (4.46e-05)  theta 2.32e-03 (6.60e-03)
+  call ITM 0.5y q0       delta 8.21e-06 (6.40e-06)  gamma 9.97e-05 (1.68e-06)  theta 4.62e-05 (3.32e-04)
+  call ITM 1y q>0        delta 1.06e-03 (7.09e-04)  gamma 5.56e-04 (8.37e-06)  theta 1.21e-03 (3.90e-03)
+  call ATM 2y q>0        delta 1.54e-03 (7.78e-04)  gamma 2.43e-03 (3.67e-05)  theta 6.63e-03 (1.28e-02)
+  call OTM 1y q>0        delta 1.24e-03 (5.09e-04)  gamma 1.03e-03 (1.34e-05)  theta 7.21e-04 (3.74e-03)
+  call ITM 0.25y q>0     delta 2.45e-05 (1.69e-05)  gamma 1.98e-03 (7.20e-05)  theta 2.38e-03 (1.34e-02)
+  call deepITM 5y q>0    delta 7.67e-04 (6.68e-04)  gamma 1.04e-02 (1.32e-06)  theta 4.78e-03 (9.54e-02)
+MAX: delta: rel 1.54e-03 abs 9.71e-04  gamma: rel 1.04e-02 abs 1.93e-04  theta: rel 2.17e-02 abs 9.54e-02
+   vega/rho (and the rest) vs closed form, q=0 calls:
+  call ATM 1y q0         delta 7.48e-05  gamma 3.47e-03  vega 2.17e-02  theta 2.75e-03  rho 4.36e-02
+  call OTM 2y q0         delta 1.11e-03  gamma 4.22e-03  vega 1.26e-02  theta 3.38e-03  rho 7.71e-02
+  call ITM 0.5y q0       delta 1.77e-04  gamma 2.68e-03  vega 1.87e-02  theta 1.94e-03  rho 1.19e-02
+MAX vs closed form: delta 1.11e-03  gamma 4.22e-03  vega 2.17e-02  theta 3.38e-03  rho 7.71e-02
+
+== (d) anchor: JR N=4096 American call q=0 vs mpmath BS ==
+  call ATM 1y q0       N=2048  JR=10.4514021225 BS=10.4505835722 rel=7.83e-05
+  call ATM 1y q0       N=4096  JR=10.4507057106 BS=10.4505835722 rel=1.17e-05
+  call ATM 1y q0       N=8192  JR=10.4506571982 BS=10.4505835722 rel=7.05e-06
+  call OTM 2y q0       N=2048  JR=6.1368012564 BS=6.1362017128 rel=9.77e-05
+  call OTM 2y q0       N=4096  JR=6.1364369875 BS=6.1362017128 rel=3.83e-05
+  call OTM 2y q0       N=8192  JR=6.1364140900 BS=6.1362017128 rel=3.46e-05
+  call ITM 0.5y q0     N=2048  JR=13.7913796067 BS=13.7908489618 rel=3.85e-05
+  call ITM 0.5y q0     N=4096  JR=13.7905986070 BS=13.7908489618 rel=1.82e-05
+  call ITM 0.5y q0     N=8192  JR=13.7908691773 BS=13.7908489618 rel=1.47e-06
+  JR American == JR European at q=0 r>=0, N=128, max |diff| over q=0 calls: 0.0
+
+== (e) convergence: JR American put S=K=100 vol=.2 r=.05 q=0 T=1 ==
+  N=32    6.1266718934 diff_vs_prev=            err_vs_N16384=+3.622e-02
+  N=64    6.1120783247 diff_vs_prev= -1.459e-02 err_vs_N16384=+2.162e-02
+  N=128   6.0934534592 diff_vs_prev= -1.862e-02 err_vs_N16384=+3.000e-03
+  N=256   6.0916779504 diff_vs_prev= -1.776e-03 err_vs_N16384=+1.224e-03
+  N=512   6.0925859760 diff_vs_prev= +9.080e-04 err_vs_N16384=+2.132e-03
+  N=1024  6.0916100383 diff_vs_prev= -9.759e-04 err_vs_N16384=+1.156e-03
+  N=2048  6.0909913783 diff_vs_prev= -6.187e-04 err_vs_N16384=+5.377e-04
+  N=4096  6.0905337707 diff_vs_prev= -4.576e-04 err_vs_N16384=+8.005e-05
+  doubling difference |P(2N)-P(N)| at N=64 and N=128, per golden case, and ratio:
+   put ATM 1y q0          |P128-P64|=1.862e-02 |P256-P128|=1.776e-03 ratio=10.49
+   put ITM 0.5y q0        |P128-P64|=9.641e-03 |P256-P128|=7.187e-03 ratio=1.34
+   put OTM 1y q0          |P128-P64|=1.032e-02 |P256-P128|=1.303e-03 ratio=7.92
+   put ATM 0.1y q0        |P128-P64|=3.607e-04 |P256-P128|=7.164e-04 ratio=0.50
+   put deepITM 2y q0      |P128-P64|=6.138e-03 |P256-P128|=1.710e-03 ratio=3.59
+   put ATM 3y q>0         |P128-P64|=5.065e-02 |P256-P128|=1.633e-03 ratio=31.02
+   put ATM 1y r0 q0       |P128-P64|=1.328e-02 |P256-P128|=1.266e-02 ratio=1.05
+   call ATM 1y q0         |P128-P64|=2.646e-02 |P256-P128|=1.537e-03 ratio=17.21
+   call OTM 2y q0         |P128-P64|=3.830e-02 |P256-P128|=3.998e-03 ratio=9.58
+   call ITM 0.5y q0       |P128-P64|=7.972e-03 |P256-P128|=4.853e-03 ratio=1.64
+   call ITM 1y q>0        |P128-P64|=2.290e-02 |P256-P128|=6.283e-03 ratio=3.64
+   call ATM 2y q>0        |P128-P64|=2.486e-02 |P256-P128|=1.155e-02 ratio=2.15
+   call OTM 1y q>0        |P128-P64|=4.502e-02 |P256-P128|=1.200e-02 ratio=3.75
+   call ITM 0.25y q>0     |P128-P64|=1.570e-02 |P256-P128|=1.381e-03 ratio=11.37
+   call deepITM 5y q>0    |P128-P64|=6.725e-01 |P256-P128|=3.162e-01 ratio=2.13
+  smallest ratio (64-step diff / 128-step diff): 0.50
+
+== (f) timing: JR N=128 full priced result (5 builds), American put S=K=100 ==
+  N=64   median 730.1 us  p99 860.5 us  min 720.0 us
+  N=128  median 1460.1 us  p99 1646.5 us  min 1432.9 us
+  N=256  median 3087.8 us  p99 3355.4 us  min 3016.3 us
+
+== (g) vol=0: proposed grid branch (N=128) vs independent continuous-time max ==
+  call ITM q>0 (early)   grid=10.0000000000 continuous=10.0000000000 t*=0.0000 diff=+0.00e+00
+  call ITM q=0           grid=14.8770575499 continuous=14.8770575499 t*=1.0000 diff=+2.54e-13
+  call OTM               grid=0.0000000000 continuous=0.0000000000 t*=1.0000 diff=+0.00e+00
+  put ITM r>0 (early)    grid=10.0000000000 continuous=10.0000000000 t*=0.0000 diff=+0.00e+00
+  put ITM interior       grid=5.0000000000 continuous=5.0000000000 t*=0.0000 diff=+0.00e+00
+  put OTM                grid=0.0000000000 continuous=0.0000000000 t*=0.0000 diff=+0.00e+00

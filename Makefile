@@ -2,7 +2,7 @@
 
 setup:
 	pip install -e libs/quant-core -e libs/quant-io -e contracts/generated/python
-	pip install ruff mypy pytest import-linter avro
+	pip install ruff==0.16.5 mypy==2.3.1 pytest==9.1.1 import-linter==2.14 avro
 	cd apps/dashboard && npm install
 	mvn -pl services/core-service -am install -DskipTests
 

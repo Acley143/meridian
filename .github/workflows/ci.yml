@@ -27,7 +27,7 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install validators
-        run: pip install openapi-spec-validator pyyaml pytest
+        run: pip install openapi-spec-validator pyyaml pytest==9.1.1
       - name: Avro schemas parse, decimal fields declare precision+scale (ADR-0013)
         run: python3 tools/schema-lint/check_avro.py contracts/avro
       - name: service-api.yaml validates against the OpenAPI 3 schema
@@ -63,7 +63,7 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install dependencies
-        run: pip install ruff mypy pytest import-linter
+        run: pip install ruff==0.16.5 mypy==2.3.1 pytest==9.1.1 import-linter==2.14
       - name: Install test dependencies (for mypy to resolve third-party imports)
         run: |
           pip install -e "libs/quant-core[dev]"
@@ -106,7 +106,7 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install import-linter
-        run: pip install import-linter
+        run: pip install import-linter==2.14
       - name: lint-imports
         run: lint-imports --config libs/quant-core/.importlinter
         env:
@@ -167,7 +167,7 @@ jobs:
           python-version: "3.12"
       - name: Install Python bindings + test deps
         run: |
-          pip install "avro>=1.11" pytest
+          pip install "avro>=1.11" pytest==9.1.1
           pip install -e contracts/generated/python
       - name: Java round-trip tests (contracts-generated-java)
         run: mvn -q -pl contracts/generated/java test
@@ -250,7 +250,7 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install avro + pytest
-        run: pip install "avro>=1.11" pytest
+        run: pip install "avro>=1.11" pytest==9.1.1
       - name: Schema evolution test (BACKWARD via Avro's own resolution rules -- no live registry in CI yet; see contracts/README.md "Registry stand-in")
         run: |
           cd contracts/tests/python

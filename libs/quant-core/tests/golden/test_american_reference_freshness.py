@@ -14,6 +14,10 @@ import pytest
 
 _HERE = Path(__file__).parent
 _REL_TOL = 1e-12  # round-off guard
+# ADR-0031 Verification: fixtures match their generator, 1e-12 relative (round-off guard).
+# Sampler arithmetic differs across platforms at the ULP level (observed 1-3 ULP between
+# macOS arm64 and Linux x86_64).
+_INPUT_REL_TOL = 1e-12
 
 
 def _load(name: str) -> list[dict[str, Any]]:
@@ -61,5 +65,12 @@ def test_closed_form_fixture_is_fresh(index: int) -> None:
 def test_domain_fixture_is_fresh(index: int) -> None:
     committed = _load("american_domain_reference.json")[index]
     point = {k: committed[k] for k in ("spot", "strike", "volatility", "risk_free_rate", "dividend_yield", "time_to_expiry_years", "is_call")}
-    assert point == next(p for i, p in enumerate(gen.sampled_c4_points()) if i == index)
+    regenerated = next(p for i, p in enumerate(gen.sampled_c4_points()) if i == index)
+    assert point.keys() == regenerated.keys()
+    for key, expected in point.items():
+        actual = regenerated[key]
+        if key == "is_call" or expected == 0.0:
+            assert actual == expected, f"{key}: committed {expected}, generator {actual}"
+        else:
+            assert abs(actual - expected) <= _INPUT_REL_TOL * abs(expected), f"{key}: committed {expected}, generator {actual}"
     _assert_rows_match(committed, gen.domain_row(point))

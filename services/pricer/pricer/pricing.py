@@ -27,7 +27,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from enum import Enum
 
 from quant_core import PRICER_VERSION
@@ -52,7 +52,8 @@ class UnpriceableReason(str, Enum):
 class UnpricableInstrumentError(Exception):
     """Raised when a position's instrument can't be priced -- unsupported
     instrument_type (e.g. VANILLA_AMERICAN_OPTION, Q2), or no reference
-    data / no observed price for its underlying yet."""
+    data / no observed price for its underlying yet, or quant-core rejected
+    its inputs or could not represent its result (ADR-0032 Decision 2)."""
 
 
 def _price_equity(spot: Decimal) -> PricingResult:
@@ -109,20 +110,28 @@ def price_instrument(
             raise UnpricableInstrumentError(
                 f"{reference.instrument_id}: VANILLA_EUROPEAN_OPTION missing {missing}"
             )
-        option = EuropeanOption(
-            underlying_id=reference.underlying_id,
-            strike=reference.strike,
-            expiry=datetime.fromisoformat(reference.expiry_iso.replace("Z", "+00:00")),
-            right=reference.option_type,
-        )
-        market_state = MarketState(
-            spot=spot,
-            volatility=market.volatility,
-            risk_free_rate=market.risk_free_rate,
-            dividend_yield=market.dividend_yield,
-            valuation_time=valuation_time,
-        )
-        return black_scholes_price(option, market_state)
+        expiry = datetime.fromisoformat(reference.expiry_iso.replace("Z", "+00:00"))
+        # ADR-0032 Decision 2; a model-specific reason (ADR-0031 OUTSIDE_MODEL_DOMAIN) is mapped before this when wired.
+        try:
+            option = EuropeanOption(
+                underlying_id=reference.underlying_id,
+                strike=reference.strike,
+                expiry=expiry,
+                right=reference.option_type,
+            )
+            market_state = MarketState(
+                spot=spot,
+                volatility=market.volatility,
+                risk_free_rate=market.risk_free_rate,
+                dividend_yield=market.dividend_yield,
+                valuation_time=valuation_time,
+            )
+            return black_scholes_price(option, market_state)
+        except (ValueError, OverflowError, InvalidOperation) as exc:
+            raise UnpricableInstrumentError(
+                f"{reference.instrument_id}: VANILLA_EUROPEAN_OPTION could not be priced: "
+                f"{type(exc).__name__}: {exc}"
+            ) from exc
 
     raise UnpricableInstrumentError(
         f"{reference.instrument_id}: instrument_type={reference.instrument_type!r} "

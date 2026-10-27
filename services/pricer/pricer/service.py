@@ -60,7 +60,17 @@ missing; the per-position `ValueError` catch in `_price_portfolio` is defence
 in depth (it fails that position as `INSTRUMENT_NOT_PRICEABLE` naming the
 pair and value) rather than a path reachable through Kafka. A tick
 whose currency disagrees with its instrument's reference currency is
-rejected before it is cached (`tick_currency_mismatch`).
+rejected before it is cached (`tick_currency_mismatch`), and so is a tick
+whose price is not strictly positive (`tick_price_not_positive`, ADR-0032
+Decision 1).
+
+Failed model evaluations (ADR-0032): a quant-core input-validation failure,
+overflow, or unrepresentable result for one position is that position's
+`INSTRUMENT_NOT_PRICEABLE` failure (raised as `UnpricableInstrumentError` by
+`price_instrument`), and a `ValueError` from the VaR statistic makes the
+portfolio `INSTRUMENT_NOT_PRICEABLE`; the other portfolios on the tick are
+still priced and the tick is committed. Any other exception is a defect and
+stops the process.
 
 VaR (ADR-0029): `var_95` is the 1-day 95% delta-normal VaR from
 `quant_core.risk.delta_normal_var_95`, one `PositionRisk` per position from
@@ -144,6 +154,7 @@ class PricerService:
         self._unpriceable_counts: Counter[UnpriceableReason] = Counter()
         self._rejected_curve_count = 0
         self._tick_currency_mismatch_count = 0
+        self._tick_price_not_positive_count = 0
         self.ready = False
 
         self._portfolio_consumer = None
@@ -174,6 +185,12 @@ class PricerService:
         """A count of ticks rejected because their currency disagrees with
         their instrument's reference-data currency (ADR-0028 Decision 7)."""
         return self._tick_currency_mismatch_count
+
+    @property
+    def tick_price_not_positive_count(self) -> int:
+        """A count of ticks rejected because their price is not strictly
+        positive (ADR-0032 Decision 1)."""
+        return self._tick_price_not_positive_count
 
     def _report_unpriceable(
         self,
@@ -424,6 +441,14 @@ class PricerService:
                 self._tick_consumer.commit(msg)
                 return []
 
+        # ADR-0032 Decision 1: a price that is not strictly positive is
+        # handled exactly as a wrong-currency tick is -- never cached, nothing
+        # priced from it, and the offset committed so it is not redelivered.
+        if tick.price <= 0:
+            self._reject_tick_price_not_positive(tick)
+            self._tick_consumer.commit(msg)
+            return []
+
         self._last_price[tick.instrument_id] = tick.price
         self._last_event_time[tick.instrument_id] = tick.event_time
 
@@ -460,6 +485,19 @@ class PricerService:
                 "instrument_id": tick.instrument_id,
                 "tick_currency": tick.currency,
                 "reference_currency": reference_currency,
+            },
+        )
+
+    def _reject_tick_price_not_positive(self, tick: Tick) -> None:
+        self._tick_price_not_positive_count += 1
+        self._log.warning(
+            "tick_price_not_positive instrument_id=%s price=%s",
+            tick.instrument_id,
+            tick.price,
+            extra={
+                "event": "tick_price_not_positive",
+                "instrument_id": tick.instrument_id,
+                "price": tick.price,
             },
         )
 
@@ -637,6 +675,21 @@ class PricerService:
             )
             return None
 
+        # ADR-0032 Decision 3: defence in depth. Every VaR input is validated
+        # upstream (`validate_market_curve`), so this is not reachable through
+        # Kafka; it covers a curve put into the view another way.
+        try:
+            var_95 = delta_normal_var_95(position_risks)
+        except ValueError as exc:
+            self._report_unpriceable(
+                portfolio_id=portfolio_id,
+                reason=UnpriceableReason.INSTRUMENT_NOT_PRICEABLE,
+                trigger="tick",
+                missing=[position.instrument_id for position in positions],
+                detail=f"portfolio VaR could not be computed: {exc}",
+            )
+            return None
+
         aggregate = aggregate_portfolio(contributions)
         oldest = oldest_input_event_time(underlyings_used, self._last_event_time)
 
@@ -651,7 +704,7 @@ class PricerService:
             cash_vega=aggregate.cash_vega,
             cash_theta=aggregate.cash_theta,
             cash_rho=aggregate.cash_rho,
-            var_95=delta_normal_var_95(position_risks),
+            var_95=var_95,
             scenario_id=triggering_tick.scenario_id,
             oldest_input_event_time=oldest,
             ingest_time=now_utc(),

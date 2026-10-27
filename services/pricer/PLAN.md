@@ -391,10 +391,15 @@ Consumes `market.ticks` and `portfolio.state`. Produces `risk.snapshots`, schema
   currencies. A EUR position aggregated into a USD portfolio total without
   conversion is silently wrong. Deliberately NOT owned here — see root
   `PLAN.md`'s open questions, ahead of Q2 portfolio VaR.
-- **Uncaught `ValueError` from `quant-core` stops the tick loop (found by the
-  ADR-0029 VaR session).** ~~Curve-borne case: a negative `VOLATILITY`
-  passing the shared validator~~ **Closed by the quant-io session that made
-  `validate_market_curve` reject a negative `VOLATILITY`** (see
+- ~~**Uncaught `ValueError` from `quant-core` stops the tick loop (found by the
+  ADR-0029 VaR session).**~~ **Resolved 2026-10-27:
+  `docs/adr/0032-pricer-invalid-inputs-and-failed-model-evaluations.md`.** A
+  non-positive tick price is rejected at consume; a `ValueError`,
+  `OverflowError` or `decimal.InvalidOperation` from the model or the VaR
+  statistic makes that portfolio `INSTRUMENT_NOT_PRICEABLE`; any other
+  exception still fails fast. The original entry follows. ~~Curve-borne
+  case: a negative `VOLATILITY` passing the shared validator~~ **Closed by
+  the quant-io session that made `validate_market_curve` reject a negative `VOLATILITY`** (see
   `libs/quant-io/PLAN.md`): it is now stopped at the producer and again in
   `CurveView.apply`, so it can no longer reach the pricer through Kafka.
   **The underlying hazard is still open.** `_price_portfolio` has two raise
@@ -425,6 +430,44 @@ Consumes `market.ticks` and `portfolio.state`. Produces `risk.snapshots`, schema
   `portfolios` row or make the snapshot consumer tolerate a snapshot for a
   deleted portfolio. Owner: whoever owns the deletion feature
   (`services/core-service`), by-when: before any deletion path ships.
+- **`expiry_iso` is not parsed at reference-data load (ADR-0032 follow-up).**
+  Validate `expiry_iso` parses at reference-data load; a malformed value
+  currently fails fast at pricing (ADR-0032 Decision 4).
+  `InstrumentReference.__post_init__` (`pricer/reference_data.py:49-65`)
+  checks only that it is present, and `load_reference_data` stores the raw
+  string (`:102`). Owner: not yet assigned.
+- **An extreme but finite `VOLATILITY` prices silently (ADR-0032 follow-up).**
+  An extreme but finite VOLATILITY (for example 1e200) returns a finite,
+  meaningless price with no error (probe at STEP 4b 0.3: 5.88158413).
+  Catching cannot detect this; it needs curve value bounds. Owner: not yet
+  assigned.
+- **Curve value bounds (ADR-0032 Consequences).** `validate_market_curve`
+  checks `RISK_FREE_RATE`, `DIVIDEND_YIELD` and `VOLATILITY` only for
+  finiteness (and `VOLATILITY` for non-negativity). Extreme values raise
+  `OverflowError` or `decimal.InvalidOperation` in pricing, now reported as
+  `INSTRUMENT_NOT_PRICEABLE`, or produce a wrong number with no error (the
+  item above). Bounding them needs its own decision. Owner: not yet
+  assigned.
+- **Producer-side tick price validation (ADR-0032 Consequences).** The
+  pricer now rejects a tick whose price is not strictly positive at consume
+  (ADR-0032 Decision 1); `services/ingest` still publishes one. Rejecting it
+  at the producer is a separate decision, not made in ADR-0032. Owner: not
+  yet assigned.
+- **Poison-tick handling (Q4, ADR-0032 Decision 4).** A tick that fails for
+  any reason other than the ones ADR-0032 handles still stops the process
+  with its offset uncommitted, and is redelivered on restart. Skipping after
+  repeated failures, or a dead-letter topic, is deferred to Q4. Owner: not
+  yet assigned.
+- Hydration gate treats an empty partition assignment as complete
+  (service.py:246-253): if on_assign delivers [] before topic metadata is
+  available, _hydrate_to_end exits having read nothing, and the pricer
+  starts with an incomplete view and prices those portfolios silently
+  never. There is no on_revoke handling. Likely cause of two T3/T5 failures
+  seen just after a cold Docker start (in the failed T5 run the curves were
+  hydrated but the portfolio was not); the ADR-0030 race was ruled out by
+  induction. Next PR, test-first: induce an empty first assignment, then
+  require the assignment to cover the topic's partitions before EOF
+  counting can finish.
 
 ## Session log
 - 2026-08-31 (contracts session, Eng-A): `contracts/avro/risk-snapshot.avsc`

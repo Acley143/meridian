@@ -458,16 +458,26 @@ Consumes `market.ticks` and `portfolio.state`. Produces `risk.snapshots`, schema
   with its offset uncommitted, and is redelivered on restart. Skipping after
   repeated failures, or a dead-letter topic, is deferred to Q4. Owner: not
   yet assigned.
-- Hydration gate treats an empty partition assignment as complete
-  (service.py:246-253): if on_assign delivers [] before topic metadata is
-  available, _hydrate_to_end exits having read nothing, and the pricer
-  starts with an incomplete view and prices those portfolios silently
-  never. There is no on_revoke handling. Likely cause of two T3/T5 failures
-  seen just after a cold Docker start (in the failed T5 run the curves were
-  hydrated but the portfolio was not); the ADR-0030 race was ruled out by
-  induction. Next PR, test-first: induce an empty first assignment, then
-  require the assignment to cover the topic's partitions before EOF
-  counting can finish.
+- **Two T3/T5 failures just after a cold Docker start remain unexplained
+  (STEP 4b).** In the failed T5 run the curves were hydrated but the
+  portfolio was not; the ADR-0030 race was ruled out by induction. The
+  suspected cause, an empty partition assignment completing hydration, was
+  a real defect in `_hydrate_to_end` and was fixed defensively on
+  2026-11-10 (branch `pricer/hydration-empty-assignment`): an empty
+  `on_assign` now logs a `hydration_empty_assignment` warning and leaves
+  the gate waiting, so hydration either reads the partitions that arrive
+  later or times out as "no partitions were assigned"
+  (`tests/test_hydration_gate.py` H1, H2; H3 guards the normal path). But
+  STEP 5a probes P1-P5 found no route to an empty first assignment on this
+  stack: normal; topic created after subscribe; missing topic, where
+  `on_assign` never fires; and 20 subscribes against a freshly started
+  broker. So the fix is not shown to explain those failures. Owner: not
+  yet assigned.
+- Backlog: Hydration has no on_revoke handling and does not check the
+  assignment against the topic's partition count (list_topics works on the
+  underlying consumer, per STEP 5a P5). Neither is reachable with one
+  consumer per hydration group today; both need quant-io wrapper changes.
+  Owner: not yet assigned.
 
 ## Session log
 - 2026-08-31 (contracts session, Eng-A): `contracts/avro/risk-snapshot.avsc`

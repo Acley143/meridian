@@ -113,10 +113,12 @@ one.
   (Method B p deviates from 1/2 by up to 5.122e-10). log1p(2*sinh(a/2)**2)
   is accurate across the range. Changing it moves published prices at
   rounding level, so it needs its own measured change.
-- PRICER_VERSION 0.3.0 bump deferred: the literal "0.2.0" appears in
-  `services/pricer/fixtures/golden_snapshots.json`,
-  `apps/dashboard/src/RiskSnapshotTable.tsx` and
-  `apps/dashboard/src/RiskSnapshotTable.test.tsx`.
+- ~~PRICER_VERSION 0.3.0 bump deferred~~ **Resolved 2026-11-10
+  (ADR-0033):** `PRICER_VERSION` is `0.3.0`, shipped with American pricing
+  in `services/pricer`. `services/pricer/fixtures/golden_snapshots.json`
+  was regenerated (only `pricer_version` changed). The dashboard's "0.2.0"
+  literals are a code comment and a self-contained test input and
+  expectation; neither reads `PRICER_VERSION`, so neither changed.
 
 ## Session log
 - 2026-08-30 (Eng-B session): Implemented all Q1 deliverables — purity

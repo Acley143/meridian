@@ -11,7 +11,6 @@ from loader import (
     load_portfolio_fixtures,
     load_tick_fixtures,
 )
-from meridian_contracts.market_curves import CurveKind, MarketCurve
 from meridian_contracts.portfolio_state import Position
 from pricer.pricing import UnpriceableReason
 from pricer.reference_data import InstrumentReference, ReferenceData
@@ -168,87 +167,6 @@ def test_no_reference_data_reported_at_portfolio_update_time(kafka_stack, caplog
         assert record.missing == ["UNKNOWN-2"]
 
         assert service.unpriceable_counts[UnpriceableReason.NO_REFERENCE_DATA] >= 1
-    finally:
-        service.close()
-
-
-def test_instrument_not_priceable_reported_at_tick_time(kafka_stack, caplog) -> None:
-    """(d) An instrument type with no pricer yet (VANILLA_AMERICAN_OPTION,
-    Q2) is reported with reason INSTRUMENT_NOT_PRICEABLE, not silently
-    skipped, and produces no snapshot for its portfolio."""
-    caplog.set_level(logging.WARNING, logger="pricer")
-
-    reference_data = ReferenceData(
-        {
-            "AAPL-AMER-150": InstrumentReference(
-                instrument_id="AAPL-AMER-150",
-                instrument_type="VANILLA_AMERICAN_OPTION",
-                underlying_id="AAPL",
-                currency="USD",
-                contract_size=Decimal(100),
-            ),
-        }
-    )
-
-    topics = unique_topics()
-    t0 = datetime(2026, 1, 1, tzinfo=UTC)
-    fixture = PortfolioFixture(
-        portfolio_id="P",
-        base_currency="USD",
-        positions=[
-            Position(
-                portfolio_id="P",
-                instrument_id="AAPL-AMER-150",
-                quantity=Decimal(10),
-                average_cost=Decimal("12.50"),
-                as_of_event_time=t0,
-            ),
-        ],
-        event_time=t0,
-    )
-    seed_portfolios(kafka_stack, topics, [fixture])
-
-    # Curves are scenario-scoped (ADR-0027 Decision 6), so the tick's scenario
-    # must carry the curves its positions now require (ADR-0029 Decision 7).
-    curves = [
-        MarketCurve(
-            scenario_id="s",
-            kind=CurveKind.VOLATILITY,
-            curve_id="AAPL",
-            value_float=0.25,
-            value_decimal=None,
-            event_time=t0,
-            ingest_time=t0,
-        )
-    ]
-    service = make_service(kafka_stack, topics, reference_data, curves=curves)
-    service.hydrate()
-    service.start_tick_consumption()
-
-    produce_ticks(
-        kafka_stack,
-        topics,
-        "s",
-        [TickFixture("AAPL", Decimal("150.00"), "USD", t0)],
-    )
-
-    results = process_n_real_ticks(service, 1)
-    try:
-        assert len(results) == 1
-        assert results[0] == []
-
-        records = [
-            r for r in _unpriceable_records(caplog) if r.portfolio_id == "P" and r.trigger == "tick"
-        ]
-        assert len(records) >= 1
-        record = records[0]
-        assert record.reason == UnpriceableReason.INSTRUMENT_NOT_PRICEABLE
-        assert record.missing == ["AAPL-AMER-150"]
-        assert record.detail
-        assert "AAPL-AMER-150" in record.detail
-        assert "no pricer" in record.detail
-
-        assert service.unpriceable_counts[UnpriceableReason.INSTRUMENT_NOT_PRICEABLE] >= 1
     finally:
         service.close()
 

@@ -292,6 +292,24 @@ Consumes ticks and portfolio state, prices every position using
   `test_reverse_index.py`'s position-removal test and `test_market_curves.py`'s
   live-curve test now wait for their update before sending the ticks they
   assert on. No assertion changed.
+- [x] American options (ADR-0033, ADR-0031 Decision 6), owner Eng-B, Q2:
+  `VANILLA_AMERICAN_OPTION` requires the same statics as a European option
+  at reference-data construction and the same curves (`VOLATILITY`,
+  `RISK_FREE_RATE`, `DIVIDEND_YIELD`, and `FX_RATE` across currencies), and
+  is priced with `quant_core.pricing.american.price`. A position outside
+  ADR-0031's validated domain raises `OutsideModelDomainError` (a subclass
+  of `UnpricableInstrumentError`) and is reported as the new reason
+  `OUTSIDE_MODEL_DOMAIN`, last in precedence: only when no position in the
+  portfolio failed for another reason. `PRICER_VERSION` is `0.3.0`; the
+  golden snapshots changed only in `pricer_version`. Tests:
+  `tests/test_american_options.py` (priced against quant-core's American
+  pricer and distinct from Black-Scholes; out of domain; precedence;
+  missing rate curve) and `tests/test_american_pricing_unit.py` (statics at
+  construction; the out-of-domain error type; an expired American option
+  stays the generic error). The "no pricer yet" test is removed: every
+  accepted type now has a pricer, and that path is kept only as a guard.
+  Each American position costs about 1.6 ms per tick (ADR-0031,
+  Performance); throughput with American options is a Q4 measurement.
 
 ## Boundaries
 - **Owns:** `services/pricer/**`.

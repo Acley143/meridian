@@ -32,8 +32,10 @@ from enum import Enum
 
 from quant_core import PRICER_VERSION
 from quant_core.numeric import convert_money, to_model, to_money
+from quant_core.pricing.american import ModelDomainError
+from quant_core.pricing.american import price as american_price
 from quant_core.pricing.black_scholes import price as black_scholes_price
-from quant_core.types import EuropeanOption, MarketState, PricingResult
+from quant_core.types import AmericanOption, EuropeanOption, MarketState, PricingResult
 
 from pricer.reference_data import InstrumentReference
 
@@ -47,13 +49,30 @@ class UnpriceableReason(str, Enum):
     NO_PRICE = "NO_PRICE"
     MISSING_CURVE = "MISSING_CURVE"
     INSTRUMENT_NOT_PRICEABLE = "INSTRUMENT_NOT_PRICEABLE"
+    OUTSIDE_MODEL_DOMAIN = "OUTSIDE_MODEL_DOMAIN"
+
+
+OPTION_TYPES = frozenset({"VANILLA_EUROPEAN_OPTION", "VANILLA_AMERICAN_OPTION"})
+"""The instrument types priced as options: each needs option statics
+(reference data) and the rate and dividend curves (ADR-0033 Decisions 1, 2)."""
 
 
 class UnpricableInstrumentError(Exception):
-    """Raised when a position's instrument can't be priced -- unsupported
-    instrument_type (e.g. VANILLA_AMERICAN_OPTION, Q2), or no reference
-    data / no observed price for its underlying yet, or quant-core rejected
-    its inputs or could not represent its result (ADR-0032 Decision 2)."""
+    """Raised when a position's instrument can't be priced -- an instrument
+    type with no pricer, missing statics or market inputs, or quant-core
+    rejected its inputs or could not represent its result (ADR-0032
+    Decision 2)."""
+
+
+class OutsideModelDomainError(UnpricableInstrumentError):
+    """An American option whose inputs lie outside ADR-0031's validated
+    domain. Reported as OUTSIDE_MODEL_DOMAIN, not INSTRUMENT_NOT_PRICEABLE
+    (ADR-0033 Decision 3, ADR-0032 Decision 6). `violations` names each
+    violated condition with its value."""
+
+    def __init__(self, message: str, violations: tuple[str, ...]) -> None:
+        super().__init__(message)
+        self.violations = violations
 
 
 def _price_equity(spot: Decimal) -> PricingResult:
@@ -89,13 +108,17 @@ def price_instrument(
 ) -> PricingResult:
     """Price one instrument per unit of underlying. `valuation_time` is the
     triggering tick's event_time (Task 3) -- never `datetime.now()`. `market`
-    carries the market-rate assumptions a `VANILLA_EUROPEAN_OPTION` needs
-    (ADR-0027); this function never reads `reference.volatility`,
-    `reference.risk_free_rate`, or `reference.dividend_yield`."""
+    carries the market-rate assumptions an option needs (ADR-0027,
+    ADR-0033); this function never reads `reference.volatility`,
+    `reference.risk_free_rate`, or `reference.dividend_yield`. An American
+    option outside ADR-0031's validated domain raises
+    `OutsideModelDomainError`; every other failed evaluation raises
+    `UnpricableInstrumentError` (ADR-0032 Decision 2)."""
     if reference.instrument_type == "EQUITY":
         return _price_equity(spot)
 
-    if reference.instrument_type == "VANILLA_EUROPEAN_OPTION":
+    if reference.instrument_type in OPTION_TYPES:
+        instrument_type = reference.instrument_type
         missing = [
             name
             for name, value in (
@@ -108,17 +131,13 @@ def price_instrument(
         ]
         if missing:
             raise UnpricableInstrumentError(
-                f"{reference.instrument_id}: VANILLA_EUROPEAN_OPTION missing {missing}"
+                f"{reference.instrument_id}: {instrument_type} missing {missing}"
             )
         expiry = datetime.fromisoformat(reference.expiry_iso.replace("Z", "+00:00"))
-        # ADR-0032 Decision 2; a model-specific reason (ADR-0031 OUTSIDE_MODEL_DOMAIN) is mapped before this when wired.
+        # ADR-0032 Decision 2, with ADR-0031's model-specific reason mapped
+        # first (ADR-0032 Decision 6, ADR-0033 Decision 3). ModelDomainError
+        # is a ValueError, so its catch must come before the general one.
         try:
-            option = EuropeanOption(
-                underlying_id=reference.underlying_id,
-                strike=reference.strike,
-                expiry=expiry,
-                right=reference.option_type,
-            )
             market_state = MarketState(
                 spot=spot,
                 volatility=market.volatility,
@@ -126,16 +145,43 @@ def price_instrument(
                 dividend_yield=market.dividend_yield,
                 valuation_time=valuation_time,
             )
-            return black_scholes_price(option, market_state)
+            if instrument_type == "VANILLA_AMERICAN_OPTION":
+                return american_price(
+                    AmericanOption(
+                        underlying_id=reference.underlying_id,
+                        strike=reference.strike,
+                        expiry=expiry,
+                        right=reference.option_type,
+                    ),
+                    market_state,
+                )
+            return black_scholes_price(
+                EuropeanOption(
+                    underlying_id=reference.underlying_id,
+                    strike=reference.strike,
+                    expiry=expiry,
+                    right=reference.option_type,
+                ),
+                market_state,
+            )
+        except ModelDomainError as exc:
+            raise OutsideModelDomainError(
+                f"{reference.instrument_id}: {instrument_type} is outside the ADR-0031 "
+                f"validated domain: {'; '.join(exc.violations)}",
+                exc.violations,
+            ) from exc
         except (ValueError, OverflowError, InvalidOperation) as exc:
             raise UnpricableInstrumentError(
-                f"{reference.instrument_id}: VANILLA_EUROPEAN_OPTION could not be priced: "
+                f"{reference.instrument_id}: {instrument_type} could not be priced: "
                 f"{type(exc).__name__}: {exc}"
             ) from exc
 
+    # A guard, not a reachable path: every instrument type InstrumentReference
+    # accepts has a pricer above (ADR-0033 Consequences). It stops a future
+    # type from being accepted without one.
     raise UnpricableInstrumentError(
         f"{reference.instrument_id}: instrument_type={reference.instrument_type!r} "
-        "has no pricer yet (Q1 supports EQUITY and VANILLA_EUROPEAN_OPTION only)"
+        "has no pricer"
     )
 
 

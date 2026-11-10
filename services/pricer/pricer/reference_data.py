@@ -49,7 +49,8 @@ class InstrumentReference:
     def __post_init__(self) -> None:
         if self.instrument_type not in ("EQUITY", "VANILLA_EUROPEAN_OPTION", "VANILLA_AMERICAN_OPTION"):
             raise ValueError(f"unknown instrument_type: {self.instrument_type!r}")
-        if self.instrument_type == "VANILLA_EUROPEAN_OPTION":
+        # ADR-0033 Decision 1: both option types require the same statics.
+        if self.instrument_type in ("VANILLA_EUROPEAN_OPTION", "VANILLA_AMERICAN_OPTION"):
             missing = [
                 name
                 for name, value in (
@@ -61,7 +62,7 @@ class InstrumentReference:
             ]
             if missing:
                 raise ValueError(
-                    f"{self.instrument_id}: VANILLA_EUROPEAN_OPTION requires {missing}"
+                    f"{self.instrument_id}: {self.instrument_type} requires {missing}"
                 )
 
 

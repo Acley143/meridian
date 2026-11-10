@@ -7,7 +7,7 @@ and a tick quoted in a currency other than its instrument's reference
 currency is rejected before it is cached.
 
 Mixed-currency reference data is built in the test, in the same style as
-`test_unpriceable_reporting.py`'s American-option case; the shared fixtures
+`test_american_options.py`; the shared fixtures
 stay single-currency USD. Expected numbers are worked out by hand and stated
 as literals -- never derived by calling the production conversion helpers.
 """

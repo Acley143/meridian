@@ -31,8 +31,9 @@ ordering across topics.
 
 Unpriceable-portfolio reporting (ADR-0018, extended by ADR-0027): a
 portfolio that cannot be priced -- missing reference data, no observed
-price yet for an underlying, missing a required `market.curves` value, or
-an instrument type with no pricer -- is never silently skipped. Every skip
+price yet for an underlying, missing a required `market.curves` value, a
+position that could not be priced, or an American option outside ADR-0031's
+validated domain -- is never silently skipped. Every skip
 goes through `_report_unpriceable`, which logs a structured WARNING
 (`event=portfolio_unpriceable`) and increments `unpriceable_counts`.
 `_price_portfolio` evaluates the whole portfolio before reporting: at most
@@ -41,7 +42,8 @@ one event is reported per portfolio per tick, in fixed precedence --
 comes before anything per-position; an empty `base_currency` on
 `portfolio.state` is never treated as any particular currency), then
 `NO_REFERENCE_DATA`, then `NO_PRICE`, then `MISSING_CURVE`, then
-`INSTRUMENT_NOT_PRICEABLE` (ADR-0027 Decision 9) -- each naming every
+`INSTRUMENT_NOT_PRICEABLE` (ADR-0027 Decision 9), then
+`OUTSIDE_MODEL_DOMAIN` (ADR-0033 Decision 4) -- each naming every
 affected id, not just the first one found. The published `RiskSnapshot`
 carries the portfolio's `base_currency`.
 
@@ -111,6 +113,7 @@ from pricer.logging_config import get_logger
 from pricer.portfolio_view import PortfolioView
 from pricer.pricing import (
     OptionMarketInputs,
+    OutsideModelDomainError,
     UnpricableInstrumentError,
     UnpriceableReason,
     aggregate_portfolio,
@@ -119,7 +122,7 @@ from pricer.pricing import (
     oldest_input_event_time,
     price_instrument,
 )
-from pricer.reference_data import ReferenceData
+from pricer.reference_data import OPTION_TYPES, ReferenceData
 
 _DEFAULT_HYDRATION_TIMEOUT_SECONDS = 30.0
 
@@ -565,8 +568,8 @@ class PricerService:
         # triggering tick's scenario_id (ADR-0027 Decisions 6, 8, 9) -- every
         # missing key, not just the first. EVERY position, of any type, needs
         # its underlying's VOLATILITY curve, the VaR input (ADR-0029 Decision
-        # 7). A VANILLA_EUROPEAN_OPTION also needs its rate and dividend
-        # curves; and EVERY position whose currency differs from the
+        # 7). An option of either type also needs its rate and dividend
+        # curves (ADR-0033 Decision 2); and EVERY position whose currency differs from the
         # portfolio's base currency needs the direct FX_RATE pair (position
         # currency followed by base currency, e.g. EURUSD -- ADR-0028
         # Decisions 3 and 4). A same-currency position needs no FX curve. A
@@ -577,7 +580,7 @@ class PricerService:
             required_curves[(CurveKind.VOLATILITY, reference.underlying_id)] = None
             if reference.currency != base_currency:
                 required_curves[(CurveKind.FX_RATE, reference.currency + base_currency)] = None
-            if reference.instrument_type != "VANILLA_EUROPEAN_OPTION":
+            if reference.instrument_type not in OPTION_TYPES:
                 continue
             required_curves[(CurveKind.RISK_FREE_RATE, reference.currency)] = None
             required_curves[(CurveKind.DIVIDEND_YIELD, reference.underlying_id)] = None
@@ -602,6 +605,7 @@ class PricerService:
         position_risks: list[PositionRisk] = []
         underlyings_used: set[str] = set()
         failures: list[tuple[str, str]] = []
+        out_of_domain: list[tuple[str, str]] = []
 
         for position in positions:
             reference = self.reference_data.get(position.instrument_id)
@@ -612,7 +616,7 @@ class PricerService:
             )
 
             market = None
-            if reference.instrument_type == "VANILLA_EUROPEAN_OPTION":
+            if reference.instrument_type in OPTION_TYPES:
                 rate_curve = self.curves.get(
                     triggering_tick.scenario_id, CurveKind.RISK_FREE_RATE, reference.currency
                 )
@@ -627,6 +631,10 @@ class PricerService:
 
             try:
                 pricing_result = price_instrument(reference, spot, triggering_tick.event_time, market)
+            except OutsideModelDomainError as exc:
+                # Before the general catch: it is a subclass (ADR-0033 Decision 3).
+                out_of_domain.append((position.instrument_id, str(exc)))
+                continue
             except UnpricableInstrumentError as exc:
                 failures.append((position.instrument_id, str(exc)))
                 continue
@@ -682,6 +690,19 @@ class PricerService:
                 trigger="tick",
                 missing=[instrument_id for instrument_id, _ in failures],
                 detail="; ".join(message for _, message in failures),
+            )
+            return None
+
+        # ADR-0033 Decision 4: OUTSIDE_MODEL_DOMAIN is last, reported only when
+        # no position failed for any other reason.
+        if out_of_domain:
+            out_of_domain.sort(key=lambda f: f[0])
+            self._report_unpriceable(
+                portfolio_id=portfolio_id,
+                reason=UnpriceableReason.OUTSIDE_MODEL_DOMAIN,
+                trigger="tick",
+                missing=[instrument_id for instrument_id, _ in out_of_domain],
+                detail="; ".join(message for _, message in out_of_domain),
             )
             return None
 

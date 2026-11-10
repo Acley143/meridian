@@ -243,6 +243,16 @@ class PricerService:
         state: dict[str, object] = {"assigned": False, "pending": set()}
 
         def on_assign(_consumer: object, partitions: list) -> None:
+            # An empty assignment assigns nothing, so it cannot satisfy "read
+            # every assigned partition to its end": keep waiting for
+            # partitions, and time out as unassigned if none ever arrive.
+            if not partitions:
+                self._log.warning(
+                    "hydration: empty assignment for %s; waiting for partitions",
+                    topic_name,
+                    extra={"event": "hydration_empty_assignment", "topic": topic_name},
+                )
+                return
             state["pending"] = {(p.topic, p.partition) for p in partitions}
             state["assigned"] = True
             self._log.info("hydration: assigned %d partition(s) of %s", len(partitions), topic_name)

@@ -32,6 +32,14 @@ from pathlib import Path
 import yaml
 from quant_core.types import OptionRight
 
+VANILLA_EUROPEAN_OPTION = "VANILLA_EUROPEAN_OPTION"
+VANILLA_AMERICAN_OPTION = "VANILLA_AMERICAN_OPTION"
+
+OPTION_TYPES = frozenset({VANILLA_EUROPEAN_OPTION, VANILLA_AMERICAN_OPTION})
+"""The instrument types priced as options: each needs option statics
+(reference data) and the rate and dividend curves (ADR-0033 Decisions 1, 2).
+The one definition of the option types in `services/pricer`."""
+
 
 @dataclass(frozen=True)
 class InstrumentReference:
@@ -50,7 +58,7 @@ class InstrumentReference:
         if self.instrument_type not in ("EQUITY", "VANILLA_EUROPEAN_OPTION", "VANILLA_AMERICAN_OPTION"):
             raise ValueError(f"unknown instrument_type: {self.instrument_type!r}")
         # ADR-0033 Decision 1: both option types require the same statics.
-        if self.instrument_type in ("VANILLA_EUROPEAN_OPTION", "VANILLA_AMERICAN_OPTION"):
+        if self.instrument_type in OPTION_TYPES:
             missing = [
                 name
                 for name, value in (

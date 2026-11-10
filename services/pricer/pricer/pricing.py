@@ -37,7 +37,11 @@ from quant_core.pricing.american import price as american_price
 from quant_core.pricing.black_scholes import price as black_scholes_price
 from quant_core.types import AmericanOption, EuropeanOption, MarketState, PricingResult
 
-from pricer.reference_data import InstrumentReference
+from pricer.reference_data import (
+    OPTION_TYPES,
+    VANILLA_AMERICAN_OPTION,
+    InstrumentReference,
+)
 
 
 class UnpriceableReason(str, Enum):
@@ -50,11 +54,6 @@ class UnpriceableReason(str, Enum):
     MISSING_CURVE = "MISSING_CURVE"
     INSTRUMENT_NOT_PRICEABLE = "INSTRUMENT_NOT_PRICEABLE"
     OUTSIDE_MODEL_DOMAIN = "OUTSIDE_MODEL_DOMAIN"
-
-
-OPTION_TYPES = frozenset({"VANILLA_EUROPEAN_OPTION", "VANILLA_AMERICAN_OPTION"})
-"""The instrument types priced as options: each needs option statics
-(reference data) and the rate and dividend curves (ADR-0033 Decisions 1, 2)."""
 
 
 class UnpricableInstrumentError(Exception):
@@ -145,7 +144,7 @@ def price_instrument(
                 dividend_yield=market.dividend_yield,
                 valuation_time=valuation_time,
             )
-            if instrument_type == "VANILLA_AMERICAN_OPTION":
+            if instrument_type == VANILLA_AMERICAN_OPTION:
                 return american_price(
                     AmericanOption(
                         underlying_id=reference.underlying_id,

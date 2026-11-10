@@ -6,7 +6,7 @@ Accepted
 
 ## Context
 
-ADR-0031 adds American option pricing to quant-core with a validated domain. Its Decision 6 leaves to a later change the mapping of ModelDomainError to a new unpriceable reason, OUTSIDE_MODEL_DOMAIN, and the PRICER_VERSION bump from 0.2.0 to 0.3.0. ADR-0032 Decision 6 says a model-specific reason is mapped before the general case inside instrument pricing.
+ADR-0031 adds American option pricing to quant-core with a validated domain. Its Decision 6 leaves the mapping of ModelDomainError to a new unpriceable reason, OUTSIDE_MODEL_DOMAIN, to a later change, and says that shipping the pricer bumps PRICER_VERSION from 0.2.0 to 0.3.0. ADR-0032 Decision 6 says a model-specific reason is mapped before the general case inside instrument pricing.
 
 Today the pricer accepts VANILLA_AMERICAN_OPTION in reference data without checking its option type, strike or expiry; requires only a volatility curve (and an FX curve when its currency differs) for it; and reports it as having no pricer. ModelDomainError is a ValueError, so without a specific mapping it would be reported as INSTRUMENT_NOT_PRICEABLE.
 

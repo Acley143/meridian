@@ -112,7 +112,6 @@ from pricer.curve_view import CurveView
 from pricer.logging_config import get_logger
 from pricer.portfolio_view import PortfolioView
 from pricer.pricing import (
-    OPTION_TYPES,
     OptionMarketInputs,
     OutsideModelDomainError,
     UnpricableInstrumentError,
@@ -123,7 +122,7 @@ from pricer.pricing import (
     oldest_input_event_time,
     price_instrument,
 )
-from pricer.reference_data import ReferenceData
+from pricer.reference_data import OPTION_TYPES, ReferenceData
 
 _DEFAULT_HYDRATION_TIMEOUT_SECONDS = 30.0
 
